@@ -1,6 +1,6 @@
 # NFS Newsroom
 
-New Frontier Security Newsroom is a local Node.js security-news dashboard. It collects reviewed public RSS feeds, normalizes articles into a small JSON API, and renders a browser UI for vulnerabilities, threats, breaches, malware, engineering, and Microsoft security coverage.
+New Frontier Security Newsroom is a local Node.js dashboard focused on Cloud and Identity security news. It keeps the reviewed public RSS source catalog intact, normalizes articles into a small JSON API, and renders a browser UI where cloud and identity stories lead while broader security coverage remains available.
 
 Requires Node.js 22+ and npm.
 
@@ -18,7 +18,7 @@ Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Mess
 
 ## What It Includes
 
-- A New Frontier Security newsroom UI with front-page cards, filtering, search, source health, and load-more browsing.
+- A New Frontier Security newsroom UI with front-page cards, cloud/identity-first filtering, search, source health, and load-more browsing.
 - 20 reviewed public security feeds in `sources.js`, including five Microsoft security-focused streams.
 - A local `/api/news` endpoint with normalized article metadata, source status, stale fallback, and cache timestamps.
 - Explicit documentation for unavailable, reference-only, and authentication-required sources in `SOURCE-COVERAGE.md`.
@@ -35,7 +35,7 @@ npm run test:live
 
 `npm test` runs deterministic backend tests with inline RSS fixtures and no external network. `npm run test:ui` runs fixture-driven browser tests. `npm run test:live` checks actual upstream feeds through a temporary HTTP server, prints source statuses/counts, exits nonzero if any feed fails, and closes its server.
 
-Backend tests cover normalization, unsafe links, URL deduplication, disk cache reuse, concurrent request coalescing, TTL expiry, stale fallback, HTTP errors, malformed XML, byte limits, timeout, redirect refusal, Microsoft category behavior, and static/API routing.
+Backend tests cover normalization, unsafe links, URL deduplication, cloud/identity categorization, disk cache reuse, concurrent request coalescing, TTL expiry, stale fallback, HTTP errors, malformed XML, byte limits, timeout, redirect refusal, Microsoft category behavior, and static/API routing.
 
 ## API
 
@@ -51,7 +51,7 @@ Backend tests cover normalization, unsafe links, URL deduplication, disk cache r
     publishedAt: string | null;  // upstream date normalized to ISO; null if absent/invalid
     summary: string;             // plain-text excerpt, up to 600 characters
     imageUrl?: string;           // reviewed http(s) image URL when present in the feed item
-    category: 'vulnerabilities' | 'threats' | 'breaches' | 'malware' | 'engineering' | 'microsoft';
+    category: 'cloud' | 'identity' | 'vulnerabilities' | 'incidents' | 'malware' | 'operations' | 'microsoft';
   }>;
   sources: Array<{
     name: string;
@@ -64,7 +64,7 @@ Backend tests cover normalization, unsafe links, URL deduplication, disk cache r
 
 `ok` means the most recent refresh succeeded, possibly from a fresh local cache. `stale` means a fetch failed and previously fetched articles remain available. `error` means the source failed with no saved articles. Partial or total upstream failures still return HTTP 200 with explicit statuses; the service does not fabricate news.
 
-Articles are sorted newest-first, canonicalized by removing fragments and common tracking query parameters, and deduplicated by URL. The first source/item wins duplicate URLs. Publisher dates are preserved as supplied, including future-dated entries.
+Articles are sorted newest-first, canonicalized by removing fragments and common tracking query parameters, and deduplicated by URL. The first source/item wins duplicate URLs. Publisher dates are preserved as supplied, including future-dated entries. The Front Page prioritizes cloud and identity stories when they are available, but all normalized security stories remain accessible through All coverage, topic filters, and search.
 
 ## Microsoft Coverage
 

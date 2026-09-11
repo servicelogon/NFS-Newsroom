@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="New Frontier Security — a considered view of information security. Browse vulnerabilities, threats, breaches, and the practice of security."
+      content="New Frontier Security — a considered view of cloud and identity security news. Browse cloud, identity, vulnerabilities, incidents, malware, and operations coverage."
     />
     <title>New Frontier Security — Newsroom</title>
     <style>
@@ -939,7 +939,7 @@
               </div>
               <time class="front-page-date" id="front-page-date"></time>
             </div>
-            <p class="front-page-deck">The top headlines shaping the security brief.</p>
+            <p class="front-page-deck">Cloud and identity security headlines shaping the brief.</p>
             <div class="front-page-feed" id="front-page-feed"></div>
             <div class="empty front-page-empty" id="front-page-empty" hidden>
               <span class="eyebrow">No headlines available</span>
@@ -1019,9 +1019,9 @@
             <span class="eyebrow">No matching articles</span>
             <h2>No articles to show.</h2>
             <p>
-              Try another search, browse all topics, or check source status.
+              Try another search, browse all coverage, or check source status.
             </p>
-            <button class="reset" id="reset">Show all topics</button>
+            <button class="reset" id="reset">Show all coverage</button>
           </div>
           <p class="feed-note">
             Headlines and excerpts from publisher feeds. Follow original links
@@ -1053,18 +1053,31 @@
     <script>
       const topicColors = {
         all: "#58e08d",
+        cloud: "#f59e0b",
+        identity: "#c084fc",
         vulnerabilities: "#ff6b6b",
-        threats: "#f59e0b",
-        breaches: "#c084fc",
+        incidents: "#c084fc",
         malware: "#fb7185",
-        engineering: "#2dd4bf",
+        operations: "#2dd4bf",
         microsoft: "#60a5fa",
       };
       const topics = [
         {
           id: "all",
-          name: "All topics",
-          description: "The bigger picture, without the noise.",
+          name: "All coverage",
+          description: "Cloud, identity, and the surrounding security picture.",
+        },
+        {
+          id: "cloud",
+          name: "Cloud security",
+          description:
+            "Cloud platforms, SaaS, posture management, containers, and supply chain exposure.",
+        },
+        {
+          id: "identity",
+          name: "Identity security",
+          description:
+            "IAM, access, authentication, tokens, sessions, and account compromise.",
         },
         {
           id: "vulnerabilities",
@@ -1073,14 +1086,8 @@
             "Weaknesses, exploitation, and the decisions behind a patch.",
         },
         {
-          id: "threats",
-          name: "Threat intelligence",
-          description:
-            "Adversaries, campaigns, and the signals worth following.",
-        },
-        {
-          id: "breaches",
-          name: "Breaches",
+          id: "incidents",
+          name: "Incidents",
           description: "Incidents and the lessons that follow.",
         },
         {
@@ -1090,10 +1097,10 @@
             "Malicious software, evolving tactics, and defensive context.",
         },
         {
-          id: "engineering",
-          name: "Security engineering",
+          id: "operations",
+          name: "Security operations",
           description:
-            "The everyday practice of building more resilient systems.",
+            "Detection, governance, policy, and the practice of resilient systems.",
         },
       ];
       let stories = [];
@@ -1157,7 +1164,17 @@
           day: "numeric",
           year: "numeric",
         }).format(new Date());
-        const headlines = stories.slice(0, 8);
+        const frontPagePriority = (story) =>
+          story.topic === "cloud" || story.topic === "identity" ? 0 : 1;
+        const headlines = stories
+          .map((story, index) => ({ story, index }))
+          .sort(
+            (a, b) =>
+              frontPagePriority(a.story) - frontPagePriority(b.story) ||
+              a.index - b.index,
+          )
+          .slice(0, 8)
+          .map(({ story }) => story);
         frontPageFeed.replaceChildren();
         const columns = [0, 1].map(() => {
           const column = document.createElement("div");
@@ -1460,7 +1477,7 @@
               ...s,
               topic: topics.some((t) => t.id === s.category && t.id !== "all")
                 ? s.category
-                : "threats",
+                : "operations",
             }));
           const updated =
             data.updatedAt && Number.isFinite(Date.parse(data.updatedAt))

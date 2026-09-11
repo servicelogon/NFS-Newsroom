@@ -15,11 +15,12 @@ function text(value = '') {
   return String(value).replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\s+/g, ' ').trim();
 }
 function category(value) {
-  if (/vulnerab|\bcve-|patch|zero.day/i.test(value)) return 'vulnerabilities';
-  if (/breach|data leak|data theft/i.test(value)) return 'breaches';
+  if (/\b(identity|entra|okta|iam|sso|mfa|oauth|saml|passkey|token|session|credential|account access|phishing|voice call|social engineering)\b/i.test(value)) return 'identity';
+  if (/\b(cloud|aws|amazon web services|azure|gcp|google cloud|kubernetes|k8s|container|saas|cloud posture|cloud asset|storage bucket|blob storage|ci\/cd|pipeline|supply chain)\b/i.test(value)) return 'cloud';
+  if (/vulnerab|\bcve-|patch|zero.day|exploit/i.test(value)) return 'vulnerabilities';
+  if (/breach|data leak|data theft|extortion|compromise|incident|outage/i.test(value)) return 'incidents';
   if (/malware|ransomware|trojan|botnet/i.test(value)) return 'malware';
-  if (/engineering|devsecops|secure cod|developer|software supply chain/i.test(value)) return 'engineering';
-  return 'threats';
+  return 'operations';
 }
 function cleanUrl(value) {
   try {
@@ -53,9 +54,10 @@ function article(item, source, forcedCategory) {
   const date = Date.parse(item.isoDate || item.pubDate);
   const image = imageUrl(item);
   const content = `${title} ${summary} ${(item.categories || []).join(" ")}`;
-  const articleCategory = forcedCategory === 'microsoft' && /\bcve(?:-\d{4}-\d{4,}|\b)/i.test(content)
-    ? category(content)
-    : forcedCategory || category(content);
+  const detectedCategory = category(content);
+  const articleCategory = forcedCategory === 'microsoft' && ['identity', 'cloud', 'vulnerabilities'].includes(detectedCategory)
+    ? detectedCategory
+    : forcedCategory || detectedCategory;
   return { id: createHash('sha256').update(href).digest('hex').slice(0, 24), title, url: href, source,
     publishedAt: Number.isFinite(date) ? new Date(date).toISOString() : null, summary,
     ...(image ? { imageUrl: image } : {}),

@@ -71,7 +71,7 @@ test('catalog changes preserve cached batches by source name and refresh additio
   t.after(() => rm(dir, { recursive: true, force: true }));
   const cacheFile = join(dir, 'news.json');
   const feeds = [{name: 'New', url: 'https://example.com/new'}, {name: 'Old', url: 'https://example.com/old'}];
-  const saved = {id:'saved', title:'Saved', url:'https://example.com/saved', source:'Old', category:'threats', publishedAt:null, summary:''};
+  const saved = {id:'saved', title:'Saved', url:'https://example.com/saved', source:'Old', category:'operations', publishedAt:null, summary:''};
   await writeFile(cacheFile, JSON.stringify({version:1, checkedAt:Date.now(), updatedAt:null, batches:[{source:{name:'Old',status:'ok'},articles:[saved]}, {source:{name:'Removed',status:'ok'},articles:[]}]}));
   let calls = 0;
   const result = await backend.createNewsService({feeds,cacheFile, fetchImpl:async()=>{calls++; throw new Error('offline');}}).getNews();
@@ -94,7 +94,19 @@ test('large catalogs bound concurrency and stop queued work at total deadline', 
   assert.equal(result.sources.length,40);
   assert.ok(result.sources.every(s=>s.status==='error'));
 });
-test('Microsoft feeds keep CVE stories out of the Microsoft category', async t => {
+test('Cloud and identity topics are classified ahead of general security buckets', async t => {
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>Security</title>
+    <item><title>Okta OAuth token phishing campaign</title><link>https://example.com/identity</link><description>SSO session credentials targeted</description></item>
+    <item><title>Kubernetes cloud posture issue</title><link>https://example.com/cloud</link><description>AWS storage bucket and container exposure</description></item>
+    <item><title>Kubernetes CVE patched in cloud controller</title><link>https://example.com/cloud-cve</link><description>Azure cluster exploit fixed</description></item>
+  </channel></rss>`;
+  const service = await setup(t, {feeds:[{name:'Focused',url:'https://example.com/rss'}], fetchImpl:async()=>new Response(xml)});
+  const byUrl = new Map((await service.getNews()).articles.map(a => [a.url, a.category]));
+  assert.equal(byUrl.get('https://example.com/identity'), 'identity');
+  assert.equal(byUrl.get('https://example.com/cloud'), 'cloud');
+  assert.equal(byUrl.get('https://example.com/cloud-cve'), 'cloud');
+});
+test('Microsoft feeds keep stronger cloud, identity and vulnerability signals out of the Microsoft category', async t => {
   const service = await setup(t, {feeds:[{name:'MSRC',url:'https://example.com/rss',category:'microsoft'}]});
   assert.equal((await service.getNews()).articles[0].category, 'vulnerabilities');
 });

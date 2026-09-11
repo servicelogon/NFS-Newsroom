@@ -41,13 +41,29 @@ const assert = require("node:assert/strict");
                   }))
                 : []),
               {
-                title: "Fixture advisory",
-                summary: "Test summary " + "x".repeat(160),
-                category: "vulnerabilities",
-                source: "Fixture publisher",
-                url: "https://example.com/story",
+                title: "Fixture operations note",
+                summary: "Detection and governance update",
+                category: "operations",
+                source: "Fixture operations",
+                url: "https://example.com/operations",
                 imageUrl: "https://example.com/advisory.jpg",
                 publishedAt: "2026-09-01T12:00:00Z",
+              },
+              {
+                title: "Fixture cloud posture issue",
+                summary: "Cloud asset exposure in Kubernetes",
+                category: "cloud",
+                source: "Fixture cloud",
+                url: "https://example.com/cloud",
+                publishedAt: "2026-09-01T11:30:00Z",
+              },
+              {
+                title: "Fixture identity token theft",
+                summary: "OAuth session token phishing campaign",
+                category: "identity",
+                source: "Fixture identity",
+                url: "https://example.com/identity",
+                publishedAt: "2026-09-01T11:15:00Z",
               },
               {
                 title: "Fixture Entra update",
@@ -77,11 +93,24 @@ const assert = require("node:assert/strict");
     await page.goto("http://beacon.test/");
     await page.waitForFunction(
       () =>
-        document.querySelector(".front-page-story h2")?.textContent === "Fixture advisory",
+        document.querySelector(".front-page-story h2")?.textContent === "Fixture cloud posture issue",
       {},
       { timeout: 3000 },
     );
     assert.equal(await page.locator("#front-page-link span").textContent(), "Front Page");
+    assert.deepEqual(
+      await page.locator(".category span").allTextContents(),
+      [
+        "All coverage",
+        "Cloud security",
+        "Identity security",
+        "Vulnerabilities",
+        "Incidents",
+        "Malware & ransomware",
+        "Security operations",
+        "Microsoft",
+      ],
+    );
     assert.equal(await page.locator("#front-page").isVisible(), true);
     assert.equal(await page.locator("#briefing-view").isVisible(), false);
     assert.equal(await page.locator('.category[aria-pressed="true"]').count(), 0);
@@ -102,9 +131,9 @@ const assert = require("node:assert/strict");
     );
     assert.equal(
       await page.locator(".front-page-story h2").first().textContent(),
-      "Fixture advisory",
+      "Fixture cloud posture issue",
     );
-    assert.equal(await page.locator(".front-page-story").count(), 2);
+    assert.equal(await page.locator(".front-page-story").count(), 4);
     await page.evaluate(() => window.scrollTo(0, 500));
     await page.waitForFunction(
       () => document.querySelector("#front-page").style.getPropertyValue("--front-page-star-near-y") !== "0px",
@@ -118,32 +147,29 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator("#briefing-view").isVisible(), true);
     assert.equal(
       await page.locator(".story a").first().getAttribute("href"),
-      "https://example.com/story",
+      "https://example.com/operations",
     );
     assert.equal(await page.locator(".category .count").count(), 0);
-    await page.locator('[data-topic="vulnerabilities"]').click();
+    await page.locator('[data-topic="cloud"]').click();
     await page.waitForFunction(() =>
-      document.querySelector('[data-topic="vulnerabilities"]')?.getAttribute("aria-pressed") === "true",
+      document.querySelector('[data-topic="cloud"]')?.getAttribute("aria-pressed") === "true",
     );
-    assert.equal(await page.locator("#feed .story-media img").count(), 1);
-    assert.match(
-      await page.locator("#feed .story-media").evaluate((e) => getComputedStyle(e).filter),
-      /grayscale\(1\)/,
-    );
+    assert.equal(await page.locator("#feed .story").count(), 1);
+    assert.equal(await page.locator("#feed .story h2").textContent(), "Fixture cloud posture issue");
     await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('[data-topic="vulnerabilities"]')).color === "rgb(255, 107, 107)",
+      getComputedStyle(document.querySelector('[data-topic="cloud"]')).color === "rgb(245, 158, 11)",
     );
     assert.equal(
-      await page.locator('[data-topic="vulnerabilities"]').evaluate((e) => getComputedStyle(e).color),
-      "rgb(255, 107, 107)",
+      await page.locator('[data-topic="cloud"]').evaluate((e) => getComputedStyle(e).color),
+      "rgb(245, 158, 11)",
     );
     assert.match(
       await page.locator(".story").first().evaluate((e) => getComputedStyle(e).getPropertyValue("--topic-color")),
-      /#ff6b6b/i,
+      /#f59e0b/i,
     );
     assert.equal(
       await page.locator(".story p").first().evaluate((e) => getComputedStyle(e, "::selection").backgroundColor),
-      "rgb(255, 107, 107)",
+      "rgb(245, 158, 11)",
     );
     const titleLink = page.locator(".story h2 a").first();
     await titleLink.hover();
@@ -157,6 +183,11 @@ const assert = require("node:assert/strict");
       await titleLink.evaluate((e) => getComputedStyle(e).color),
       await page.locator(".story .topic").first().evaluate((e) => getComputedStyle(e).color),
     );
+    await page.locator('[data-topic="identity"]').click();
+    await page.waitForFunction(() =>
+      getComputedStyle(document.querySelector('[data-topic="identity"]')).color === "rgb(192, 132, 252)",
+    );
+    assert.equal(await page.locator(".story h2").textContent(), "Fixture identity token theft");
     await page.locator('[data-topic="all"]').click();
     await page.waitForFunction(() =>
       getComputedStyle(document.querySelector('[data-topic="all"]')).color === "rgb(88, 224, 141)",
@@ -184,13 +215,13 @@ const assert = require("node:assert/strict");
       await page.locator("#message-center").textContent(),
       /Not connected/,
     );
-    await page.locator('[data-topic="breaches"]').click();
+    await page.locator('[data-topic="incidents"]').click();
     assert.equal(await page.locator("#empty").isVisible(), true);
     await page.locator("#reset").click();
     await page.locator("#search").fill("no-match-xyz");
     assert.equal(await page.locator(".story").count(), 0);
     await page.locator("#clear").click();
-    assert.equal(await page.locator(".story").count(), 2);
+    assert.equal(await page.locator(".story").count(), 4);
     await page.keyboard.press("/");
     assert.equal(
       await page
@@ -244,20 +275,20 @@ const assert = require("node:assert/strict");
     await page.locator("#load-more").click();
     assert.equal(await page.locator(".story").count(), 80);
     await page.locator("#load-more").click();
-    assert.equal(await page.locator(".story").count(), 102);
+    assert.equal(await page.locator(".story").count(), 104);
     large = false;
     await page.reload();
     await page.waitForFunction(
-      () => document.querySelectorAll(".front-page-story").length === 2,
+      () => document.querySelectorAll(".front-page-story").length === 4,
     );
     await page.locator("#front-page-link").click();
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 2);
+    await page.waitForFunction(() => document.querySelectorAll(".story").length === 4);
     stale = true;
     await page.locator("#retry").click();
     await page.waitForFunction(() =>
       document.querySelector("#source-status").textContent.includes("stale"),
     );
-    assert.equal(await page.locator(".story").count(), 2);
+    assert.equal(await page.locator(".story").count(), 4);
     fail = true;
     await page.locator("#retry").click();
     await page.waitForFunction(() =>
@@ -265,7 +296,7 @@ const assert = require("node:assert/strict");
         .querySelector("#feed-status")
         .textContent.includes("Showing previously loaded"),
     );
-    assert.equal(await page.locator(".story").count(), 2);
+    assert.equal(await page.locator(".story").count(), 4);
     await page.reload();
     await page.waitForFunction(
       () =>

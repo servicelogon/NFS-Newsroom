@@ -50,7 +50,7 @@ Verified 2026-09-08 using real Node fetch and rss-parser, unauthenticated public
 4. Defender for Cloud Blog — current public MicrosoftDefenderCloudBlog board, not the unavailable legacy Azure Security Center board.
 5. Microsoft Security Community — public Microsoft Security Community **Blog** board, not the old sign-in-gated category or all community discussions.
 
-All five force the Microsoft article category; none require or imply a tenant connection.
+All five remain marked as Microsoft-source feeds. Article categorization may still surface stronger cloud, identity, or vulnerability signals ahead of the Microsoft bucket; none require or imply a tenant connection.
 
 ## Runtime bounds and API compatibility
 
@@ -58,14 +58,14 @@ All five force the Microsoft article category; none require or imply a tenant co
 - Maximum eight simultaneous upstream requests, eight-second per-feed timeout, shared 24-second refresh deadline (active requests aborted, remaining queued sources get errors/stale data). This leaves headroom for the frontend's 30-second timeout. Parsing/cache I/O adds small overhead; the deadline is for upstream work, not a hard real-time CPU guarantee.
 - Decoded streaming body limit and Content-Length guard: 3,000,000 bytes per feed. Raised from 2 MB specifically because real MSRC RSS is 2.29 MB; no unlimited body parsing. Redirects remain prohibited, URLs are static server-side catalog entries, and API query URLs remain rejected.
 - Five-minute TTL, request coalescing, atomic private-mode disk cache and stale fallback remain. Cache v1 batches now match by source **name**, not array index: additions trigger refresh without discarding old source articles; removed sources vanish and reordered catalogs retain matching data.
-- Every enabled Microsoft feed forces `category: microsoft`, overriding CVE/patch/breach keyword classification. The enabled Microsoft catalog is limited to security, identity, defense, and security-community sources.
+- Enabled Microsoft feeds use `category: microsoft` as their source bucket unless a stronger cloud, identity, or vulnerability signal is detected. The enabled Microsoft catalog is limited to security, identity, defense, and security-community sources.
 - Message Center and tenant Service Health remain explicitly disconnected. Public Cloud status is distinct and cannot substitute for tenant service incidents.
 
 ## Live backend verification
 
 The enabled catalog contains **20 feeds**, including **5 security-focused Microsoft streams**. Live article totals vary by publisher and refresh time; run `npm run test:live` for current results.
 
-`node --test test/news.test.js`: **9/9 passing**, including cache migration, 40-source concurrency/deadline, forced Microsoft category, MSRC-sized bounded bodies, malformed XML, HTTP failures, redirects, coalescing, stale fallback, normalization and API static-path restrictions.
+`node --test test/news.test.js`: covers cache migration, 40-source concurrency/deadline, cloud/identity categorization, Microsoft source bucket behavior, MSRC-sized bounded bodies, malformed XML, HTTP failures, redirects, coalescing, stale fallback, normalization and API static-path restrictions.
 
 ## Feed candidate probe ledger
 
