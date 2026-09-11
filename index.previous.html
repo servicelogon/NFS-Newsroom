@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>terminal news</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #0c0c0c;
+      color: #ffdd00;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .cursor {
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    .prompt {
+      color: #ffdd00;
+    }
+
+    .directory {
+      color: #ffdd00;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #ffdd00;
+    }
+
+    .header .prompt {
+      margin-bottom: 0.5rem;
+    }
+
+    .header .prompt::before {
+      content: '$ ';
+    }
+
+    .header-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-top: 0.5rem;
+      color: #ff69b4;
+    }
+
+    .header-title::before {
+      content: 'echo ';
+      color: #ffdd00;
+    }
+
+    .header-title::after {
+      content: ' | less';
+      color: #555;
+    }
+
+    .timestamp {
+      color: #555;
+      margin-top: 0.25rem;
+      font-size: 0.9rem;
+    }
+
+    .news-section {
+      margin: 1rem 0;
+    }
+
+    .news-item {
+      margin: 0.75rem 0;
+      padding: 0.5rem;
+      border-left: 2px solid #ffdd00;
+      background: rgba(255, 221, 0, 0.03);
+    }
+
+    .news-item .title {
+      color: #ff69b4;
+      font-weight: bold;
+    }
+
+    .news-item .meta {
+      color: #888;
+      font-size: 0.85rem;
+      margin-top: 0.2rem;
+    }
+
+    .news-item .source {
+      color: #00ff41;
+      font-size: 0.8rem;
+    }
+
+    .placeholder {
+      color: #555;
+      font-style: italic;
+    }
+
+    .cursor-blink {
+      animation: blink 1s step-end infinite;
+    }
+
+    ::selection {
+      background: #ffdd00;
+      color: #0c0c0c;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0c0c0c;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #ffdd00;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <pre class="ascii-header" style="color: #00ff41; font-family: 'Courier New', Courier, monospace; line-height: 1; margin-bottom: 1.5rem;">
+████████  ████████    ███     ██████   ███████  ██    ██    ██    ██ ████████ ██      ██  ██████
+██     ██ ██         ██ ██   ██    ██ ██     ██ ███   ██    ███   ██ ██       ██  ██  ██ ██    ██
+██     ██ ██        ██   ██  ██       ██     ██ ████  ██    █████  ██ ██       ██  ██  ██ ██
+████████  ██████   ██     ██ ██       ██     ██ ██ ██ ██    ██ ██ ██ ██████   ██  ██  ██  ██████
+██     ██ ██       █████████ ██       ██     ██ ██  ████    ██  ████ ██       ██  ██  ██       ██
+██     ██ ██       ██     ██ ██    ██ ██     ██ ██   ███    ██   ███ ██       ██  ██  ██ ██    ██
+████████  ████████ ██     ██  ██████   ███████  ██    ██    ██    ██ ████████  ███  ███   ██████
+</pre>
+
+  <header class="header">
+    <div class="prompt">cd /var/news</div>
+    <div class="header-title">terminal news feed</div>
+    <div class="timestamp">last updated: <span class="placeholder">[timestamp]</span></div>
+  </header>
+
+  <main class="news-section">
+    <div class="news-item">
+      <div class="title">No headlines yet</div>
+      <div class="meta">— feed waiting for content —</div>
+      <div class="source">stdin: /dev/null</div>
+    </div>
+  </main>
+
+  <footer style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #ffdd00; color: #555; font-size: 0.85rem;">
+    <span class="prompt">$</span>  printf 'page served: %s\n' "$(date)" <span class="cursor-blink">_</span>
+  </footer>
+
+</body>
+</html>
