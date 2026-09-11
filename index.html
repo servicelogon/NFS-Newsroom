@@ -451,15 +451,24 @@
         position: absolute;
         will-change: transform;
       }
+      .front-page-dust {
+        position: absolute;
+        will-change: transform;
+        mix-blend-mode: screen;
+      }
       .front-page-stars-far {
         inset: -5%;
         opacity: 0.28;
         transform: translate3d(0, var(--front-page-star-far-y, 0px), 0);
         background-image:
           radial-gradient(circle at 8% 18%, #f5f5f5 0 1px, transparent 1.5px),
+          radial-gradient(circle at 14% 89%, #f5f5f5 0 0.75px, transparent 1.25px),
           radial-gradient(circle at 23% 72%, #60a5fa 0 1px, transparent 1.5px),
+          radial-gradient(circle at 34% 44%, #edb3c7 0 0.75px, transparent 1.25px),
           radial-gradient(circle at 47% 31%, #f5f5f5 0 1px, transparent 1.5px),
+          radial-gradient(circle at 55% 8%, #f5f5f5 0 0.75px, transparent 1.25px),
           radial-gradient(circle at 69% 83%, #edb3c7 0 1px, transparent 1.5px),
+          radial-gradient(circle at 82% 66%, #60a5fa 0 0.75px, transparent 1.25px),
           radial-gradient(circle at 91% 24%, #f5f5f5 0 1px, transparent 1.5px);
         animation: front-page-stars-drift 14s ease-in-out infinite alternate;
       }
@@ -469,9 +478,13 @@
         transform: translate3d(0, var(--front-page-star-mid-y, 0px), 0);
         background-image:
           radial-gradient(circle at 16% 46%, #f5f5f5 0 1.5px, transparent 2px),
+          radial-gradient(circle at 22% 19%, #f5f5f5 0 1px, transparent 1.6px),
           radial-gradient(circle at 36% 12%, #edb3c7 0 1.5px, transparent 2px),
+          radial-gradient(circle at 42% 84%, #f5f5f5 0 1px, transparent 1.6px),
           radial-gradient(circle at 58% 68%, #60a5fa 0 1.5px, transparent 2px),
+          radial-gradient(circle at 67% 6%, #edb3c7 0 1px, transparent 1.6px),
           radial-gradient(circle at 78% 38%, #f5f5f5 0 1.5px, transparent 2px),
+          radial-gradient(circle at 91% 71%, #f5f5f5 0 1px, transparent 1.6px),
           radial-gradient(circle at 86% 91%, #edb3c7 0 1.5px, transparent 2px);
         animation: front-page-stars-drift 10s ease-in-out -3s infinite alternate;
       }
@@ -481,15 +494,50 @@
         transform: translate3d(var(--front-page-star-near-x, 0px), var(--front-page-star-near-y, 0px), 0);
         background-image:
           radial-gradient(circle at 4% 62%, #edb3c7 0 2px, transparent 2.5px),
+          radial-gradient(circle at 18% 27%, #f5f5f5 0 1.5px, transparent 2.2px),
           radial-gradient(circle at 31% 86%, #f5f5f5 0 2px, transparent 2.5px),
+          radial-gradient(circle at 49% 48%, #edb3c7 0 1.5px, transparent 2.2px),
           radial-gradient(circle at 63% 19%, #60a5fa 0 2px, transparent 2.5px),
+          radial-gradient(circle at 68% 76%, #f5f5f5 0 1.5px, transparent 2.2px),
           radial-gradient(circle at 74% 57%, #f5f5f5 0 2px, transparent 2.5px),
+          radial-gradient(circle at 88% 11%, #60a5fa 0 1.5px, transparent 2.2px),
           radial-gradient(circle at 96% 34%, #edb3c7 0 2px, transparent 2.5px);
         animation: front-page-stars-drift 8s ease-in-out -5s infinite alternate;
+      }
+      .front-page-dust-far {
+        inset: -18%;
+        opacity: 0.22;
+        transform: translate3d(var(--front-page-dust-far-x, 0px), var(--front-page-dust-far-y, 0px), 0);
+        background-image:
+          radial-gradient(ellipse at 12% 34%, rgba(245, 245, 245, 0.26) 0 1px, transparent 3px),
+          radial-gradient(ellipse at 26% 78%, rgba(96, 165, 250, 0.2) 0 1px, transparent 3.5px),
+          radial-gradient(ellipse at 44% 17%, rgba(237, 179, 199, 0.22) 0 1px, transparent 3px),
+          radial-gradient(ellipse at 72% 54%, rgba(245, 245, 245, 0.2) 0 1px, transparent 3px),
+          radial-gradient(ellipse at 93% 82%, rgba(96, 165, 250, 0.18) 0 1px, transparent 3.5px);
+        background-size: 240px 220px;
+        animation: front-page-dust-breathe 18s ease-in-out infinite alternate;
+      }
+      .front-page-dust-near {
+        inset: -22%;
+        opacity: 0.3;
+        transform: translate3d(var(--front-page-dust-near-x, 0px), var(--front-page-dust-near-y, 0px), 0);
+        background-image:
+          radial-gradient(circle at 9% 21%, rgba(245, 245, 245, 0.34) 0 0.8px, transparent 2.8px),
+          radial-gradient(circle at 19% 88%, rgba(237, 179, 199, 0.28) 0 0.8px, transparent 2.8px),
+          radial-gradient(circle at 38% 63%, rgba(96, 165, 250, 0.24) 0 0.8px, transparent 3px),
+          radial-gradient(circle at 61% 28%, rgba(245, 245, 245, 0.3) 0 0.8px, transparent 2.8px),
+          radial-gradient(circle at 79% 74%, rgba(237, 179, 199, 0.24) 0 0.8px, transparent 3px),
+          radial-gradient(circle at 97% 39%, rgba(245, 245, 245, 0.34) 0 0.8px, transparent 2.8px);
+        background-size: 180px 170px;
+        animation: front-page-dust-breathe 12s ease-in-out -4s infinite alternate;
       }
       @keyframes front-page-stars-drift {
         from { opacity: 0.3; }
         to { opacity: 0.72; }
+      }
+      @keyframes front-page-dust-breathe {
+        from { opacity: 0.16; }
+        to { opacity: 0.34; }
       }
       .front-page-heading {
         display: flex;
@@ -791,6 +839,11 @@
         }
         .front-page-stars {
           transform: none;
+          animation: none;
+        }
+        .front-page-dust {
+          transform: none;
+          animation: none;
         }
       }
     </style>
@@ -873,9 +926,11 @@
         <main class="content" id="main" tabindex="-1">
           <section class="front-page" id="front-page" aria-labelledby="front-page-title">
             <div class="front-page-atmosphere" aria-hidden="true">
+              <div class="front-page-dust front-page-dust-far"></div>
               <div class="front-page-stars front-page-stars-far"></div>
               <div class="front-page-stars front-page-stars-mid"></div>
               <div class="front-page-stars front-page-stars-near"></div>
+              <div class="front-page-dust front-page-dust-near"></div>
             </div>
             <div class="front-page-heading">
               <div>
@@ -1079,6 +1134,10 @@
         frontPage.style.setProperty("--front-page-star-mid-y", distance * -0.32 + "px");
         frontPage.style.setProperty("--front-page-star-near-y", distance * -0.62 + "px");
         frontPage.style.setProperty("--front-page-star-near-x", distance * 0.12 + "px");
+        frontPage.style.setProperty("--front-page-dust-far-y", distance * -0.18 + "px");
+        frontPage.style.setProperty("--front-page-dust-far-x", distance * -0.04 + "px");
+        frontPage.style.setProperty("--front-page-dust-near-y", distance * -0.48 + "px");
+        frontPage.style.setProperty("--front-page-dust-near-x", distance * 0.1 + "px");
       }
       window.addEventListener(
         "scroll",
