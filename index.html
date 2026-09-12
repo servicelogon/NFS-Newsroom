@@ -645,6 +645,54 @@
         color: var(--muted);
         max-width: 720px;
       }
+      .message-center-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin: 22px 0 4px;
+      }
+      .message-center-card {
+        display: flex;
+        min-width: 0;
+        min-height: 100%;
+        flex-direction: column;
+        gap: 10px;
+        padding: 16px;
+        border: 1px solid #303030;
+        border-radius: 9px;
+        background: #171717;
+      }
+      .message-center-card:hover {
+        border-color: #4a4a4a;
+        background: #1d1d1d;
+      }
+      .message-center-card h3 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 1.35;
+        letter-spacing: -0.2px;
+      }
+      .message-center-card h3 a:hover,
+      .message-center-card h3 a:focus-visible {
+        color: #60a5fa;
+      }
+      .message-center-card p {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .message-center-card .story-meta {
+        font-size: 10px;
+      }
+      .message-center-empty {
+        margin-top: 18px;
+        padding: 18px;
+        border: 1px dashed #383838;
+        border-radius: 9px;
+        color: var(--muted);
+        font-size: 13px;
+      }
       .message-center details {
         font-size: 13px;
       }
@@ -801,6 +849,9 @@
         }
         .message-center {
           padding: 20px;
+        }
+        .message-center-grid {
+          grid-template-columns: 1fr;
         }
         #feed > .story:first-child {
           padding: 24px;
@@ -961,21 +1012,30 @@
             class="message-center"
             aria-labelledby="message-center-title"
           >
-            <div class="eyebrow">Tenant updates · Not connected</div>
-            <h2 id="message-center-title">Microsoft 365 Message Center</h2>
+            <div class="eyebrow">Microsoft updates · RSS preview</div>
+            <h2 id="message-center-title">Microsoft 365 Message Center watch</h2>
             <p>
-              Organization-specific changes, planned maintenance, and rollout
-              notices belong here. Your Microsoft 365 tenant is not connected;
-              no tenant messages have been loaded.
+              A design preview powered by the community MS Message Center RSS
+              feed. This is not connected to your Microsoft 365 tenant and does
+              not include organization-specific Message Center targeting.
             </p>
+            <div
+              class="message-center-grid"
+              id="message-center-items"
+              aria-live="polite"
+            ></div>
+            <div class="message-center-empty" id="message-center-empty" hidden>
+              Waiting for the Message Center RSS feed. Check source status or
+              browse Microsoft coverage below.
+            </div>
             <details>
-              <summary>What is needed to connect?</summary>
+              <summary>About this preview source</summary>
               <p>
-                A Microsoft Entra application and administrator-approved
+                Items come from <code>msmessagecenter.com/feed.xml</code> so the
+                page design can evolve before a first-party Microsoft Graph
+                connector exists. A future tenant connector still requires
                 Microsoft Graph access with
-                <code>ServiceMessage.Read.All</code>. This connector is not
-                implemented yet. Tenant messages must stay behind
-                authentication, separate from public news feeds.
+                <code>ServiceMessage.Read.All</code> and authentication.
               </p>
               <a
                 href="https://learn.microsoft.com/en-us/graph/api/serviceannouncement-list-messages?view=graph-rest-1.0"
@@ -986,10 +1046,10 @@
             </details>
             <a
               class="message-center-admin"
-              href="https://admin.microsoft.com/Adminportal/Home#/MessageCenter"
+              href="https://msmessagecenter.com/feed.xml"
               target="_blank"
               rel="noopener noreferrer"
-              >Open Microsoft 365 Message Center ↗</a
+              >Open preview RSS feed ↗</a
             >
           </section>
           <div class="tools">
@@ -1110,7 +1170,7 @@
         id: "microsoft",
         name: "Microsoft",
         description:
-          "Security-focused updates from Microsoft security, identity, cloud defense, and security community sources.",
+          "Security-focused updates from Microsoft security, identity, cloud defense, security community, and Message Center preview sources.",
       });
       let selected = "all";
       let loading = true;
@@ -1247,10 +1307,50 @@
         }
         frontPageEmpty.hidden = loading || headlines.length !== 0;
       }
+      function renderMessageCenterPreview() {
+        const items = stories
+          .filter((story) => story.source === "MS Message Center")
+          .slice(0, 6);
+        const list = document.querySelector("#message-center-items");
+        const empty = document.querySelector("#message-center-empty");
+        list.replaceChildren();
+        items.forEach((s) => {
+          const card = document.createElement("article");
+          card.className = "message-center-card";
+          const meta = document.createElement("div");
+          meta.className = "story-meta";
+          const id = document.createElement("span");
+          const match = s.title.match(/\bMC\d+\b/i) || s.url.match(/\bMC\d+\b/i);
+          id.textContent = match ? match[0].toUpperCase() : "Message Center";
+          const date = document.createElement("time");
+          if (s.publishedAt && Number.isFinite(Date.parse(s.publishedAt))) {
+            date.dateTime = s.publishedAt;
+            date.textContent = new Date(s.publishedAt).toLocaleDateString([], {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+          } else date.textContent = "Date unavailable";
+          meta.append(id, date);
+          const heading = document.createElement("h3");
+          const link = document.createElement("a");
+          link.href = s.url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = s.title.replace(/^MC\d+\s*[–:-]\s*/i, "");
+          heading.append(link);
+          const summary = document.createElement("p");
+          summary.textContent = s.summary || "No summary available.";
+          card.append(meta, heading, summary);
+          list.append(card);
+        });
+        empty.hidden = loading || items.length !== 0;
+      }
       function render(resetPage = true) {
         if (resetPage) visibleLimit = 40;
         document.querySelector("#message-center").hidden =
           selected !== "all" && selected !== "microsoft";
+        renderMessageCenterPreview();
         const query = search.value.trim().toLowerCase();
         const visible = stories.filter(
           (s) =>
