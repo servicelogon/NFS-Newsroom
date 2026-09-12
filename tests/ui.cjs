@@ -213,7 +213,11 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator("#message-center").isVisible(), true);
     assert.match(
       await page.locator("#message-center").textContent(),
-      /Not connected/,
+      /RSS preview/,
+    );
+    assert.match(
+      await page.locator("#message-center").textContent(),
+      /Waiting for the Message Center RSS feed/,
     );
     await page.locator('[data-topic="incidents"]').click();
     assert.equal(await page.locator("#empty").isVisible(), true);
