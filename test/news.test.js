@@ -110,9 +110,9 @@ test('Microsoft feeds keep stronger cloud, identity and vulnerability signals ou
   const service = await setup(t, {feeds:[{name:'MSRC',url:'https://example.com/rss',category:'microsoft'}]});
   assert.equal((await service.getNews()).articles[0].category, 'vulnerabilities');
 });
-test('verified catalog contains 20 unique feeds with five security-focused Microsoft sources', () => {
-  assert.equal(backend.FEEDS.length, 20);
-  assert.equal(new Set(backend.FEEDS.map(f=>f.name)).size,20);
+test('verified catalog contains 21 unique feeds with six Microsoft sources including Message Center preview', () => {
+  assert.equal(backend.FEEDS.length, 21);
+  assert.equal(new Set(backend.FEEDS.map(f=>f.name)).size,21);
   assert.deepEqual(
     backend.FEEDS.filter(f => f.category === 'microsoft').map(f => f.name),
     [
@@ -121,9 +121,11 @@ test('verified catalog contains 20 unique feeds with five security-focused Micro
       'Defender for Cloud Blog',
       'Microsoft Entra Blog',
       'Microsoft Security Community',
+      'MS Message Center',
     ],
   );
   assert.ok(backend.FEEDS.some(f=>f.name==='MSRC Security Update Guide'));
+  assert.ok(backend.FEEDS.some(f=>f.url==='https://msmessagecenter.com/feed.xml'));
   assert.ok(backend.FEEDS.every(f=>f.url.startsWith('https://')));
 });
 test('default byte budget admits MSRC-sized feeds but stays bounded at 3 MB', async t => {
