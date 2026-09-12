@@ -14,15 +14,15 @@ npm start
 
 Use `PORT=3001 npm start` for another port. The server binds to all interfaces for local and LAN preview, but it is intended as a private/local tool. Open the UI through the server, not as a `file://` page.
 
-Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected.
+Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected; the Message Center watch uses a community RSS preview feed.
 
 ## What It Includes
 
 - A New Frontier Security newsroom UI with front-page cards, cloud/identity-first filtering, search, source health, and load-more browsing.
-- 20 reviewed public security feeds in `sources.js`, including five Microsoft security-focused streams.
+- 21 reviewed public security feeds in `sources.js`, including six Microsoft-focused streams and a community Message Center RSS preview.
 - A local `/api/news` endpoint with normalized article metadata, source status, stale fallback, and cache timestamps.
 - Explicit documentation for unavailable, reference-only, and authentication-required sources in `SOURCE-COVERAGE.md`.
-- A disconnected Microsoft 365 Message Center section with the required future Graph integration notes in `MESSAGE-CENTER.md`.
+- A Microsoft 365 Message Center watch section powered by the community `msmessagecenter.com/feed.xml` preview, with future first-party Graph integration notes in `MESSAGE-CENTER.md`.
 
 ## Verify
 
@@ -75,8 +75,9 @@ The Microsoft category contains public Microsoft-source security updates only:
 - Microsoft Entra Blog
 - Defender for Cloud Blog
 - Microsoft Security Community Blog
+- MS Message Center community RSS preview
 
-Private Microsoft 365 Message Center and Service Health data is deliberately not ingested. The UI marks Message Center as **Not connected** and links to the Microsoft 365 admin portal and Microsoft Graph documentation. See `MESSAGE-CENTER.md` for the required authentication, authorization, pagination, throttling, and data-separation design before any tenant integration is added.
+Private Microsoft 365 Message Center and Service Health data is deliberately not ingested. The UI marks the Message Center watch as an **RSS preview** and keeps it separate from any future tenant-backed Graph connector. See `MESSAGE-CENTER.md` for the required authentication, authorization, pagination, throttling, and data-separation design before any tenant integration is added.
 
 Do not expose tenant messages through the public RSS API or cache.
 
