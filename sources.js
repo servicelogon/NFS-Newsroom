@@ -85,5 +85,10 @@ export const FEEDS = Object.freeze([
     "name": "Microsoft Security Community",
     "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=microsoft-security-blog",
     "category": "microsoft"
+  },
+  {
+    "name": "MS Message Center",
+    "url": "https://msmessagecenter.com/feed.xml",
+    "category": "microsoft"
   }
 ].map(Object.freeze));
