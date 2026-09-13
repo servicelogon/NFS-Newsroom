@@ -142,6 +142,14 @@ const assert = require("node:assert/strict");
       await page.locator("#front-page").evaluate((e) => e.style.getPropertyValue("--front-page-star-near-y")),
       "0px",
     );
+    assert.equal(
+      await page.locator("#front-page").evaluate((e) => e.style.getPropertyValue("--front-page-star-near-x")),
+      "",
+    );
+    assert.equal(
+      await page.locator("#front-page").evaluate((e) => e.style.getPropertyValue("--front-page-dust-near-x")),
+      "",
+    );
     await page.locator("#front-page-link").click();
     assert.equal(await page.locator("#front-page").isVisible(), false);
     assert.equal(await page.locator("#briefing-view").isVisible(), true);
@@ -287,24 +295,20 @@ const assert = require("node:assert/strict");
     );
     await page.locator("#front-page-link").click();
     await page.waitForFunction(() => document.querySelectorAll(".story").length === 4);
+    assert.equal(await page.locator("#source-status").count(), 0);
+    assert.equal(await page.locator("#feed-status").count(), 0);
+    assert.equal(await page.locator("#retry").count(), 0);
     stale = true;
-    await page.locator("#retry").click();
-    await page.waitForFunction(() =>
-      document.querySelector("#source-status").textContent.includes("stale"),
-    );
+    await page.evaluate(() => loadNews());
+    await page.waitForFunction(() => document.querySelectorAll(".story").length === 4);
     assert.equal(await page.locator(".story").count(), 4);
     fail = true;
-    await page.locator("#retry").click();
-    await page.waitForFunction(() =>
-      document
-        .querySelector("#feed-status")
-        .textContent.includes("Showing previously loaded"),
-    );
+    await page.evaluate(() => loadNews());
+    await page.waitForFunction(() => document.querySelectorAll(".story").length === 4);
     assert.equal(await page.locator(".story").count(), 4);
     await page.reload();
     await page.waitForFunction(
-      () =>
-        document.querySelector("#feed-status")?.textContent.includes("Unable"),
+      () => document.querySelectorAll(".story").length === 0,
       {},
       { timeout: 3000 },
     );

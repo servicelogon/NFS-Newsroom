@@ -25,10 +25,12 @@
         box-sizing: border-box;
       }
       html {
+        overflow-x: clip;
         scroll-padding-top: 24px;
       }
       body {
         margin: 0;
+        overflow-x: clip;
         background: var(--bg);
         color: var(--ink);
         font: 16px/1.6 var(--sans);
@@ -218,24 +220,6 @@
         font-size: 12px;
         padding: 16px 12px;
         color: #c2c2c2;
-      }
-      .sidebar-note {
-        border-top: 1px solid var(--line);
-        margin-top: 30px;
-        padding-top: 24px;
-      }
-      .sidebar-note p {
-        font-size: 12px;
-        color: var(--muted);
-        line-height: 1.8;
-      }
-      .sidebar-note .eyebrow {
-        color: var(--pink);
-      }
-      #source-status {
-        max-height: 320px;
-        overflow: auto;
-        overflow-wrap: anywhere;
       }
       .content {
         min-width: 0;
@@ -438,12 +422,13 @@
       .front-page {
         position: relative;
         isolation: isolate;
+        overflow: clip;
         padding-bottom: 36px;
       }
       .front-page-atmosphere {
         position: absolute;
         z-index: -1;
-        inset: -120px -10% -180px;
+        inset: -120px 0 -180px;
         overflow: hidden;
         pointer-events: none;
       }
@@ -831,13 +816,6 @@
         .message-center-nav {
           padding-left: 0;
         }
-        .sidebar-note {
-          margin: 6px 0 26px;
-          padding-top: 18px;
-        }
-        .sidebar-note > p:last-child {
-          display: none;
-        }
         .content {
           margin-top: 26px;
         }
@@ -958,21 +936,6 @@
             id="message-center-link"
             >Microsoft Message Center ↗</a
           >
-          <div class="sidebar-note">
-            <div class="eyebrow">Source status</div>
-            <p id="feed-status" role="status" aria-live="polite">
-              Loading news sources…
-            </p>
-            <details>
-              <summary>Publisher connections</summary>
-              <div id="source-status"></div>
-            </details>
-            <button class="reset" id="retry">Check sources</button>
-            <p>
-              RSS headlines and excerpts. Categories are assigned automatically
-              and may need editorial review.
-            </p>
-          </div>
         </aside>
         <main class="content" id="main" tabindex="-1">
           <section class="front-page" id="front-page" aria-labelledby="front-page-title">
@@ -1025,8 +988,8 @@
               aria-live="polite"
             ></div>
             <div class="message-center-empty" id="message-center-empty" hidden>
-              Waiting for the Message Center RSS feed. Check source status or
-              browse Microsoft coverage below.
+              Waiting for the Message Center RSS feed. Browse Microsoft
+              coverage below.
             </div>
             <details>
               <summary>About this preview source</summary>
@@ -1079,7 +1042,7 @@
             <span class="eyebrow">No matching articles</span>
             <h2>No articles to show.</h2>
             <p>
-              Try another search, browse all coverage, or check source status.
+              Try another search or browse all coverage.
             </p>
             <button class="reset" id="reset">Show all coverage</button>
           </div>
@@ -1200,11 +1163,8 @@
         frontPage.style.setProperty("--front-page-star-far-y", distance * -0.12 + "px");
         frontPage.style.setProperty("--front-page-star-mid-y", distance * -0.32 + "px");
         frontPage.style.setProperty("--front-page-star-near-y", distance * -0.62 + "px");
-        frontPage.style.setProperty("--front-page-star-near-x", distance * 0.12 + "px");
         frontPage.style.setProperty("--front-page-dust-far-y", distance * -0.18 + "px");
-        frontPage.style.setProperty("--front-page-dust-far-x", distance * -0.04 + "px");
         frontPage.style.setProperty("--front-page-dust-near-y", distance * -0.48 + "px");
-        frontPage.style.setProperty("--front-page-dust-near-x", distance * 0.1 + "px");
       }
       window.addEventListener(
         "scroll",
@@ -1541,11 +1501,7 @@
         }
       });
       async function loadNews() {
-        const status = document.querySelector("#feed-status");
-        const retry = document.querySelector("#retry");
         loading = true;
-        retry.disabled = true;
-        status.textContent = "Loading news sources…";
         render();
         try {
           if (location.protocol === "file:")
@@ -1583,27 +1539,18 @@
             data.updatedAt && Number.isFinite(Date.parse(data.updatedAt))
               ? new Date(data.updatedAt).toLocaleString()
               : "Not available";
-          status.textContent = "Last successful update: " + updated;
-          const list = document.querySelector("#source-status");
-          list.replaceChildren();
-          data.sources.forEach((s) => {
-            const p = document.createElement("p");
-            p.textContent =
-              s.name + " / " + s.status + (s.error ? " — " + s.error : "");
-            list.append(p);
-          });
+          document.documentElement.dataset.updatedAt = updated;
         } catch (e) {
-          status.textContent =
+          console.warn(
             "Unable to load news. " +
-            e.message +
-            (stories.length ? " Showing previously loaded articles." : "");
+              e.message +
+              (stories.length ? " Showing previously loaded articles." : ""),
+          );
         } finally {
           loading = false;
-          retry.disabled = false;
           render();
         }
       }
-      document.querySelector("#retry").addEventListener("click", loadNews);
       loadNews();
     </script>
   </body>
