@@ -1,4 +1,4 @@
-![Newsroom](assets/readme-newsroom-banner.jpg)
+![Newsroom](assets/readme-newsroom-banner.png)
 
 # NFS Newsroom
 
