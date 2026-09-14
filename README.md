@@ -14,7 +14,7 @@ npm start
 
 Use `PORT=3001 npm start` for another port. The server binds to all interfaces for local and LAN preview, but it is intended as a private/local tool. Open the UI through the server, not as a `file://` page.
 
-Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected; the Message Center watch uses a community RSS preview feed.
+Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected; Message Center items come from a community RSS preview feed inside the Microsoft tab.
 
 ## What It Includes
 
@@ -22,7 +22,7 @@ Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Mess
 - 21 reviewed public security feeds in `sources.js`, including six Microsoft-focused streams and a community Message Center RSS preview.
 - A local `/api/news` endpoint with normalized article metadata, source status, stale fallback, and cache timestamps.
 - Explicit documentation for unavailable, reference-only, and authentication-required sources in `SOURCE-COVERAGE.md`.
-- A Microsoft 365 Message Center watch section powered by the community `msmessagecenter.com/feed.xml` preview, with future first-party Graph integration notes in `MESSAGE-CENTER.md`.
+- A Microsoft tab that combines Microsoft-source security coverage with community Message Center RSS preview items and can filter between Microsoft News and Message Center updates.
 
 ## Verify
 
@@ -51,6 +51,7 @@ Backend tests cover normalization, unsafe links, URL deduplication, cloud/identi
     publishedAt: string | null;  // upstream date normalized to ISO; null if absent/invalid
     summary: string;             // plain-text excerpt, up to 600 characters
     imageUrl?: string;           // reviewed http(s) image URL when present in the feed item
+    sourceCategory?: 'microsoft'; // present for articles from Microsoft-focused feeds
     category: 'cloud' | 'identity' | 'vulnerabilities' | 'incidents' | 'malware' | 'operations' | 'microsoft';
   }>;
   sources: Array<{
@@ -68,7 +69,7 @@ Articles are sorted newest-first, canonicalized by removing fragments and common
 
 ## Microsoft Coverage
 
-The Microsoft category contains public Microsoft-source security updates only:
+The Microsoft tab contains public Microsoft-source security updates and the community Message Center preview feed:
 
 - MSRC Security Update Guide
 - Microsoft Security Blog
@@ -77,7 +78,7 @@ The Microsoft category contains public Microsoft-source security updates only:
 - Microsoft Security Community Blog
 - MS Message Center community RSS preview
 
-Private Microsoft 365 Message Center and Service Health data is deliberately not ingested. The UI marks the Message Center watch as an **RSS preview** and keeps it separate from any future tenant-backed Graph connector. See `MESSAGE-CENTER.md` for the required authentication, authorization, pagination, throttling, and data-separation design before any tenant integration is added.
+Private Microsoft 365 Message Center and Service Health data is deliberately not ingested. Message Center preview items are visually marked in the Microsoft feed and can be filtered separately from Microsoft News. See `MESSAGE-CENTER.md` for the required authentication, authorization, pagination, throttling, and data-separation design before any tenant integration is added.
 
 Do not expose tenant messages through the public RSS API or cache.
 

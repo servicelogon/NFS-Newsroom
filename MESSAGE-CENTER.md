@@ -2,7 +2,7 @@
 
 ## Current state
 
-Beacon has a Microsoft public-news category and a separate **Not connected** Message Center section. The section links to the Microsoft 365 admin portal. It does not read your tenant, request credentials, or represent public Microsoft blog posts as tenant messages.
+Beacon has a Microsoft tab that combines public Microsoft security news with community Message Center RSS preview items from `msmessagecenter.com/feed.xml`. The preview items are marked in the feed and can be filtered separately from Microsoft News. Beacon does not read your tenant, request credentials, or represent public Microsoft blog posts as tenant messages.
 
 ## Supported integration path
 

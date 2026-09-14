@@ -73,6 +73,14 @@ const assert = require("node:assert/strict");
                 url: "https://techcommunity.microsoft.com/example",
                 publishedAt: "2026-09-01T11:00:00Z",
               },
+              {
+                title: "MC123456: Fixture admin center update",
+                summary: "Microsoft 365 admin center rollout note",
+                category: "microsoft",
+                source: "MS Message Center",
+                url: "https://msmessagecenter.com/example/MC123456",
+                publishedAt: "2026-09-01T10:30:00Z",
+              },
             ],
             sources: [
               {
@@ -133,7 +141,7 @@ const assert = require("node:assert/strict");
       await page.locator(".front-page-story h2").first().textContent(),
       "Fixture cloud posture issue",
     );
-    assert.equal(await page.locator(".front-page-story").count(), 4);
+    assert.equal(await page.locator(".front-page-story").count(), 5);
     await page.evaluate(() => window.scrollTo(0, 500));
     await page.waitForFunction(
       () => document.querySelector("#front-page").style.getPropertyValue("--front-page-star-near-y") !== "0px",
@@ -213,27 +221,34 @@ const assert = require("node:assert/strict");
       await page.locator('[data-topic="microsoft"]').evaluate((e) => getComputedStyle(e).color),
       "rgb(96, 165, 250)",
     );
-    assert.equal(await page.locator(".story").count(), 1);
-    assert.equal(
-      await page.locator(".story h2").textContent(),
+    assert.equal(await page.locator(".story").count(), 2);
+    assert.deepEqual(await page.locator(".story h2").allTextContents(), [
       "Fixture Entra update",
-    );
-    assert.equal(await page.locator("#message-center").isVisible(), true);
+      "Fixture admin center update",
+    ]);
+    assert.equal(await page.locator("#message-center").count(), 0);
+    assert.equal(await page.locator("#message-center-link").count(), 0);
+    assert.equal(await page.locator("#microsoft-filter").isVisible(), true);
+    assert.equal(await page.locator(".message-center-story").count(), 1);
+    assert.equal(await page.locator(".message-center-badge").textContent(), "Message Center");
     assert.match(
-      await page.locator("#message-center").textContent(),
-      /RSS preview/,
+      await page.locator(".message-center-story").evaluate((e) => getComputedStyle(e).backgroundImage),
+      /linear-gradient/,
     );
-    assert.match(
-      await page.locator("#message-center").textContent(),
-      /Waiting for the Message Center RSS feed/,
-    );
+    await page.locator('[data-microsoft-filter="news"]').click();
+    assert.equal(await page.locator(".story").count(), 1);
+    assert.equal(await page.locator(".story h2").textContent(), "Fixture Entra update");
+    await page.locator('[data-microsoft-filter="message-center"]').click();
+    assert.equal(await page.locator(".story").count(), 1);
+    assert.equal(await page.locator(".story h2").textContent(), "Fixture admin center update");
+    await page.locator('[data-microsoft-filter="all"]').click();
     await page.locator('[data-topic="incidents"]').click();
     assert.equal(await page.locator("#empty").isVisible(), true);
     await page.locator("#reset").click();
     await page.locator("#search").fill("no-match-xyz");
     assert.equal(await page.locator(".story").count(), 0);
     await page.locator("#clear").click();
-    assert.equal(await page.locator(".story").count(), 4);
+    assert.equal(await page.locator(".story").count(), 5);
     await page.keyboard.press("/");
     assert.equal(
       await page
@@ -287,25 +302,25 @@ const assert = require("node:assert/strict");
     await page.locator("#load-more").click();
     assert.equal(await page.locator(".story").count(), 80);
     await page.locator("#load-more").click();
-    assert.equal(await page.locator(".story").count(), 104);
+    assert.equal(await page.locator(".story").count(), 105);
     large = false;
     await page.reload();
     await page.waitForFunction(
-      () => document.querySelectorAll(".front-page-story").length === 4,
+      () => document.querySelectorAll(".front-page-story").length === 5,
     );
     await page.locator("#front-page-link").click();
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 4);
+    await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
     assert.equal(await page.locator("#source-status").count(), 0);
     assert.equal(await page.locator("#feed-status").count(), 0);
     assert.equal(await page.locator("#retry").count(), 0);
     stale = true;
     await page.evaluate(() => loadNews());
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 4);
-    assert.equal(await page.locator(".story").count(), 4);
+    await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
+    assert.equal(await page.locator(".story").count(), 5);
     fail = true;
     await page.evaluate(() => loadNews());
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 4);
-    assert.equal(await page.locator(".story").count(), 4);
+    await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
+    assert.equal(await page.locator(".story").count(), 5);
     await page.reload();
     await page.waitForFunction(
       () => document.querySelectorAll(".story").length === 0,

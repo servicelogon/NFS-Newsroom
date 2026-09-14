@@ -61,6 +61,7 @@ function article(item, source, forcedCategory) {
   return { id: createHash('sha256').update(href).digest('hex').slice(0, 24), title, url: href, source,
     publishedAt: Number.isFinite(date) ? new Date(date).toISOString() : null, summary,
     ...(image ? { imageUrl: image } : {}),
+    ...(forcedCategory ? { sourceCategory: forcedCategory } : {}),
     category: articleCategory };
 }
 async function fetchFeed(url, fetchImpl, timeoutMs, maxBytes, refreshSignal) {

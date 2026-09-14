@@ -215,12 +215,6 @@
         background: color-mix(in srgb, var(--topic-color) 13%, #202020);
         color: var(--topic-color);
       }
-      .message-center-nav {
-        display: block;
-        font-size: 12px;
-        padding: 16px 12px;
-        color: #c2c2c2;
-      }
       .content {
         min-width: 0;
       }
@@ -242,6 +236,30 @@
         color: var(--muted);
         font-size: 14px;
         margin: 0;
+      }
+      .microsoft-filter {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .microsoft-filter button {
+        min-height: 38px;
+        padding: 8px 12px;
+        border: 1px solid #2f3f55;
+        border-radius: 7px;
+        background: #151b24;
+        color: #b7c7dc;
+        font-size: 12px;
+      }
+      .microsoft-filter button:hover {
+        border-color: #60a5fa;
+        color: white;
+      }
+      .microsoft-filter button[aria-pressed="true"] {
+        border-color: #60a5fa;
+        background: color-mix(in srgb, #60a5fa 18%, #111827);
+        color: #dbeafe;
       }
       .tools {
         display: flex;
@@ -385,6 +403,27 @@
       }
       .story-footer a:hover {
         color: var(--topic-color);
+      }
+      #feed > .story.message-center-story,
+      .story.message-center-story {
+        padding: 24px;
+        border: 1px solid #244b75;
+        border-radius: 10px;
+        background:
+          linear-gradient(180deg, rgba(37, 99, 235, 0.16), rgba(14, 31, 54, 0.34)),
+          #111923;
+      }
+      .story.message-center-story .message-center-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #bfdbfe;
+        font-weight: 500;
+      }
+      .message-center-badge svg {
+        width: 13px;
+        height: 13px;
+        flex: 0 0 auto;
       }
       .reset {
         display: inline-block;
@@ -608,93 +647,6 @@
       .front-page-empty {
         margin-top: 24px;
       }
-      .message-center {
-        background: #111;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        margin-bottom: 26px;
-        padding: 24px;
-        overflow-wrap: anywhere;
-      }
-      .message-center .eyebrow {
-        color: var(--pink);
-      }
-      .message-center h2 {
-        font-size: 20px;
-        letter-spacing: -0.5px;
-        font-weight: 400;
-        margin: 10px 0;
-      }
-      .message-center p {
-        font-size: 13px;
-        color: var(--muted);
-        max-width: 720px;
-      }
-      .message-center-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-        margin: 22px 0 4px;
-      }
-      .message-center-card {
-        display: flex;
-        min-width: 0;
-        min-height: 100%;
-        flex-direction: column;
-        gap: 10px;
-        padding: 16px;
-        border: 1px solid #303030;
-        border-radius: 9px;
-        background: #171717;
-      }
-      .message-center-card:hover {
-        border-color: #4a4a4a;
-        background: #1d1d1d;
-      }
-      .message-center-card h3 {
-        margin: 0;
-        font-size: 15px;
-        font-weight: 400;
-        line-height: 1.35;
-        letter-spacing: -0.2px;
-      }
-      .message-center-card h3 a:hover,
-      .message-center-card h3 a:focus-visible {
-        color: #60a5fa;
-      }
-      .message-center-card p {
-        margin: 0;
-        font-size: 12px;
-        line-height: 1.6;
-      }
-      .message-center-card .story-meta {
-        font-size: 10px;
-      }
-      .message-center-empty {
-        margin-top: 18px;
-        padding: 18px;
-        border: 1px dashed #383838;
-        border-radius: 9px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-      .message-center details {
-        font-size: 13px;
-      }
-      summary {
-        cursor: pointer;
-        min-height: 44px;
-        padding: 12px 0;
-        font-size: 12px;
-      }
-      .message-center a {
-        font-size: 12px;
-        color: #d4d4d4;
-      }
-      .message-center-admin {
-        display: inline-block;
-        padding: 12px 0 0;
-      }
       .about {
         display: grid;
         grid-template-columns: 216px 1fr;
@@ -813,9 +765,6 @@
           border: 1px solid var(--line);
           padding: 10px 13px;
         }
-        .message-center-nav {
-          padding-left: 0;
-        }
         .content {
           margin-top: 26px;
         }
@@ -824,12 +773,6 @@
         }
         h1 {
           font-size: 31px;
-        }
-        .message-center {
-          padding: 20px;
-        }
-        .message-center-grid {
-          grid-template-columns: 1fr;
         }
         #feed > .story:first-child {
           padding: 24px;
@@ -930,12 +873,6 @@
             aria-label="News categories"
             id="categories"
           ></nav>
-          <a
-            href="#message-center"
-            class="message-center-nav"
-            id="message-center-link"
-            >Microsoft Message Center ↗</a
-          >
         </aside>
         <main class="content" id="main" tabindex="-1">
           <section class="front-page" id="front-page" aria-labelledby="front-page-title">
@@ -968,53 +905,28 @@
               <p class="description" id="description">
                 The bigger picture, without the noise.
               </p>
+              <div
+                class="microsoft-filter"
+                id="microsoft-filter"
+                aria-label="Microsoft feed filters"
+                hidden
+              >
+                <button type="button" data-microsoft-filter="all" aria-pressed="true">
+                  All Microsoft
+                </button>
+                <button type="button" data-microsoft-filter="news" aria-pressed="false">
+                  Microsoft News
+                </button>
+                <button
+                  type="button"
+                  data-microsoft-filter="message-center"
+                  aria-pressed="false"
+                >
+                  Message Center
+                </button>
+              </div>
             </div>
           </div>
-          <section
-            id="message-center"
-            class="message-center"
-            aria-labelledby="message-center-title"
-          >
-            <div class="eyebrow">Microsoft updates · RSS preview</div>
-            <h2 id="message-center-title">Microsoft 365 Message Center watch</h2>
-            <p>
-              A design preview powered by the community MS Message Center RSS
-              feed. This is not connected to your Microsoft 365 tenant and does
-              not include organization-specific Message Center targeting.
-            </p>
-            <div
-              class="message-center-grid"
-              id="message-center-items"
-              aria-live="polite"
-            ></div>
-            <div class="message-center-empty" id="message-center-empty" hidden>
-              Waiting for the Message Center RSS feed. Browse Microsoft
-              coverage below.
-            </div>
-            <details>
-              <summary>About this preview source</summary>
-              <p>
-                Items come from <code>msmessagecenter.com/feed.xml</code> so the
-                page design can evolve before a first-party Microsoft Graph
-                connector exists. A future tenant connector still requires
-                Microsoft Graph access with
-                <code>ServiceMessage.Read.All</code> and authentication.
-              </p>
-              <a
-                href="https://learn.microsoft.com/en-us/graph/api/serviceannouncement-list-messages?view=graph-rest-1.0"
-                target="_blank"
-                rel="noopener noreferrer"
-                >Microsoft Graph setup reference ↗</a
-              >
-            </details>
-            <a
-              class="message-center-admin"
-              href="https://msmessagecenter.com/feed.xml"
-              target="_blank"
-              rel="noopener noreferrer"
-              >Open preview RSS feed ↗</a
-            >
-          </section>
           <div class="tools">
             <label class="search"
               ><svg
@@ -1136,6 +1048,7 @@
           "Security-focused updates from Microsoft security, identity, cloud defense, security community, and Message Center preview sources.",
       });
       let selected = "all";
+      let microsoftFilter = "all";
       let loading = true;
       const search = document.querySelector("#search"),
         feed = document.querySelector("#feed"),
@@ -1144,7 +1057,43 @@
         frontPageFeed = document.querySelector("#front-page-feed"),
         frontPageDate = document.querySelector("#front-page-date"),
         frontPageEmpty = document.querySelector("#front-page-empty"),
-        frontPageLink = document.querySelector("#front-page-link");
+        frontPageLink = document.querySelector("#front-page-link"),
+        microsoftFilterWrap = document.querySelector("#microsoft-filter");
+      const microsoftSources = new Set([
+        "Microsoft Security Blog",
+        "MSRC Security Update Guide",
+        "Defender for Cloud Blog",
+        "Microsoft Entra Blog",
+        "Microsoft Security Community",
+        "MS Message Center",
+      ]);
+      function isMessageCenterStory(story) {
+        return story.source === "MS Message Center";
+      }
+      function isMicrosoftStory(story) {
+        return (
+          story.sourceCategory === "microsoft" ||
+          story.topic === "microsoft" ||
+          microsoftSources.has(story.source)
+        );
+      }
+      function microsoftStoryTypeMatches(story) {
+        if (microsoftFilter === "message-center") return isMessageCenterStory(story);
+        if (microsoftFilter === "news") return !isMessageCenterStory(story);
+        return true;
+      }
+      function formatStoryTitle(story) {
+        return isMessageCenterStory(story)
+          ? story.title.replace(/^MC\d+\s*[–:-]\s*/i, "")
+          : story.title;
+      }
+      function messageCenterBadge() {
+        const badge = document.createElement("span");
+        badge.className = "message-center-badge";
+        badge.innerHTML =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/></svg><span>Message Center</span>';
+        return badge;
+      }
       const frontPageObserver = "IntersectionObserver" in window
         ? new IntersectionObserver(
             (entries) =>
@@ -1267,54 +1216,21 @@
         }
         frontPageEmpty.hidden = loading || headlines.length !== 0;
       }
-      function renderMessageCenterPreview() {
-        const items = stories
-          .filter((story) => story.source === "MS Message Center")
-          .slice(0, 6);
-        const list = document.querySelector("#message-center-items");
-        const empty = document.querySelector("#message-center-empty");
-        list.replaceChildren();
-        items.forEach((s) => {
-          const card = document.createElement("article");
-          card.className = "message-center-card";
-          const meta = document.createElement("div");
-          meta.className = "story-meta";
-          const id = document.createElement("span");
-          const match = s.title.match(/\bMC\d+\b/i) || s.url.match(/\bMC\d+\b/i);
-          id.textContent = match ? match[0].toUpperCase() : "Message Center";
-          const date = document.createElement("time");
-          if (s.publishedAt && Number.isFinite(Date.parse(s.publishedAt))) {
-            date.dateTime = s.publishedAt;
-            date.textContent = new Date(s.publishedAt).toLocaleDateString([], {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            });
-          } else date.textContent = "Date unavailable";
-          meta.append(id, date);
-          const heading = document.createElement("h3");
-          const link = document.createElement("a");
-          link.href = s.url;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.textContent = s.title.replace(/^MC\d+\s*[–:-]\s*/i, "");
-          heading.append(link);
-          const summary = document.createElement("p");
-          summary.textContent = s.summary || "No summary available.";
-          card.append(meta, heading, summary);
-          list.append(card);
-        });
-        empty.hidden = loading || items.length !== 0;
-      }
       function render(resetPage = true) {
         if (resetPage) visibleLimit = 40;
-        document.querySelector("#message-center").hidden =
-          selected !== "all" && selected !== "microsoft";
-        renderMessageCenterPreview();
         const query = search.value.trim().toLowerCase();
+        microsoftFilterWrap.hidden = selected !== "microsoft";
+        microsoftFilterWrap.querySelectorAll("button").forEach((button) => {
+          button.setAttribute(
+            "aria-pressed",
+            String(button.dataset.microsoftFilter === microsoftFilter),
+          );
+        });
         const visible = stories.filter(
           (s) =>
-            (selected === "all" || s.topic === selected) &&
+            (selected === "all" ||
+              (selected === "microsoft" && isMicrosoftStory(s) && microsoftStoryTypeMatches(s)) ||
+              (selected !== "microsoft" && s.topic === selected)) &&
             [
               s.title,
               s.summary,
@@ -1355,6 +1271,7 @@
         visible.slice(0, visibleLimit).forEach((s, index) => {
           const article = document.createElement("article");
           article.className = "story";
+          if (isMessageCenterStory(s)) article.classList.add("message-center-story");
           article.style.setProperty("--topic-color", topicColors[s.topic] || topicColors.all);
           if (s.imageUrl) {
             try {
@@ -1379,6 +1296,7 @@
           const tag = document.createElement("span");
           tag.className = "topic";
           tag.textContent = topics.find((t) => t.id === s.topic).name;
+          if (isMessageCenterStory(s)) meta.append(messageCenterBadge());
           const date = document.createElement("time");
           if (s.publishedAt && Number.isFinite(Date.parse(s.publishedAt))) {
             date.dateTime = s.publishedAt;
@@ -1393,7 +1311,7 @@
           link.href = s.url;
           link.target = "_blank";
           link.rel = "noopener noreferrer";
-          link.textContent = s.title;
+          link.textContent = formatStoryTitle(s);
           h.append(link);
           const p = document.createElement("p");
           p.textContent = s.summary;
@@ -1434,9 +1352,16 @@
           briefingView.hidden = false;
           frontPageLink.setAttribute("aria-pressed", "false");
           selected = t.id;
+          if (selected !== "microsoft") microsoftFilter = "all";
           render();
         });
         document.querySelector("#categories").append(b);
+      });
+      microsoftFilterWrap.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => {
+          microsoftFilter = button.dataset.microsoftFilter;
+          render();
+        });
       });
       function reset() {
         frontPageMode = false;
@@ -1445,6 +1370,7 @@
         briefingView.hidden = false;
         frontPageLink.setAttribute("aria-pressed", "false");
         selected = "all";
+        microsoftFilter = "all";
         search.value = "";
         render();
       }
@@ -1458,6 +1384,7 @@
         briefingView.hidden = true;
         frontPageLink.setAttribute("aria-pressed", "true");
         selected = "all";
+        microsoftFilter = "all";
         search.value = "";
         updateFrontPageParallax();
         render();
@@ -1467,18 +1394,6 @@
         visibleLimit += 40;
         render(false);
       });
-      document
-        .querySelector("#message-center-link")
-        .addEventListener("click", () => {
-          frontPageMode = false;
-          updateFrontPageParallax();
-          frontPage.hidden = true;
-          briefingView.hidden = false;
-          frontPageLink.setAttribute("aria-pressed", "false");
-          selected = "microsoft";
-          search.value = "";
-          render();
-        });
       document.querySelector("#clear").addEventListener("click", reset);
       document.querySelector("#reset").addEventListener("click", reset);
       document.addEventListener("keydown", (e) => {
@@ -1534,6 +1449,9 @@
               topic: topics.some((t) => t.id === s.category && t.id !== "all")
                 ? s.category
                 : "operations",
+              sourceCategory:
+                s.sourceCategory ||
+                (microsoftSources.has(s.source) ? "microsoft" : undefined),
             }));
           const updated =
             data.updatedAt && Number.isFinite(Date.parse(data.updatedAt))

@@ -108,7 +108,9 @@ test('Cloud and identity topics are classified ahead of general security buckets
 });
 test('Microsoft feeds keep stronger cloud, identity and vulnerability signals out of the Microsoft category', async t => {
   const service = await setup(t, {feeds:[{name:'MSRC',url:'https://example.com/rss',category:'microsoft'}]});
-  assert.equal((await service.getNews()).articles[0].category, 'vulnerabilities');
+  const article = (await service.getNews()).articles[0];
+  assert.equal(article.category, 'vulnerabilities');
+  assert.equal(article.sourceCategory, 'microsoft');
 });
 test('verified catalog contains 21 unique feeds with six Microsoft sources including Message Center preview', () => {
   assert.equal(backend.FEEDS.length, 21);
