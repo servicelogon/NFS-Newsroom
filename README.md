@@ -1,3 +1,5 @@
+![Newsroom](assets/readme-newsroom-banner.jpg)
+
 # NFS Newsroom
 
 New Frontier Security Newsroom is a local Node.js dashboard focused on Cloud and Identity security news. It keeps the reviewed public RSS source catalog intact, normalizes articles into a small JSON API, and renders a browser UI where cloud and identity stories lead while broader security coverage remains available.
