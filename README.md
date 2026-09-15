@@ -1,8 +1,8 @@
 ![Newsroom](assets/readme-newsroom-banner.png)
 
-# NFS Newsroom
+# New Frontier Security
 
-New Frontier Security Newsroom is a local Node.js dashboard focused on Cloud and Identity security news. It keeps the reviewed public RSS source catalog intact, normalizes articles into a small JSON API, and renders a browser UI where cloud and identity stories lead while broader security coverage remains available.
+New Frontier Security is a local Node.js website with a Markdown-powered blog, a cloud and identity security newsroom, and a showcase of identity tools. It keeps the reviewed public RSS source catalog intact, normalizes articles into a small JSON API, and renders a browser UI where cloud and identity stories lead while broader security coverage remains available.
 
 Requires Node.js 22+ and npm.
 
@@ -17,6 +17,43 @@ npm start
 Use `PORT=3001 npm start` for another port. The server binds to all interfaces for local and LAN preview, but it is intended as a private/local tool. Open the UI through the server, not as a `file://` page.
 
 Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected; Message Center items come from a community RSS preview feed inside the Microsoft tab.
+
+## Publish a blog post
+
+Add a lowercase, hyphenated `.md` file to `content/posts`, for example `my-first-field-note.md`:
+
+```markdown
+---
+title: My first field note
+description: A short summary for the blog home page.
+date: 2026-09-14
+author: Nathan Hess
+image: /assets/blog/my-first-field-note-header.jpg
+imageAlt: Short description of the preview image
+tags: [Identity, Cloud]
+draft: false
+---
+
+Write your post here with **bold**, *italics*, headings, links, lists, tables,
+images, blockquotes, and fenced code blocks.
+```
+
+The filename becomes the URL: `/blog/my-first-field-note`. The home page lists published posts newest first and features the latest entry. Files are read on every request, so adding, editing, or removing a post takes effect on refresh without restarting the server or building the site. Copy files into this folder on the machine running the server; this is a folder workflow, not a browser upload form.
+
+`title`, `description`, and a valid `date` (`YYYY-MM-DD`) are required. `author` defaults to Nathan Hess; `tags`, `image`, `imageAlt`, `draft`, and `sample` are optional. Set `image` to an HTTPS URL or an explicitly mapped `/assets/blog/...jpg` file to show a preview image on the blog home and a header image on the post page. Set `draft: true` to hide a post from the list and its direct URL. Add `sample: true` to display a sample-post notice. Invalid posts are skipped with a server log explaining the problem. Uppercase filenames, nested directories, and files other than `.md` are ignored. Dates control sorting, not scheduled publication; use `draft: true` for unpublished work.
+
+Raw HTML is displayed as text, and unsafe Markdown link protocols are rejected. For images, use an HTTPS image URL or an explicitly mapped local asset; arbitrary files in the repository are never served.
+
+The first post is `content/posts/entra-default-settings-that-you-should-change.md`. Use it as a model for future field notes.
+
+### Pages
+
+- `/` (also `/blog` and `/index.html`): blog home.
+- `/blog/<filename-without-extension>`: a complete blog post.
+- `/newsroom`: the existing news dashboard.
+- `/tools`: Copilot Security Trail and Passkey AAGUID Lookup, with live-app and GitHub links.
+
+All pages have a top-right menu with Blog, Newsroom, and Tools. It works with keyboard and touch; Escape closes it and returns focus to its button.
 
 ## What It Includes
 
@@ -92,7 +129,7 @@ Do not expose tenant messages through the public RSS API or cache.
 - `.cache/news.json` persists successful source articles and failures with a five-minute TTL, including error results to avoid hammering blocked publishers.
 - Failed refreshes preserve source-specific stale data indefinitely and visibly mark the source stale.
 - Cache writes are atomic; absent or invalid cache JSON causes a cold start.
-- Only `/`, `/index.html`, `/api/news`, and explicitly mapped image assets are served. No arbitrary directories, cache files, source files, tests, backup HTML, or repository internals are public.
+- Only the documented page routes, `/api/news`, and explicitly mapped stylesheet, script, and image assets are served. No arbitrary directories, cache files, source files, tests, backup HTML, or repository internals are public.
 - Feed strings are plain text, not trusted markup. Frontend consumers should render them with text APIs, not `innerHTML`.
 
 This project is intended for a single local process or private preview, not a hardened public deployment. No CSP is added that would block the current inline frontend scripts/styles.

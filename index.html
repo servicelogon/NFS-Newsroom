@@ -8,6 +8,8 @@
       content="New Frontier Security — a considered view of cloud and identity security news. Browse cloud, identity, vulnerabilities, incidents, malware, and operations coverage."
     />
     <title>New Frontier Security — Newsroom</title>
+    <link rel="stylesheet" href="/assets/site.css" />
+    <script src="/assets/site.js" defer></script>
     <style>
       :root {
         color-scheme: dark;
@@ -312,6 +314,17 @@
       }
       .feed-column {
         min-width: 0;
+      }
+      .feed.microsoft-feed {
+        row-gap: 28px;
+      }
+      .feed.microsoft-feed .feed-column {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .feed.microsoft-feed > .story:first-child {
+        margin-bottom: 0;
       }
       .story {
         --topic-color: var(--pink);
@@ -696,6 +709,9 @@
         .feed-column {
           display: contents;
         }
+        .feed.microsoft-feed .feed-column {
+          display: contents;
+        }
         .about {
           grid-template-columns: 180px 1fr;
           gap: 28px;
@@ -826,7 +842,7 @@
       <header class="topbar">
         <a
           class="brand"
-          href="./index.html"
+          href="/"
           aria-label="New Frontier Security home"
           ><img
             class="brand-logo"
@@ -835,6 +851,7 @@
             height="423"
             alt="New Frontier Security"
         /></a>
+        <details class="site-menu"><summary>Newsroom<span aria-hidden="true">☰</span></summary><nav aria-label="Main navigation"><a href="/">Blog</a><a href="/newsroom" aria-current="page">Newsroom</a><a href="/tools">Tools</a></nav></details>
       </header>
       <section class="masthead" aria-label="Newsroom">
         <img
@@ -1045,7 +1062,7 @@
         id: "microsoft",
         name: "Microsoft",
         description:
-          "Security-focused updates from Microsoft security, identity, cloud defense, security community, and Message Center preview sources.",
+          "Microsoft News and Message Center updates without CVE advisory entries.",
       });
       let selected = "all";
       let microsoftFilter = "all";
@@ -1059,23 +1076,28 @@
         frontPageEmpty = document.querySelector("#front-page-empty"),
         frontPageLink = document.querySelector("#front-page-link"),
         microsoftFilterWrap = document.querySelector("#microsoft-filter");
-      const microsoftSources = new Set([
+      const microsoftNewsSources = new Set([
         "Microsoft Security Blog",
-        "MSRC Security Update Guide",
         "Defender for Cloud Blog",
         "Microsoft Entra Blog",
         "Microsoft Security Community",
+      ]);
+      const microsoftSources = new Set([
+        ...microsoftNewsSources,
+        "MSRC Security Update Guide",
         "MS Message Center",
       ]);
       function isMessageCenterStory(story) {
         return story.source === "MS Message Center";
       }
-      function isMicrosoftStory(story) {
-        return (
-          story.sourceCategory === "microsoft" ||
-          story.topic === "microsoft" ||
-          microsoftSources.has(story.source)
+      function mentionsCve(story) {
+        return /\bCVE(?:-\d{4}-\d{4,7})?\b/i.test(
+          [story.title, story.summary].join(" "),
         );
+      }
+      function isMicrosoftStory(story) {
+        if (mentionsCve(story)) return false;
+        return isMessageCenterStory(story) || microsoftNewsSources.has(story.source);
       }
       function microsoftStoryTypeMatches(story) {
         if (microsoftFilter === "message-center") return isMessageCenterStory(story);
@@ -1257,6 +1279,7 @@
           selected === "all" ? "Latest coverage" : topic.name;
         document.querySelector("#description").textContent = topic.description;
         feed.replaceChildren();
+        feed.classList.toggle("microsoft-feed", selected === "microsoft");
         document.querySelector("#load-more").hidden =
           visible.length <= visibleLimit;
         document.querySelector("#load-more").textContent =

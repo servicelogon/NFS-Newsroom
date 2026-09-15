@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
 import { FEEDS } from './sources.js';
+import { loadPosts, blogPage, postPage, toolsPage, notFoundPage } from './blog.js';
 export { FEEDS };
 const parser = new Parser();
 function text(value = '') {
@@ -141,8 +142,8 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
   } };
 }
 // Only these exact paths are public. Add reviewed assets explicitly; never expose a directory.
-const STATIC = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/index.html', ['index.html', 'text/html; charset=utf-8']], ['/assets/newsroom-logo.png', ['assets/newsroom-logo.png', 'image/png']], ['/assets/new-frontier-security-logo.png', ['assets/new-frontier-security-logo.png', 'image/png']]]);
-export function createAppServer({ service = createNewsService() } = {}) {
+const STATIC = new Map([['/newsroom', ['index.html', 'text/html; charset=utf-8']], ['/newsroom/', ['index.html', 'text/html; charset=utf-8']], ['/assets/site.css', ['assets/site.css', 'text/css; charset=utf-8']], ['/assets/site.js', ['assets/site.js', 'text/javascript; charset=utf-8']], ['/assets/newsroom-logo.png', ['assets/newsroom-logo.png', 'image/png']], ['/assets/new-frontier-security-logo.png', ['assets/new-frontier-security-logo.png', 'image/png']], ['/assets/blog/entra-default-settings-header.jpg', ['assets/blog/entra-default-settings-header.jpg', 'image/jpeg']], ['/assets/blog/entra-block-legacy-authentication.jpg', ['assets/blog/entra-block-legacy-authentication.jpg', 'image/jpeg']], ['/assets/blog/entra-user-default-permissions.jpg', ['assets/blog/entra-user-default-permissions.jpg', 'image/jpeg']], ['/assets/blog/entra-user-consent-settings.jpg', ['assets/blog/entra-user-consent-settings.jpg', 'image/jpeg']]]);
+export function createAppServer({ service = createNewsService(), postsDirectory = join(ROOT, 'content/posts') } = {}) {
   return createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -156,6 +157,15 @@ export function createAppServer({ service = createNewsService() } = {}) {
       if (url.pathname === '/api/news') {
         if (url.search) return send(400, 'Query parameters are not supported');
         return send(200, JSON.stringify(await service.getNews()), 'application/json; charset=utf-8');
+      }
+      if (['/', '/index.html', '/blog', '/blog/'].includes(url.pathname)) {
+        return send(200, blogPage(await loadPosts(postsDirectory)), 'text/html; charset=utf-8');
+      }
+      if (['/tools', '/tools/'].includes(url.pathname)) return send(200, toolsPage(), 'text/html; charset=utf-8');
+      if (url.pathname.startsWith('/blog/')) {
+        const slug = url.pathname.slice(6).replace(/\/$/, '');
+        const post = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ? (await loadPosts(postsDirectory)).find(post => post.slug === slug) : null;
+        return send(post ? 200 : 404, post ? postPage(post) : notFoundPage(), 'text/html; charset=utf-8');
       }
       const asset = STATIC.get(url.pathname);
       if (!asset) return send(404, 'Not found');

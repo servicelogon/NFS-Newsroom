@@ -10,9 +10,10 @@
     "start": "node server.js",
     "test": "node --test test/*.test.js",
     "test:live": "node scripts/check-feeds.js",
-    "test:ui": "node tests/ui.cjs"
+    "test:ui": "node tests/ui.cjs && node tests/pages.cjs"
   },
   "dependencies": {
+    "markdown-it": "^15.0.2",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {

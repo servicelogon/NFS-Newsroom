@@ -8,9 +8,13 @@ const assert = require("node:assert/strict");
     let fail = false;
     let stale = false;
     let large = false;
+    let includeMicrosoftLeaks = false;
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route("http://beacon.test/**", async (r) => {
+      const assetPath = new URL(r.request().url()).pathname;
+      if (["/assets/site.css", "/assets/site.js"].includes(assetPath))
+        return r.fulfill({ contentType: assetPath.endsWith(".css") ? "text/css" : "text/javascript", body: fs.readFileSync(assetPath.slice(1)) });
       if (r.request().url().endsWith("/assets/new-frontier-security-logo.png"))
         return r.fulfill({
           contentType: "image/png",
@@ -39,6 +43,27 @@ const assert = require("node:assert/strict");
                     summary: "",
                     url: "https://example.com/bulk/" + i,
                   }))
+                : []),
+              ...(includeMicrosoftLeaks
+                ? [
+                    {
+                      title: "CVE-2026-1234 fixture advisory",
+                      summary: "MSRC security update guide entry",
+                      category: "vulnerabilities",
+                      sourceCategory: "microsoft",
+                      source: "MSRC Security Update Guide",
+                      url: "https://example.com/msrc-cve",
+                      publishedAt: "2026-09-01T10:00:00Z",
+                    },
+                    {
+                      title: "Fixture partner CVE writeup",
+                      summary: "A Microsoft-category item that should stay out of the Microsoft feed",
+                      category: "microsoft",
+                      source: "Fixture",
+                      url: "https://example.com/microsoft-cve",
+                      publishedAt: "2026-09-01T09:30:00Z",
+                    },
+                  ]
                 : []),
               {
                 title: "Fixture operations note",
@@ -98,7 +123,7 @@ const assert = require("node:assert/strict");
         body: fs.readFileSync("index.html", "utf8"),
       });
     });
-    await page.goto("http://beacon.test/");
+    await page.goto("http://beacon.test/newsroom");
     await page.waitForFunction(
       () =>
         document.querySelector(".front-page-story h2")?.textContent === "Fixture cloud posture issue",
@@ -213,6 +238,8 @@ const assert = require("node:assert/strict");
       "rgb(88, 224, 141)",
     );
     assert.equal(await page.locator('[data-topic="microsoft"]').count(), 1);
+    includeMicrosoftLeaks = true;
+    await page.evaluate(() => loadNews());
     await page.locator('[data-topic="microsoft"]').click();
     await page.waitForFunction(() =>
       getComputedStyle(document.querySelector('[data-topic="microsoft"]')).color === "rgb(96, 165, 250)",
@@ -226,6 +253,17 @@ const assert = require("node:assert/strict");
       "Fixture Entra update",
       "Fixture admin center update",
     ]);
+    assert.doesNotMatch(await page.locator("#feed").textContent(), /\bCVE\b|MSRC Security Update Guide/i);
+    assert.ok(
+      await page.evaluate(() => {
+        const lead = document.querySelector("#feed > .story");
+        const next = document.querySelector("#feed .feed-column .story");
+        if (!lead || !next) return false;
+        const leadRect = lead.getBoundingClientRect();
+        const nextRect = next.getBoundingClientRect();
+        return nextRect.top - leadRect.bottom >= 24;
+      }),
+    );
     assert.equal(await page.locator("#message-center").count(), 0);
     assert.equal(await page.locator("#message-center-link").count(), 0);
     assert.equal(await page.locator("#microsoft-filter").isVisible(), true);
@@ -242,6 +280,8 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator(".story").count(), 1);
     assert.equal(await page.locator(".story h2").textContent(), "Fixture admin center update");
     await page.locator('[data-microsoft-filter="all"]').click();
+    includeMicrosoftLeaks = false;
+    await page.evaluate(() => loadNews());
     await page.locator('[data-topic="incidents"]').click();
     assert.equal(await page.locator("#empty").isVisible(), true);
     await page.locator("#reset").click();
