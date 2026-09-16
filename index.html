@@ -9,7 +9,7 @@
     />
     <title>New Frontier Security — Newsroom</title>
     <link rel="stylesheet" href="/assets/site.css" />
-    <script src="/assets/site.js" defer></script>
+    <script src="/assets/site.js"></script>
     <style>
       :root {
         color-scheme: dark;
@@ -20,7 +20,6 @@
         --muted: #a1a1a1;
         --line: #2a2a2a;
         --pink: #edb3c7;
-        --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
         --serif: Georgia, "Times New Roman", serif;
       }
       * {
@@ -134,7 +133,7 @@
         margin-top: 22px;
       }
       .masthead-caption p {
-        color: #b5b5b5;
+        color: var(--muted);
         margin: 0;
         font-size: 15px;
       }
@@ -156,7 +155,7 @@
       }
       .sidebar-label {
         margin: 0 12px 18px;
-        color: #f1f1f1;
+        color: var(--ink);
       }
       .front-page-nav {
         display: flex;
@@ -169,14 +168,14 @@
         border: 1px solid var(--line);
         border-radius: 7px;
         background: transparent;
-        color: #f1f1f1;
+        color: var(--ink);
         text-align: left;
       }
       .front-page-nav:hover,
       .front-page-nav[aria-pressed="true"] {
         border-color: #555;
-        background: #1b1b1b;
-        color: white;
+        background: var(--panel);
+        color: var(--ink);
       }
       .front-page-nav svg {
         width: 18px;
@@ -205,16 +204,16 @@
         text-align: left;
         border: 0;
         border-radius: 7px;
-        color: #aaa;
+        color: var(--muted);
         background: transparent;
         font-size: 13px;
       }
       .category:hover {
-        background: #1b1b1b;
-        color: white;
+        background: var(--panel);
+        color: var(--ink);
       }
       .category[aria-pressed="true"] {
-        background: color-mix(in srgb, var(--topic-color) 13%, #202020);
+        background: color-mix(in srgb, var(--topic-color) 13%, var(--panel));
         color: var(--topic-color);
       }
       .content {
@@ -229,9 +228,9 @@
       }
       h1 {
         font-size: clamp(30px, 3vw, 42px);
-        font-weight: 400;
-        line-height: 1.15;
-        letter-spacing: -1.5px;
+        font-weight: 800;
+        line-height: 1.18;
+        letter-spacing: 0;
         margin: 12px 0;
       }
       .description {
@@ -256,7 +255,7 @@
       }
       .microsoft-filter button:hover {
         border-color: #60a5fa;
-        color: white;
+        color: var(--ink);
       }
       .microsoft-filter button[aria-pressed="true"] {
         border-color: #60a5fa;
@@ -289,12 +288,12 @@
         min-width: 0;
         padding: 12px 0;
         background: transparent;
-        color: white;
+        color: var(--ink);
         border: 0;
         font-size: 14px;
       }
       input::placeholder {
-        color: #929292;
+        color: var(--muted);
       }
       .clear {
         min-height: 44px;
@@ -305,7 +304,7 @@
         font-size: 12px;
       }
       .clear:hover {
-        color: white;
+        color: var(--ink);
       }
       .feed {
         display: grid;
@@ -345,7 +344,7 @@
         display: flex;
         gap: 12px;
         flex-wrap: wrap;
-        font-size: 11px;
+        font-size: 13px;
         color: var(--muted);
       }
       .topic {
@@ -381,23 +380,22 @@
       }
       .story h2 {
         font-size: 24px;
-        line-height: 1.3;
-        letter-spacing: -0.65px;
-        font-weight: 400;
+        line-height: 1.18;
+        letter-spacing: -0.025em;
+        font-weight: 750;
         margin: 16px 0 12px;
       }
       #feed > .story:first-child h2 {
         font-size: clamp(27px, 2.6vw, 36px);
-        letter-spacing: -1px;
       }
       .story h2 a:hover,
       .story h2 a:focus-visible {
         color: var(--topic-color);
       }
       .story p {
-        font-size: 14px;
-        color: var(--muted);
-        line-height: 1.8;
+        font-size: 16px;
+        color: var(--body);
+        line-height: 1.6;
         margin: 0;
       }
       .story-footer {
@@ -407,11 +405,12 @@
         align-items: center;
         gap: 12px;
         margin-top: 24px;
-        color: #aaa;
-        font-size: 11px;
+        color: var(--muted);
+        font-size: 13px;
       }
       .story-footer a {
-        color: #dedede;
+        color: var(--body);
+        font-size: 14px;
         padding: 8px 0;
       }
       .story-footer a:hover {
@@ -440,7 +439,7 @@
       }
       .reset {
         display: inline-block;
-        background: #202020;
+        background: var(--panel);
         border: 1px solid #393939;
         border-radius: 7px;
         padding: 12px 18px;
@@ -448,7 +447,7 @@
         min-height: 44px;
       }
       .reset:hover {
-        background: #2b2b2b;
+        background: var(--hover);
       }
       #load-more {
         margin-top: 28px;
@@ -467,7 +466,7 @@
       }
       .feed-note {
         margin: 30px 0 10px;
-        color: #949494;
+        color: var(--muted);
         font-size: 11px;
         overflow-wrap: anywhere;
       }
@@ -587,6 +586,7 @@
       .front-page-heading h1 {
         margin: 10px 0 0;
         font-family: var(--serif);
+        font-weight: 400;
         font-size: clamp(36px, 5vw, 64px);
         letter-spacing: 0;
       }
@@ -614,13 +614,6 @@
         min-width: 0;
         padding: 24px 0;
         border-bottom: 1px solid var(--line);
-        opacity: 0;
-        transform: translateY(14px);
-        transition: opacity 0.5s ease, transform 0.5s ease;
-      }
-      .front-page-story.is-visible {
-        opacity: 1;
-        transform: translateY(0);
       }
       #front-page-feed > .front-page-story:first-child {
         grid-column: 1 / -1;
@@ -632,8 +625,9 @@
       .front-page-story h2 {
         margin: 0 0 10px;
         font-size: 25px;
-        font-weight: 400;
-        line-height: 1.2;
+        font-weight: 750;
+        line-height: 1.18;
+        letter-spacing: -0.025em;
       }
       #front-page-feed > .front-page-story:first-child h2 {
         max-width: 900px;
@@ -646,9 +640,9 @@
       .front-page-story p {
         max-width: 760px;
         margin: 0;
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.7;
+        color: var(--body);
+        font-size: 16px;
+        line-height: 1.6;
       }
       .front-page-story .story-footer {
         margin-top: 14px;
@@ -682,15 +676,12 @@
       }
       .footer {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         gap: 24px;
         border-top: 1px solid var(--line);
         padding: 26px 0 36px;
         color: var(--muted);
         font-size: 12px;
-      }
-      .footer span:first-child {
-        color: white;
       }
       @media (max-width: 1000px) {
         .shell {
@@ -820,11 +811,6 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .front-page-story {
-          opacity: 1;
-          transform: none;
-          transition: none;
-        }
         .front-page-stars {
           transform: none;
           animation: none;
@@ -851,7 +837,7 @@
             height="423"
             alt="New Frontier Security"
         /></a>
-        <details class="site-menu"><summary>Newsroom<span aria-hidden="true">☰</span></summary><nav aria-label="Main navigation"><a href="/">Blog</a><a href="/newsroom" aria-current="page">Newsroom</a><a href="/tools">Tools</a></nav></details>
+        <div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation"><a href="/">Blog</a><a href="/newsroom" aria-current="page">Newsroom</a><a href="/tools">Tools</a></nav><button class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation"><a href="/">Blog</a><a href="/newsroom" aria-current="page">Newsroom</a><a href="/tools">Tools</a></nav></details></div>
       </header>
       <section class="masthead" aria-label="Newsroom">
         <img
@@ -863,7 +849,7 @@
           fetchpriority="high"
         />
         <div class="masthead-caption">
-          <p>Security news. A wider perspective.</p>
+          <p>Curated and Categorized InfoSec News.</p>
         </div>
       </section>
       <div class="workspace">
@@ -998,8 +984,36 @@
         </p>
       </section>
       <footer class="footer mono">
-        <span>New Frontier Security</span
-        ><span>RSS edition · Original reporting linked</span>
+        <div class="social-links" aria-label="Social links coming soon">
+          <span
+            class="social-placeholder"
+            role="img"
+            aria-label="X placeholder"
+            title="X"
+            ><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 4l16 16M20 4 4 20" /></svg
+          ></span>
+          <span
+            class="social-placeholder"
+            role="img"
+            aria-label="Bluesky placeholder"
+            title="Bluesky"
+            ><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M7.3 4.5c1.8 1.4 3.8 4.2 4.7 5.8.9-1.6 2.9-4.4 4.7-5.8 1.3-1 3.3-1.8 3.3.7 0 .5-.3 4.2-.5 4.8-.7 2.5-3.2 3.1-5.4 2.7 3.9.7 4.9 3 2.8 5.3-3.9 4.1-5.7-1-6.1-2.3-.4 1.3-2.2 6.4-6.1 2.3-2.1-2.2-1.1-4.6 2.8-5.3-2.2.4-4.7-.2-5.4-2.7C4.3 9.4 4 5.7 4 5.2c0-2.5 2-1.7 3.3-.7z"
+              /></svg
+          ></span>
+          <span
+            class="social-placeholder"
+            role="img"
+            aria-label="Medium placeholder"
+            title="Medium"
+            ><svg viewBox="0 0 24 24" aria-hidden="true">
+              <ellipse cx="7.5" cy="12" rx="4.5" ry="6" />
+              <ellipse cx="15" cy="12" rx="2.5" ry="5.5" />
+              <ellipse cx="19.5" cy="12" rx="1.2" ry="5" /></svg
+          ></span>
+        </div>
       </footer>
     </div>
     <script>
@@ -1116,18 +1130,6 @@
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/></svg><span>Message Center</span>';
         return badge;
       }
-      const frontPageObserver = "IntersectionObserver" in window
-        ? new IntersectionObserver(
-            (entries) =>
-              entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                  entry.target.classList.add("is-visible");
-                  frontPageObserver.unobserve(entry.target);
-                }
-              }),
-            { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
-          )
-        : null;
       let frontPageScrollFrame = 0;
       function updateFrontPageParallax() {
         const distance = frontPageMode ? Math.min(window.scrollY, 900) : 0;
@@ -1224,14 +1226,16 @@
           read.href = s.url;
           read.target = "_blank";
           read.rel = "noopener noreferrer";
-          read.textContent = "Read original ↗";
+          read.textContent = "Read original ";
+          const arrow = document.createElement("span");
+          arrow.className = "arrow-icon";
+          arrow.setAttribute("aria-hidden", "true");
+          read.append(arrow);
           read.setAttribute("aria-label", "Read " + s.title + " at " + s.source);
           footer.append(source, read);
           item.append(meta, heading, summary, footer);
           if (index === 0) frontPageFeed.append(item);
           else columns[(index - 1) % 2].append(item);
-          if (frontPageObserver) frontPageObserver.observe(item);
-          else item.classList.add("is-visible");
         });
         if (headlines.length > 1) {
           columns.forEach((column) => frontPageFeed.append(column));
@@ -1346,7 +1350,11 @@
           read.href = s.url;
           read.target = "_blank";
           read.rel = "noopener noreferrer";
-          read.textContent = "Read original ↗";
+          read.textContent = "Read original ";
+          const arrow = document.createElement("span");
+          arrow.className = "arrow-icon";
+          arrow.setAttribute("aria-hidden", "true");
+          read.append(arrow);
           read.setAttribute(
             "aria-label",
             "Read " + s.title + " at " + s.source,

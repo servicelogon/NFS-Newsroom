@@ -42,6 +42,14 @@ test('Markdown escapes raw HTML and refuses executable links', async t => {
   assert.doesNotMatch(post.html, /<script|<img|href="javascript:/);
   assert.match(post.html, /&lt;script&gt;/);
 });
+test('Markdown code fences are syntax highlighted without exposing source HTML', async t => {
+  const dir = await directory(t);
+  await writeFile(join(dir, 'shell.md'), source('Shell', '2026-09-14', '', '```bash\nprintf "hello"\n```'));
+  const [post] = await loadPosts(dir);
+  assert.match(post.html, /<pre class="hljs"><code class="hljs language-bash">/);
+  assert.match(post.html, /hljs-string/);
+  assert.doesNotMatch(post.html, /<script/);
+});
 test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary files stay private', async t => {
   const dir = await directory(t);
   await writeFile(join(dir, 'published.md'), source('Published'));
@@ -50,7 +58,7 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/assets/site.css', '/assets/site.js', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg']) {
+  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/assets/site.css', '/assets/site.js', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp']) {
     const response = await fetch(base + path);
     assert.equal(response.status, 200, path);
   }

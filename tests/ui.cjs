@@ -11,6 +11,12 @@ const assert = require("node:assert/strict");
     let includeMicrosoftLeaks = false;
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
+    await page.route("https://example.com/advisory.jpg", r =>
+      r.fulfill({
+        contentType: "image/png",
+        body: fs.readFileSync("assets/newsroom-logo.png"),
+      }),
+    );
     await page.route("http://beacon.test/**", async (r) => {
       const assetPath = new URL(r.request().url()).pathname;
       if (["/assets/site.css", "/assets/site.js"].includes(assetPath))
@@ -21,11 +27,6 @@ const assert = require("node:assert/strict");
           body: fs.readFileSync("assets/new-frontier-security-logo.png"),
         });
       if (r.request().url().endsWith("/assets/newsroom-logo.png"))
-        return r.fulfill({
-          contentType: "image/png",
-          body: fs.readFileSync("assets/newsroom-logo.png"),
-        });
-      if (r.request().url() === "https://example.com/advisory.jpg")
         return r.fulfill({
           contentType: "image/png",
           body: fs.readFileSync("assets/newsroom-logo.png"),
@@ -318,6 +319,21 @@ const assert = require("node:assert/strict");
         true,
       );
       assert.equal(await page.title(), "New Frontier Security — Newsroom");
+      if (width > 700) {
+        assert.equal(await page.locator(".desktop-nav").isVisible(), true);
+        assert.equal(await page.locator(".desktop-nav a").count(), 3);
+        assert.equal(await page.locator(".desktop-nav [aria-current='page']").count(), 1);
+        assert.equal(await page.locator(".site-menu").isVisible(), false);
+      } else {
+        assert.equal(await page.locator(".desktop-nav").isVisible(), false);
+        assert.equal(await page.locator(".site-menu").isVisible(), true);
+        await page.locator(".site-menu summary").click();
+        assert.equal(
+          await page.getByRole("navigation", { name: "Mobile navigation" }).isVisible(),
+          true,
+        );
+        await page.keyboard.press("Escape");
+      }
       assert.equal(
         await page.evaluate(() => getComputedStyle(document.body).backgroundColor),
         "rgb(21, 21, 21)",
@@ -330,6 +346,8 @@ const assert = require("node:assert/strict");
         ),
         true,
       );
+      assert.equal(await page.locator(".footer .social-placeholder").count(), 3);
+      assert.equal(await page.locator(".footer").getByText("RSS edition").count(), 0);
     }
     large = true;
     await page.reload();
