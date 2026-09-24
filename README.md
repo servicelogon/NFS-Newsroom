@@ -16,7 +16,7 @@ npm start
 
 Use `PORT=3001 npm start` for another port. The server binds to all interfaces for local and LAN preview, but it is intended as a private/local tool. Open the UI through the server, not as a `file://` page.
 
-Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected; Message Center items come from a community RSS preview feed inside the Microsoft tab.
+Railway can deploy from the `Dockerfile` and use `GET /health` as a healthcheck. Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected; Message Center items come from a community RSS preview feed inside the Microsoft tab.
 
 ## Publish a blog post
 
@@ -129,7 +129,7 @@ Do not expose tenant messages through the public RSS API or cache.
 - `.cache/news.json` persists successful source articles and failures with a five-minute TTL, including error results to avoid hammering blocked publishers.
 - Failed refreshes preserve source-specific stale data indefinitely and visibly mark the source stale.
 - Cache writes are atomic; absent or invalid cache JSON causes a cold start.
-- Only the documented page routes, `/api/news`, and explicitly mapped stylesheet, script, and image assets are served. No arbitrary directories, cache files, source files, tests, backup HTML, or repository internals are public.
+- Only the documented page routes, `/api/news`, `/health`, and explicitly mapped stylesheet, script, and image assets are served. No arbitrary directories, cache files, source files, tests, backup HTML, or repository internals are public.
 - Feed strings are plain text, not trusted markup. Frontend consumers should render them with text APIs, not `innerHTML`.
 
 This project is intended for a single local process or private preview, not a hardened public deployment. No CSP is added that would block the current inline frontend scripts/styles.

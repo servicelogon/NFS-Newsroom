@@ -45,6 +45,21 @@ test('upstream failures, malformed XML, size limits, timeout and redirects are b
     assert.ok(result.sources.every(s => s.status === 'error' && s.error), mode);
   }
 });
+test('health check is public JSON and does not fetch news', async t => {
+  let calls = 0;
+  const server = backend.createAppServer({ service: { getNews: async () => { calls++; return { articles: [], sources: [] }; } } });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const health = await fetch(`${base}/health`);
+  assert.equal(health.status, 200);
+  assert.match(health.headers.get('content-type'), /application\/json/);
+  assert.deepEqual(await health.json(), { ok: true });
+  const head = await fetch(`${base}/health`, { method: 'HEAD' });
+  assert.equal(head.status, 200);
+  assert.equal(await head.text(), '');
+  assert.equal(calls, 0);
+});
 test('HTTP serves app and API only, rejects arbitrary files and user feed URLs', async t => {
   assert.equal(typeof backend.createAppServer, 'function');
   const service = await setup(t);

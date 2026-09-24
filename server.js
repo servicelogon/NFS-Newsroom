@@ -154,6 +154,9 @@ export function createAppServer({ service = createNewsService(), postsDirectory 
     try {
       if (!['GET', 'HEAD'].includes(req.method)) { res.setHeader('Allow', 'GET, HEAD'); return send(405, 'Method not allowed'); }
       const url = new URL(req.url, 'http://localhost');
+      if (url.pathname === '/health') {
+        return send(200, JSON.stringify({ ok: true }), 'application/json; charset=utf-8');
+      }
       if (url.pathname === '/api/news') {
         if (url.search) return send(400, 'Query parameters are not supported');
         return send(200, JSON.stringify(await service.getNews()), 'application/json; charset=utf-8');
