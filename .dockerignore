@@ -1,0 +1,16 @@
+node_modules
+.cache
+.git
+.gitignore
+test
+tests
+test-results
+playwright-report
+index.previous.html
+index.terminal-backup.html
+README.md
+SOURCE-COVERAGE.md
+MESSAGE-CENTER.md
+.DS_Store
+.env
+.env.*
