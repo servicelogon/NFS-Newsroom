@@ -70,13 +70,6 @@
 .explore-strip p { margin:0 auto 0 0; font:700 18px/1.4 var(--sans); color:var(--ink); }
 .explore-strip a { font-size:14px; }
 .site-footer { display:flex; justify-content:flex-end; gap:20px; border-top:1px solid var(--line); padding:25px 0 32px; color:var(--muted); font-size:12px; }
-.social-links { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-left:auto; }
-.social-placeholder { display:grid; place-items:center; width:40px; height:40px; border:1px solid var(--line); border-radius:50%; color:var(--muted); background:transparent; }
-.social-placeholder svg { width:18px; height:18px; overflow:visible; }
-.social-placeholder svg path { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-.social-placeholder svg ellipse { fill:currentColor; }
-.social-placeholder:nth-child(2) svg path,.social-placeholder:nth-child(3) svg path { fill:currentColor; stroke:none; }
-.social-placeholder:hover { color:var(--ink); border-color:color-mix(in srgb,var(--pink) 62%,var(--line)); background:var(--hover); }
 .more-posts { display:grid; gap:24px; padding-top:24px; }
 .post-tile { margin:0; }
 .post-page { max-width:920px; margin:auto; padding:36px 0 60px; }

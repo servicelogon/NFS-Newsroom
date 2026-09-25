@@ -346,7 +346,7 @@ const assert = require("node:assert/strict");
         ),
         true,
       );
-      assert.equal(await page.locator(".footer .social-placeholder").count(), 3);
+      assert.equal(await page.locator(".footer .social-placeholder").count(), 0);
       assert.equal(await page.locator(".footer").getByText("RSS edition").count(), 0);
     }
     large = true;
