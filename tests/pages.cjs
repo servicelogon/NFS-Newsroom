@@ -92,6 +92,7 @@ const path = require('node:path');
     assert.ok(await page.locator('.command-palette-group', { hasText: 'Posts' }).isVisible());
     await page.keyboard.press('Enter');
     await page.waitForURL(/\/blog\/entra-default-settings-that-you-should-change$/);
+    await page.setViewportSize({width:320, height:1000});
     await page.goto(base);
     await page.getByRole('button', {name:'Switch to light mode'}).click();
     await page.goto(base + '/tools');
