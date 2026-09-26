@@ -74,6 +74,10 @@ test('HTTP serves app and API only, rejects arbitrary files and user feed URLs',
   const logo = await fetch(`${base}/assets/newsroom-logo.png`);
   assert.equal(logo.status, 200);
   assert.match(logo.headers.get('content-type'), /image\/png/);
+  const states = await fetch(`${base}/assets/newsroom-states.js`);
+  assert.equal(states.status, 200);
+  assert.match(states.headers.get('content-type'), /javascript/);
+  assert.match(await states.text(), /describeEmptyState/);
   const api = await fetch(`${base}/api/news`);
   assert.equal(api.status, 200);
   assert.equal(api.headers.get('cache-control'), 'public, max-age=60, stale-while-revalidate=300');

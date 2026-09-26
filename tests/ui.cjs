@@ -9,6 +9,8 @@ const assert = require("node:assert/strict");
     let stale = false;
     let large = false;
     let includeMicrosoftLeaks = false;
+    let outage = false;
+    let holdNews = null;
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route("https://example.com/advisory.jpg", r =>
@@ -19,8 +21,11 @@ const assert = require("node:assert/strict");
     );
     await page.route("http://beacon.test/**", async (r) => {
       const assetPath = new URL(r.request().url()).pathname;
-      if (["/assets/site.css", "/assets/site.js"].includes(assetPath))
-        return r.fulfill({ contentType: assetPath.endsWith(".css") ? "text/css" : "text/javascript", body: fs.readFileSync(assetPath.slice(1)) });
+      if (["/assets/site.css", "/assets/site.js", "/assets/newsroom-states.js"].includes(assetPath))
+        return r.fulfill({
+          contentType: assetPath.endsWith(".css") ? "text/css" : "text/javascript",
+          body: fs.readFileSync(assetPath === "/assets/newsroom-states.js" ? "newsroom-states.js" : assetPath.slice(1)),
+        });
       if (r.request().url().endsWith("/assets/new-frontier-security-logo.png"))
         return r.fulfill({
           contentType: "image/png",
@@ -32,7 +37,19 @@ const assert = require("node:assert/strict");
           body: fs.readFileSync("assets/newsroom-logo.png"),
         });
       if (r.request().url().endsWith("/api/news")) {
+        if (holdNews) await holdNews;
         if (fail) return r.fulfill({ status: 503, body: "unavailable" });
+        if (outage)
+          return r.fulfill({
+            json: {
+              articles: [],
+              sources: [
+                { name: "Krebs on Security", status: "error", error: "HTTP 503" },
+                { name: "BleepingComputer", status: "error", error: "timeout" },
+              ],
+              updatedAt: null,
+            },
+          });
         return r.fulfill({
           json: {
             articles: [
@@ -124,13 +141,30 @@ const assert = require("node:assert/strict");
         body: fs.readFileSync("index.html", "utf8"),
       });
     });
+    let releaseNews;
+    holdNews = new Promise((resolve) => {
+      releaseNews = resolve;
+    });
     await page.goto("http://beacon.test/newsroom");
+    await page.waitForFunction(
+      () => document.querySelectorAll(".skeleton-story").length >= 4,
+      {},
+      { timeout: 3000 },
+    );
+    assert.equal(await page.locator(".skeleton-story").count(), 4);
+    assert.equal(await page.locator("#front-page-feed").getAttribute("aria-busy"), "true");
+    assert.equal(await page.locator("#front-page-empty").isVisible(), false);
+    assert.equal(await page.locator("#front-page-status").textContent(), "Loading headlines…");
+    releaseNews();
+    holdNews = null;
     await page.waitForFunction(
       () =>
         document.querySelector(".front-page-story h2")?.textContent === "Fixture cloud posture issue",
       {},
       { timeout: 3000 },
     );
+    assert.equal(await page.locator(".skeleton-story").count(), 0);
+    assert.equal(await page.locator("#front-page-feed").getAttribute("aria-busy"), "false");
     assert.equal(await page.locator("#front-page-link span").textContent(), "Front Page");
     assert.deepEqual(
       await page.locator(".category span").allTextContents(),
@@ -285,6 +319,9 @@ const assert = require("node:assert/strict");
     await page.evaluate(() => loadNews());
     await page.locator('[data-topic="incidents"]').click();
     assert.equal(await page.locator("#empty").isVisible(), true);
+    assert.equal(await page.locator("#empty-retry").isVisible(), false);
+    assert.equal(await page.locator("#reset").isVisible(), true);
+    assert.match(await page.locator("#empty [data-empty-copy]").textContent(), /topic|search/i);
     await page.locator("#reset").click();
     await page.locator("#search").fill("no-match-xyz");
     assert.equal(await page.locator(".story").count(), 0);
@@ -371,6 +408,18 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator("#source-status").count(), 0);
     assert.equal(await page.locator("#feed-status").count(), 0);
     assert.equal(await page.locator("#retry").count(), 0);
+    outage = true;
+    await page.evaluate(() => loadNews());
+    await page.waitForFunction(() => document.querySelector("#empty") && !document.querySelector("#empty").hidden);
+    assert.equal(await page.locator(".story").count(), 0);
+    assert.equal(await page.locator("#empty").isVisible(), true);
+    assert.equal(await page.locator("#empty-retry").isVisible(), true);
+    assert.equal(await page.locator("#reset").isVisible(), false);
+    assert.match(await page.locator("#empty [data-empty-copy]").textContent(), /Krebs on Security and BleepingComputer/);
+    outage = false;
+    await page.locator("#empty-retry").click();
+    await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
+    assert.equal(await page.locator("#empty").isVisible(), false);
     stale = true;
     await page.evaluate(() => loadNews());
     await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
@@ -381,11 +430,21 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator(".story").count(), 5);
     await page.reload();
     await page.waitForFunction(
-      () => document.querySelectorAll(".story").length === 0,
+      () => document.querySelector("#front-page-empty") && !document.querySelector("#front-page-empty").hidden,
       {},
       { timeout: 3000 },
     );
     assert.equal(await page.locator(".story").count(), 0);
+    assert.equal(await page.locator(".front-page-story").count(), 0);
+    assert.equal(await page.locator("#front-page-empty").isVisible(), true);
+    assert.equal(await page.locator("#front-page-retry").isVisible(), true);
+    assert.match(await page.locator("#front-page-empty").textContent(), /HTTP 503/);
+    fail = false;
+    await page.locator("#front-page-retry").click();
+    await page.waitForFunction(
+      () => document.querySelector(".front-page-story h2")?.textContent === "Fixture cloud posture issue",
+    );
+    assert.equal(await page.locator("#front-page-empty").isVisible(), false);
     assert.deepEqual(errors, []);
     console.log(
       "PASS live rendering, source link, category counts, empty state, failure without invented stories",
