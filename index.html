@@ -905,6 +905,15 @@
         <div class="masthead-caption">
           <p>Curated and Categorized InfoSec News.</p>
         </div>
+        <div
+          id="threat-weather"
+          class="threat-weather"
+          hidden
+          aria-label="Threat weather"
+        >
+          <p class="threat-weather-lead" id="threat-weather-lead" hidden></p>
+          <div class="threat-weather-strip" id="threat-weather-strip"></div>
+        </div>
       </section>
       <div class="workspace">
         <aside class="sidebar">
@@ -1055,6 +1064,11 @@
     </div>
     <script type="module">
       import { describeEmptyState } from "/assets/newsroom-states.js";
+      import {
+        countLast24h,
+        describeThreatWeather,
+        shouldShowThreatWeather,
+      } from "/assets/threat-weather.js";
       const topicColors = {
         all: "#58e08d",
         cloud: "#f59e0b",
@@ -1129,7 +1143,10 @@
         frontPageDate = document.querySelector("#front-page-date"),
         frontPageEmpty = document.querySelector("#front-page-empty"),
         frontPageLink = document.querySelector("#front-page-link"),
-        microsoftFilterWrap = document.querySelector("#microsoft-filter");
+        microsoftFilterWrap = document.querySelector("#microsoft-filter"),
+        threatWeather = document.querySelector("#threat-weather"),
+        threatWeatherLead = document.querySelector("#threat-weather-lead"),
+        threatWeatherStrip = document.querySelector("#threat-weather-strip");
       const microsoftNewsSources = new Set([
         "Microsoft Security Blog",
         "Defender for Cloud Blog",
@@ -1162,6 +1179,73 @@
         return isMessageCenterStory(story)
           ? story.title.replace(/^MC\d+\s*[–:-]\s*/i, "")
           : story.title;
+      }
+      function selectTopic(topicId) {
+        frontPageMode = false;
+        updateFrontPageParallax();
+        frontPage.hidden = true;
+        briefingView.hidden = false;
+        frontPageLink.setAttribute("aria-pressed", "false");
+        selected = topicId;
+        if (selected !== "microsoft") microsoftFilter = "all";
+        render();
+      }
+      function renderThreatWeather() {
+        const mode = shouldShowThreatWeather({
+          loading,
+          articleCount: stories.length,
+        });
+        threatWeather.hidden = mode === "hidden";
+        threatWeather.dataset.loading = mode === "placeholder" ? "true" : "false";
+        threatWeather.setAttribute("aria-busy", String(mode === "placeholder"));
+        if (mode === "hidden") {
+          threatWeatherLead.hidden = true;
+          threatWeatherLead.textContent = "";
+          threatWeatherStrip.replaceChildren();
+          return;
+        }
+        if (mode === "placeholder") {
+          threatWeatherLead.hidden = true;
+          threatWeatherLead.textContent = "";
+          const placeholder = document.createElement("div");
+          placeholder.className = "threat-weather-placeholder";
+          placeholder.setAttribute("aria-hidden", "true");
+          threatWeatherStrip.replaceChildren(placeholder);
+          return;
+        }
+        const { sentence, topics: weatherTopics } = describeThreatWeather(
+          countLast24h(stories, { isMicrosoftStory }),
+        );
+        threatWeatherLead.hidden = false;
+        threatWeatherLead.textContent = sentence;
+        threatWeatherStrip.replaceChildren();
+        weatherTopics.forEach((topic) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "threat-weather-chip";
+          chip.dataset.topic = topic.id;
+          chip.dataset.band = topic.band;
+          chip.setAttribute(
+            "aria-pressed",
+            String(!frontPageMode && selected === topic.id),
+          );
+          chip.setAttribute(
+            "aria-label",
+            `${topic.name}, ${topic.count} ${topic.band}`,
+          );
+          const label = document.createElement("span");
+          label.className = "threat-weather-chip-label";
+          label.textContent = topic.name;
+          const count = document.createElement("span");
+          count.className = "threat-weather-chip-count";
+          count.textContent = String(topic.count);
+          const band = document.createElement("span");
+          band.className = "threat-weather-chip-band";
+          band.textContent = topic.band;
+          chip.append(label, count, band);
+          chip.addEventListener("click", () => selectTopic(topic.id));
+          threatWeatherStrip.append(chip);
+        });
       }
       function applyEmptyState(root, state) {
         if (!root) return;
@@ -1385,6 +1469,7 @@
             String(!frontPageMode && b.dataset.topic === selected),
           );
         });
+        renderThreatWeather();
         if (frontPageMode) {
           renderFrontPage();
           return;
@@ -1501,14 +1586,7 @@
         name.textContent = t.name;
         b.append(name);
         b.addEventListener("click", () => {
-          frontPageMode = false;
-          updateFrontPageParallax();
-          frontPage.hidden = true;
-          briefingView.hidden = false;
-          frontPageLink.setAttribute("aria-pressed", "false");
-          selected = t.id;
-          if (selected !== "microsoft") microsoftFilter = "all";
-          render();
+          selectTopic(t.id);
         });
         document.querySelector("#categories").append(b);
       });
