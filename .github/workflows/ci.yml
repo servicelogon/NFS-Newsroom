@@ -1,0 +1,35 @@
+# PR: npm test (test/), npm run test:ui (tests/), npm run test:live (scripts/check-feeds.js)
+# Nightly 06:15 UTC: npm run test:live only, to flag dead RSS feeds
+name: CI
+
+on:
+  pull_request:
+  schedule:
+    - cron: "15 6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ${{ github.event_name == 'schedule' && 'Nightly feed check' || 'PR checks' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Backend tests
+        if: github.event_name == 'pull_request'
+        run: npm test
+      - name: Install Playwright Chromium
+        if: github.event_name == 'pull_request'
+        run: npx playwright install --with-deps chromium
+      - name: UI tests
+        if: github.event_name == 'pull_request'
+        run: npm run test:ui
+      - name: Live feed check
+        run: npm run test:live
