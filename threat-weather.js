@@ -22,7 +22,7 @@ const ICON_PATHS = {
 
 export function weatherIconSvg(band) {
   const paths = ICON_PATHS[band] || ICON_PATHS.clear;
-  return `<svg class="threat-weather-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+  return `<svg class="threat-weather-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 
 const STANDARD_TOPIC_IDS = new Set(
