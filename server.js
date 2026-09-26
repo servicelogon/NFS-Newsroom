@@ -3,13 +3,15 @@ import { networkInterfaces } from 'node:os';
 import { resolve } from 'node:path';
 import Parser from 'rss-parser';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
 import { FEEDS } from './sources.js';
-import { loadPosts, blogPage, postPage, toolsPage, notFoundPage } from './blog.js';
+import { loadPosts, blogPage, postPage, tagPage, tagNotFoundPage, toolsPage, notFoundPage, seoHead, sitemapXml, robotsTxt, tagSlug, SITE_ORIGIN, normalizeOrigin } from './blog.js';
 export { FEEDS };
 const parser = new Parser();
 function text(value = '') {
@@ -142,37 +144,112 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
   } };
 }
 // Only these exact paths are public. Add reviewed assets explicitly; never expose a directory.
-const STATIC = new Map([['/newsroom', ['index.html', 'text/html; charset=utf-8']], ['/newsroom/', ['index.html', 'text/html; charset=utf-8']], ['/assets/site.css', ['assets/site.css', 'text/css; charset=utf-8']], ['/assets/site.js', ['assets/site.js', 'text/javascript; charset=utf-8']], ['/assets/newsroom-logo.png', ['assets/newsroom-logo.png', 'image/png']], ['/assets/new-frontier-security-logo.png', ['assets/new-frontier-security-logo.png', 'image/png']], ['/assets/blog/entra-default-settings-header.jpg', ['assets/blog/entra-default-settings-header.jpg', 'image/jpeg']], ['/assets/blog/entra-block-legacy-authentication.jpg', ['assets/blog/entra-block-legacy-authentication.jpg', 'image/jpeg']], ['/assets/blog/entra-user-default-permissions.jpg', ['assets/blog/entra-user-default-permissions.jpg', 'image/jpeg']], ['/assets/blog/entra-user-consent-settings.jpg', ['assets/blog/entra-user-consent-settings.jpg', 'image/jpeg']], ['/assets/blog/evilginx-quickstart-header.webp', ['assets/blog/evilginx-quickstart-header.webp', 'image/webp']], ['/assets/blog/evilginx-start-console.webp', ['assets/blog/evilginx-start-console.webp', 'image/webp']], ['/assets/blog/evilginx-configure-phishlet.webp', ['assets/blog/evilginx-configure-phishlet.webp', 'image/webp']], ['/assets/blog/evilginx-enable-phishlet.webp', ['assets/blog/evilginx-enable-phishlet.webp', 'image/webp']], ['/assets/blog/evilginx-list-lures.webp', ['assets/blog/evilginx-list-lures.webp', 'image/webp']], ['/assets/blog/evilginx-create-lure.webp', ['assets/blog/evilginx-create-lure.webp', 'image/webp']], ['/assets/blog/evilginx-get-lure-url.webp', ['assets/blog/evilginx-get-lure-url.webp', 'image/webp']], ['/assets/blog/evilginx-login-page.webp', ['assets/blog/evilginx-login-page.webp', 'image/webp']], ['/assets/blog/evilginx-captured-session.webp', ['assets/blog/evilginx-captured-session.webp', 'image/webp']], ['/assets/blog/evilginx-session-token.webp', ['assets/blog/evilginx-session-token.webp', 'image/webp']], ['/assets/blog/entra-conditional-access-baselines-header.webp', ['assets/blog/entra-conditional-access-baselines-header.webp', 'image/webp']], ['/assets/blog/entra-conditional-access-policy-list.webp', ['assets/blog/entra-conditional-access-policy-list.webp', 'image/webp']]]);
-export function createAppServer({ service = createNewsService(), postsDirectory = join(ROOT, 'content/posts') } = {}) {
+const STATIC = new Map([['/assets/site.css', ['assets/site.css', 'text/css; charset=utf-8']], ['/assets/site.js', ['assets/site.js', 'text/javascript; charset=utf-8']], ['/assets/newsroom-logo.png', ['assets/newsroom-logo.png', 'image/png']], ['/assets/new-frontier-security-logo.png', ['assets/new-frontier-security-logo.png', 'image/png']], ['/assets/blog/entra-default-settings-header.jpg', ['assets/blog/entra-default-settings-header.jpg', 'image/jpeg']], ['/assets/blog/entra-block-legacy-authentication.jpg', ['assets/blog/entra-block-legacy-authentication.jpg', 'image/jpeg']], ['/assets/blog/entra-user-default-permissions.jpg', ['assets/blog/entra-user-default-permissions.jpg', 'image/jpeg']], ['/assets/blog/entra-user-consent-settings.jpg', ['assets/blog/entra-user-consent-settings.jpg', 'image/jpeg']], ['/assets/blog/evilginx-quickstart-header.webp', ['assets/blog/evilginx-quickstart-header.webp', 'image/webp']], ['/assets/blog/evilginx-start-console.webp', ['assets/blog/evilginx-start-console.webp', 'image/webp']], ['/assets/blog/evilginx-configure-phishlet.webp', ['assets/blog/evilginx-configure-phishlet.webp', 'image/webp']], ['/assets/blog/evilginx-enable-phishlet.webp', ['assets/blog/evilginx-enable-phishlet.webp', 'image/webp']], ['/assets/blog/evilginx-list-lures.webp', ['assets/blog/evilginx-list-lures.webp', 'image/webp']], ['/assets/blog/evilginx-create-lure.webp', ['assets/blog/evilginx-create-lure.webp', 'image/webp']], ['/assets/blog/evilginx-get-lure-url.webp', ['assets/blog/evilginx-get-lure-url.webp', 'image/webp']], ['/assets/blog/evilginx-login-page.webp', ['assets/blog/evilginx-login-page.webp', 'image/webp']], ['/assets/blog/evilginx-captured-session.webp', ['assets/blog/evilginx-captured-session.webp', 'image/webp']], ['/assets/blog/evilginx-session-token.webp', ['assets/blog/evilginx-session-token.webp', 'image/webp']], ['/assets/blog/entra-conditional-access-baselines-header.webp', ['assets/blog/entra-conditional-access-baselines-header.webp', 'image/webp']], ['/assets/blog/entra-conditional-access-policy-list.webp', ['assets/blog/entra-conditional-access-policy-list.webp', 'image/webp']]]);
+const ASSET_VERSIONS = new Map([...STATIC].filter(([urlPath]) => urlPath.startsWith('/assets/')).map(([urlPath, [file]]) => [urlPath, createHash('sha256').update(readFileSync(join(ROOT, file))).digest('hex').slice(0, 12)]));
+const NEWSROOM_TITLE = 'New Frontier Security — Newsroom';
+const NEWSROOM_DESCRIPTION = 'New Frontier Security — a considered view of cloud and identity security news. Browse cloud, identity, vulnerabilities, incidents, malware, and operations coverage.';
+const CACHE = {
+  error: 'no-store',
+  html: 'no-cache',
+  api: 'public, max-age=60, stale-while-revalidate=300',
+  assetImmutable: 'public, max-age=31536000, immutable',
+  assetShort: 'public, max-age=300',
+  meta: 'no-cache',
+};
+function versionedHtml(html) {
+  let out = String(html);
+  for (const assetPath of [...ASSET_VERSIONS.keys()].sort((a, b) => b.length - a.length)) out = out.replaceAll(assetPath, `${assetPath}?v=${ASSET_VERSIONS.get(assetPath)}`);
+  return out;
+}
+function chosenEncoding(header = '') {
+  const accept = String(header).toLowerCase();
+  const quality = name => {
+    const match = accept.match(new RegExp(`(?:^|,)\\s*${name}\\s*(?:;\\s*q=([0-9.]+))?(?=\\s*(?:,|$))`));
+    if (!match) return 0;
+    const q = match[1] === undefined ? 1 : Number(match[1]);
+    return Number.isFinite(q) ? q : 0;
+  };
+  const brotli = quality('br');
+  const gzip = quality('gzip');
+  const any = quality('\\*');
+  if (brotli > 0 && brotli >= gzip && brotli >= any) return 'br';
+  if (gzip > 0 && gzip >= any) return 'gzip';
+  if (any > 0) return 'gzip';
+  return null;
+}
+function encodeBody(acceptEncoding, body, type) {
+  const buffer = Buffer.isBuffer(body) ? body : Buffer.from(String(body));
+  const compressible = /^(?:text\/|application\/(?:javascript|json|xml|xhtml\+xml))/i.test(String(type).split(';')[0].trim());
+  if (!compressible || buffer.length < 128) return { body: buffer, encoding: null, vary: compressible };
+  const encoding = chosenEncoding(acceptEncoding);
+  if (encoding === 'br') return { body: brotliCompressSync(buffer), encoding: 'br', vary: true };
+  if (encoding === 'gzip') return { body: gzipSync(buffer), encoding: 'gzip', vary: true };
+  return { body: buffer, encoding: null, vary: true };
+}
+export function createAppServer({ service = createNewsService(), postsDirectory = join(ROOT, 'content/posts'), siteOrigin = SITE_ORIGIN } = {}) {
+  const origin = normalizeOrigin(siteOrigin);
   return createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    const send = (status, body, type = 'text/plain; charset=utf-8') => {
-      res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store' });
-      res.end(req.method === 'HEAD' ? undefined : body);
+    const send = (status, body, type = 'text/plain; charset=utf-8', cacheControl = CACHE.error) => {
+      const payload = String(type).startsWith('text/html') ? versionedHtml(body) : body;
+      const encoded = encodeBody(req.headers['accept-encoding'], payload, type);
+      const headers = { 'Content-Type': type, 'Cache-Control': cacheControl, 'Content-Length': encoded.body.length };
+      if (encoded.vary) headers.Vary = 'Accept-Encoding';
+      if (encoded.encoding) headers['Content-Encoding'] = encoded.encoding;
+      res.writeHead(status, headers);
+      res.end(req.method === 'HEAD' ? undefined : encoded.body);
     };
+    const html = (status, body) => send(status, body, 'text/html; charset=utf-8', status === 200 ? CACHE.html : CACHE.error);
     try {
       if (!['GET', 'HEAD'].includes(req.method)) { res.setHeader('Allow', 'GET, HEAD'); return send(405, 'Method not allowed'); }
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname === '/health') {
         return send(200, JSON.stringify({ ok: true }), 'application/json; charset=utf-8');
       }
+      if (url.pathname === '/robots.txt') return send(200, robotsTxt(origin), 'text/plain; charset=utf-8', CACHE.meta);
+      if (url.pathname === '/sitemap.xml') return send(200, sitemapXml(await loadPosts(postsDirectory), origin), 'application/xml; charset=utf-8', CACHE.meta);
       if (url.pathname === '/api/news') {
+        // The news payload is the same for every caller. Rejected and failed responses stay uncached.
         if (url.search) return send(400, 'Query parameters are not supported');
-        return send(200, JSON.stringify(await service.getNews()), 'application/json; charset=utf-8');
+        return send(200, JSON.stringify(await service.getNews()), 'application/json; charset=utf-8', CACHE.api);
       }
       if (['/', '/index.html', '/blog', '/blog/'].includes(url.pathname)) {
-        return send(200, blogPage(await loadPosts(postsDirectory)), 'text/html; charset=utf-8');
+        return html(200, blogPage(await loadPosts(postsDirectory), { origin }));
       }
-      if (['/tools', '/tools/'].includes(url.pathname)) return send(200, toolsPage(), 'text/html; charset=utf-8');
+      if (['/tools', '/tools/'].includes(url.pathname)) return html(200, toolsPage({ origin }));
+      if (url.pathname === '/newsroom' || url.pathname === '/newsroom/') {
+        const page = await readFile(join(ROOT, 'index.html'), 'utf8');
+        const tags = seoHead({ title: NEWSROOM_TITLE, description: NEWSROOM_DESCRIPTION, path: '/newsroom', origin });
+        return html(200, page.replace('</head>', `${tags}</head>`));
+      }
+      const tagRoute = url.pathname.match(/^\/blog\/tag\/([^/]+)\/?$/);
+      if (tagRoute) {
+        let segment = tagRoute[1];
+        try { segment = decodeURIComponent(segment); }
+        catch { return html(404, tagNotFoundPage({ origin, path: url.pathname })); }
+        const slug = tagSlug(segment);
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return html(404, tagNotFoundPage({ origin, path: url.pathname }));
+        if (segment !== slug) {
+          res.writeHead(301, { Location: `/blog/tag/${slug}`, 'Cache-Control': CACHE.meta });
+          return res.end();
+        }
+        const posts = await loadPosts(postsDirectory);
+        const matches = posts.filter(post => post.tags.some(tag => tagSlug(tag) === slug));
+        if (!matches.length) return html(404, tagNotFoundPage({ origin, path: `/blog/tag/${slug}` }));
+        const label = matches.flatMap(post => post.tags).find(tag => tagSlug(tag) === slug);
+        return html(200, tagPage(label, matches, { origin }));
+      }
       if (url.pathname.startsWith('/blog/')) {
         const slug = url.pathname.slice(6).replace(/\/$/, '');
         const post = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ? (await loadPosts(postsDirectory)).find(post => post.slug === slug) : null;
-        return send(post ? 200 : 404, post ? postPage(post) : notFoundPage(), 'text/html; charset=utf-8');
+        return html(post ? 200 : 404, post ? postPage(post, { origin }) : notFoundPage({ origin, path: slug ? `/blog/${slug}` : url.pathname }));
       }
       const asset = STATIC.get(url.pathname);
       if (!asset) return send(404, 'Not found');
-      return send(200, await readFile(join(ROOT, asset[0])), asset[1]);
+      const version = ASSET_VERSIONS.get(url.pathname);
+      const cacheControl = version && url.searchParams.get('v') === version ? CACHE.assetImmutable : CACHE.assetShort;
+      return send(200, await readFile(join(ROOT, asset[0])), asset[1], cacheControl);
     } catch (err) {
       console.error(`Beacon request failed: ${err.message}`);
       return send(500, 'Internal server error');

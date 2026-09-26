@@ -53,6 +53,7 @@ test('health check is public JSON and does not fetch news', async t => {
   const base = `http://127.0.0.1:${server.address().port}`;
   const health = await fetch(`${base}/health`);
   assert.equal(health.status, 200);
+  assert.equal(health.headers.get('cache-control'), 'no-store');
   assert.match(health.headers.get('content-type'), /application\/json/);
   assert.deepEqual(await health.json(), { ok: true });
   const head = await fetch(`${base}/health`, { method: 'HEAD' });
@@ -75,9 +76,12 @@ test('HTTP serves app and API only, rejects arbitrary files and user feed URLs',
   assert.match(logo.headers.get('content-type'), /image\/png/);
   const api = await fetch(`${base}/api/news`);
   assert.equal(api.status, 200);
+  assert.equal(api.headers.get('cache-control'), 'public, max-age=60, stale-while-revalidate=300');
   assert.equal((await api.json()).articles.length, 1);
   for (const path of ['/server.js', '/package.json', '/.cache/news.json', '/.git/config', '/index.previous.html', '/api/news?url=http://localhost']) {
-    assert.equal((await fetch(base + path)).status, path.includes('?') ? 400 : 404, path);
+    const response = await fetch(base + path);
+    assert.equal(response.status, path.includes('?') ? 400 : 404, path);
+    assert.equal(response.headers.get('cache-control'), 'no-store', path);
   }
   assert.equal((await fetch(base + '/api/news', { method: 'POST' })).status, 405);
 });

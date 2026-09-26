@@ -16,7 +16,13 @@ npm start
 
 Use `PORT=3001 npm start` for another port. The server binds to all interfaces for local and LAN preview, but it is intended as a private/local tool. Open the UI through the server, not as a `file://` page.
 
-Railway can deploy from the `Dockerfile` and use `GET /health` as a healthcheck. Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected; Message Center items come from a community RSS preview feed inside the Microsoft tab.
+This repository does not publish a hostname. Set `SITE_ORIGIN` to the public origin — scheme and host only, no path or trailing slash — so canonical URLs, Open Graph tags, `sitemap.xml`, and `robots.txt` use absolute links. When it is unset, those links stay root-relative.
+
+```sh
+SITE_ORIGIN=https://your-host.example npm start
+```
+
+Railway can deploy from the `Dockerfile` and use `GET /health` as a healthcheck. Set `SITE_ORIGIN` in that environment to the deployed origin. Public RSS feeds need no keys or credentials. Tenant-specific Microsoft 365 Message Center and Service Health access is not connected; Message Center items come from a community RSS preview feed inside the Microsoft tab.
 
 ## Publish a blog post
 
@@ -40,7 +46,7 @@ images, blockquotes, and fenced code blocks.
 
 The filename becomes the URL: `/blog/my-first-field-note`. The home page lists published posts newest first and features the latest entry. Files are read on every request, so adding, editing, or removing a post takes effect on refresh without restarting the server or building the site. Copy files into this folder on the machine running the server; this is a folder workflow, not a browser upload form.
 
-`title`, `description`, and a valid `date` (`YYYY-MM-DD`) are required. `author` defaults to Nathan Hess; `tags`, `image`, `imageAlt`, `draft`, and `sample` are optional. Set `image` to an HTTPS URL or an explicitly mapped `/assets/blog/...jpg` file to show a preview image on the blog home and a header image on the post page. Set `draft: true` to hide a post from the list and its direct URL. Add `sample: true` to display a sample-post notice. Invalid posts are skipped with a server log explaining the problem. Uppercase filenames, nested directories, and files other than `.md` are ignored. Dates control sorting, not scheduled publication; use `draft: true` for unpublished work.
+`title`, `description`, and a valid `date` (`YYYY-MM-DD`) are required. `author` defaults to Nathan Hess; `tags`, `image`, `imageAlt`, `draft`, and `sample` are optional. Tags show up as chips on the blog home and the post page, and each tag has a page at `/blog/tag/<slug>` (`Conditional Access` becomes `conditional-access`). Set `image` to an HTTPS URL or an explicitly mapped `/assets/blog/...jpg` or `.webp` file to show a preview image on the blog home, a header image on the post page, and that same image in the post’s social preview. Set `draft: true` to hide a post from the list, its direct URL, tag pages, and the sitemap. Add `sample: true` to display a sample-post notice. Invalid posts are skipped with a server log explaining the problem. Uppercase filenames, nested directories, and files other than `.md` are ignored. Dates control sorting, not scheduled publication; use `draft: true` for unpublished work.
 
 Raw HTML is displayed as text, and unsafe Markdown link protocols are rejected. For images, use an HTTPS image URL or an explicitly mapped local asset; arbitrary files in the repository are never served.
 
@@ -50,8 +56,12 @@ The first post is `content/posts/entra-default-settings-that-you-should-change.m
 
 - `/` (also `/blog` and `/index.html`): blog home.
 - `/blog/<filename-without-extension>`: a complete blog post.
+- `/blog/tag/<tag>`: field notes that use that tag. Unknown tags return a 404 empty state, in the same style as a missing post.
 - `/newsroom`: the existing news dashboard.
 - `/tools`: Copilot Security Trail and Passkey AAGUID Lookup, with live-app and GitHub links.
+- `/sitemap.xml` and `/robots.txt`: public page index and crawler rules.
+
+Blog home, tag pages, posts, the newsroom, and tools include canonical URLs plus Open Graph and Twitter card tags. A post’s hero image is the Open Graph image when the post has one.
 
 All pages have a top-right menu with Blog, Newsroom, and Tools. It works with keyboard and touch; Escape closes it and returns focus to its button.
 
@@ -129,7 +139,12 @@ Do not expose tenant messages through the public RSS API or cache.
 - `.cache/news.json` persists successful source articles and failures with a five-minute TTL, including error results to avoid hammering blocked publishers.
 - Failed refreshes preserve source-specific stale data indefinitely and visibly mark the source stale.
 - Cache writes are atomic; absent or invalid cache JSON causes a cold start.
-- Only the documented page routes, `/api/news`, `/health`, and explicitly mapped stylesheet, script, and image assets are served. No arbitrary directories, cache files, source files, tests, backup HTML, or repository internals are public.
+- HTML pages use `Cache-Control: no-cache`, so a refresh shows new and edited posts. Missing pages and other errors use `no-store`.
+- Stylesheets, scripts, and images are served with a content hash in the query string (`/assets/site.css?v=<hash>`). A matching hash uses `public, max-age=31536000, immutable`. The same file without that hash uses `public, max-age=300`, so an unversioned URL cannot stay cached for a year.
+- `GET /api/news` success responses use `public, max-age=60, stale-while-revalidate=300`. The JSON is the same for every caller. Query errors, `/health`, and `405`/`500` responses use `no-store` and are not stored as a public representation.
+- Text responses (HTML, CSS, JavaScript, JSON, XML, and plain text) are compressed with Brotli or gzip when the request `Accept-Encoding` allows it.
+- `sitemap.xml` and `robots.txt` use `no-cache` so new posts and tags show up without waiting out a long cache.
+- Only the documented page routes, `/api/news`, `/health`, `/sitemap.xml`, `/robots.txt`, and explicitly mapped stylesheet, script, and image assets are served. No arbitrary directories, cache files, source files, tests, backup HTML, or repository internals are public.
 - Feed strings are plain text, not trusted markup. Frontend consumers should render them with text APIs, not `innerHTML`.
 
 This project is intended for a single local process or private preview, not a hardened public deployment. No CSP is added that would block the current inline frontend scripts/styles.

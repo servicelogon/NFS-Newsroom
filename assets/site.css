@@ -55,6 +55,11 @@
 .featured-post:not(:has(.feature-image)) { grid-template-columns:1fr; }
 .tags { display:flex; flex-wrap:wrap; gap:7px; }
 .tag { padding:4px 10px; border:1px solid #484848; border-radius:20px; font-size:12px; color:var(--muted); }
+.post-tags { display:flex; flex-wrap:wrap; gap:7px; margin:16px 0 0; padding:0; list-style:none; }
+.post-tags li { margin:0; padding:0; }
+.publication .post-tags a.tag { white-space:nowrap; color:var(--pink); border-color:color-mix(in srgb, var(--pink) 50%, #484848); background:color-mix(in srgb, var(--pink) 16%, transparent); }
+.publication .post-tags a.tag:hover { color:#151515; background:var(--pink); border-color:var(--pink); }
+.tag-intro h1 { overflow-wrap:anywhere; font-size:clamp(36px, 8vw, 72px); }
 .post-meta { display:flex; gap:10px 18px; flex-wrap:wrap; align-items:center; color:var(--muted); font-size:13px; }
 .sample-label { color:var(--pink); }
 .feature-content .kicker { display:inline-block; font-size:12px; }
@@ -146,6 +151,8 @@
 [data-theme="light"] .tool-launch { color:#fff!important; }
 [data-theme="light"] .tool-visual { border-color:var(--line); }
 [data-theme="light"] .tag,[data-theme="light"] .tool-pill { border-color:var(--line); }
+[data-theme="light"] .publication .post-tags a.tag { border-color:color-mix(in srgb, var(--pink) 45%, var(--line)); background:color-mix(in srgb, var(--pink) 10%, transparent); }
+[data-theme="light"] .post-tags a.tag:hover { color:#fff; }
 [data-theme="light"] .trail-stops i { background:#416b2655; }
 .prose blockquote,.sample-note { border-image:var(--brand-gradient) 1; background:var(--panel); color:var(--body); }
 [data-theme="light"] .microsoft-filter button { background:#eef2fa; border-color:#c5d3e8; color:#315c8f; }
