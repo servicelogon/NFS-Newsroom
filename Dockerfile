@@ -8,7 +8,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
-COPY server.js blog.js sources.js newsroom-states.js index.html ./
+COPY server.js blog.js sources.js newsroom-states.js threat-weather.js index.html ./
 COPY assets ./assets
 COPY content ./content
 RUN mkdir -p /app/.cache && chown -R node:node /app

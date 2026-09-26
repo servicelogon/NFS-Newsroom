@@ -9,6 +9,7 @@ const assert = require("node:assert/strict");
     let stale = false;
     let large = false;
     let includeMicrosoftLeaks = false;
+    let freshWeather = false;
     let outage = false;
     let holdNews = null;
     const errors = [];
@@ -21,10 +22,14 @@ const assert = require("node:assert/strict");
     );
     await page.route("http://beacon.test/**", async (r) => {
       const assetPath = new URL(r.request().url()).pathname;
-      if (["/assets/site.css", "/assets/site.js", "/assets/newsroom-states.js"].includes(assetPath))
+      const rootScripts = {
+        "/assets/newsroom-states.js": "newsroom-states.js",
+        "/assets/threat-weather.js": "threat-weather.js",
+      };
+      if (["/assets/site.css", "/assets/site.js", ...Object.keys(rootScripts)].includes(assetPath))
         return r.fulfill({
           contentType: assetPath.endsWith(".css") ? "text/css" : "text/javascript",
-          body: fs.readFileSync(assetPath === "/assets/newsroom-states.js" ? "newsroom-states.js" : assetPath.slice(1)),
+          body: fs.readFileSync(rootScripts[assetPath] || assetPath.slice(1)),
         });
       if (r.request().url().endsWith("/assets/new-frontier-security-logo.png"))
         return r.fulfill({
@@ -50,6 +55,34 @@ const assert = require("node:assert/strict");
               updatedAt: null,
             },
           });
+        if (freshWeather) {
+          const now = Date.now();
+          const ago = (hours) => new Date(now - hours * 60 * 60 * 1000).toISOString();
+          return r.fulfill({
+            json: {
+              articles: [
+                ...Array.from({ length: 6 }, (_, i) => ({
+                  title: "Identity storm " + i,
+                  summary: "OAuth session token phishing campaign",
+                  category: "identity",
+                  source: "Fixture identity",
+                  url: "https://example.com/identity-storm/" + i,
+                  publishedAt: ago(i * 0.5),
+                })),
+                {
+                  title: "Stale cloud note",
+                  summary: "Older than a day",
+                  category: "cloud",
+                  source: "Fixture cloud",
+                  url: "https://example.com/stale-cloud",
+                  publishedAt: ago(30),
+                },
+              ],
+              sources: [{ name: "Fixture publisher", status: "ok" }],
+              updatedAt: new Date(now).toISOString(),
+            },
+          });
+        }
         return r.fulfill({
           json: {
             articles: [
@@ -160,6 +193,10 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator(".skeleton-story").count(), 4);
     assert.equal(await page.locator("#front-page-feed").getAttribute("aria-busy"), "true");
     assert.equal(await page.locator("#front-page-empty").isVisible(), false);
+    assert.equal(await page.locator("#threat-weather").isVisible(), true);
+    assert.equal(await page.locator("#threat-weather").getAttribute("data-loading"), "true");
+    assert.equal(await page.locator("#threat-weather-lead").isVisible(), false);
+    assert.doesNotMatch(await page.locator("#threat-weather").textContent(), /Clear skies/);
     assert.equal(await page.locator("#front-page-status").textContent(), "Loading headlines…");
     releaseNews();
     holdNews = null;
@@ -208,6 +245,24 @@ const assert = require("node:assert/strict");
       "Fixture cloud posture issue",
     );
     assert.equal(await page.locator(".front-page-story").count(), 5);
+    assert.equal(await page.locator("#threat-weather").isVisible(), true);
+    assert.equal(await page.locator("#threat-weather").getAttribute("data-loading"), "false");
+    assert.equal(await page.locator("#threat-weather-lead").textContent(), "Clear skies across coverage.");
+    assert.equal(await page.locator("#threat-weather [data-topic]").count(), 7);
+    await page.locator('#threat-weather [data-topic="identity"]').click();
+    await page.waitForFunction(
+      () => document.querySelector('.category[data-topic="identity"]')?.getAttribute("aria-pressed") === "true",
+    );
+    assert.equal(await page.locator("#front-page").isVisible(), false);
+    assert.equal(await page.locator("#briefing-view").isVisible(), true);
+    assert.equal(await page.locator("#feed .story").count(), 1);
+    assert.equal(await page.locator("#feed .story h2").textContent(), "Fixture identity token theft");
+    assert.equal(
+      await page.locator('#threat-weather [data-topic="identity"]').getAttribute("aria-pressed"),
+      "true",
+    );
+    await page.locator("#front-page-link").click();
+    await page.waitForFunction(() => document.querySelector("#front-page") && !document.querySelector("#front-page").hidden);
     await page.evaluate(() => window.scrollTo(0, 500));
     await page.waitForFunction(
       () => document.querySelector("#front-page").style.getPropertyValue("--front-page-star-near-y") !== "0px",
@@ -433,6 +488,7 @@ const assert = require("node:assert/strict");
     await page.waitForFunction(() => document.querySelector("#empty") && !document.querySelector("#empty").hidden);
     assert.equal(await page.locator(".story").count(), 0);
     assert.equal(await page.locator("#empty").isVisible(), true);
+    assert.equal(await page.locator("#threat-weather").isVisible(), false);
     assert.equal(await page.locator("#empty-retry").isVisible(), true);
     assert.equal(await page.locator("#reset").isVisible(), false);
     assert.match(await page.locator("#empty [data-empty-copy]").textContent(), /Krebs on Security and BleepingComputer/);
@@ -456,6 +512,7 @@ const assert = require("node:assert/strict");
     );
     assert.equal(await page.locator(".story").count(), 0);
     assert.equal(await page.locator(".front-page-story").count(), 0);
+    assert.equal(await page.locator("#threat-weather").isVisible(), false);
     assert.equal(await page.locator("#front-page-empty").isVisible(), true);
     assert.equal(await page.locator("#front-page-retry").isVisible(), true);
     assert.match(await page.locator("#front-page-empty").textContent(), /HTTP 503/);
@@ -465,6 +522,17 @@ const assert = require("node:assert/strict");
       () => document.querySelector(".front-page-story h2")?.textContent === "Fixture cloud posture issue",
     );
     assert.equal(await page.locator("#front-page-empty").isVisible(), false);
+    freshWeather = true;
+    await page.evaluate(() => loadNews());
+    await page.waitForFunction(
+      () => document.querySelector("#threat-weather-lead")?.textContent === "Stormy in identity, clear in cloud.",
+    );
+    assert.equal(
+      await page.locator("#threat-weather-lead").textContent(),
+      "Stormy in identity, clear in cloud.",
+    );
+    assert.equal(await page.locator('#threat-weather [data-topic="identity"]').getAttribute("data-band"), "stormy");
+    freshWeather = false;
     assert.deepEqual(errors, []);
     console.log(
       "PASS live rendering, source link, category counts, empty state, failure without invented stories",

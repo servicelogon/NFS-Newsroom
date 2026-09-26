@@ -78,6 +78,10 @@ test('HTTP serves app and API only, rejects arbitrary files and user feed URLs',
   assert.equal(states.status, 200);
   assert.match(states.headers.get('content-type'), /javascript/);
   assert.match(await states.text(), /describeEmptyState/);
+  const weather = await fetch(`${base}/assets/threat-weather.js`);
+  assert.equal(weather.status, 200);
+  assert.match(weather.headers.get('content-type'), /javascript/);
+  assert.match(await weather.text(), /describeThreatWeather/);
   const api = await fetch(`${base}/api/news`);
   assert.equal(api.status, 200);
   assert.equal(api.headers.get('cache-control'), 'public, max-age=60, stale-while-revalidate=300');
