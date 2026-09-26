@@ -464,6 +464,60 @@
       .empty p {
         color: var(--muted);
       }
+      .empty-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 22px;
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      .skeleton-story {
+        pointer-events: none;
+      }
+      .skeleton-line {
+        height: 12px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #222 0%, #2c2c2c 40%, #222 80%);
+        background-size: 200% 100%;
+        animation: skeleton-shimmer 1.4s ease-in-out infinite;
+      }
+      .skeleton-story .story-meta {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .skeleton-title {
+        display: grid;
+        gap: 10px;
+        margin: 0 0 14px;
+      }
+      .skeleton-title .skeleton-line {
+        height: 18px;
+      }
+      .skeleton-body {
+        display: grid;
+        gap: 8px;
+      }
+      @keyframes skeleton-shimmer {
+        from { background-position: 100% 0; }
+        to { background-position: -100% 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .skeleton-line {
+          animation: none;
+        }
+      }
       .feed-note {
         margin: 30px 0 10px;
         color: var(--muted);
@@ -894,11 +948,17 @@
               <time class="front-page-date" id="front-page-date"></time>
             </div>
             <p class="front-page-deck">Cloud and identity security headlines shaping the brief.</p>
+            <p class="visually-hidden" id="front-page-status" role="status" aria-live="polite"></p>
             <div class="front-page-feed" id="front-page-feed"></div>
             <div class="empty front-page-empty" id="front-page-empty" hidden>
-              <span class="eyebrow">No headlines available</span>
-              <h2>The front page is waiting for today’s briefing.</h2>
-              <p>Check the sources and try again.</p>
+              <span class="eyebrow" data-empty-eyebrow>No headlines available</span>
+              <h2 data-empty-title>The front page is waiting for today’s briefing.</h2>
+              <p data-empty-copy>Check the sources and try again.</p>
+              <div class="empty-actions">
+                <button class="reset" type="button" id="front-page-retry" data-empty-retry>
+                  Try again
+                </button>
+              </div>
             </div>
           </section>
           <section id="briefing-view" hidden>
@@ -949,17 +1009,25 @@
                 aria-label="Search news articles" /></label
             ><button class="clear" id="clear">Reset filters</button>
           </div>
+          <p class="visually-hidden" id="briefing-status" role="status" aria-live="polite"></p>
           <div class="feed" id="feed"></div>
           <button class="reset" id="load-more" hidden>
             Load more articles
           </button>
           <div class="empty" id="empty" hidden>
-            <span class="eyebrow">No matching articles</span>
-            <h2>No articles to show.</h2>
-            <p>
+            <span class="eyebrow" data-empty-eyebrow>No matching articles</span>
+            <h2 data-empty-title>No articles to show.</h2>
+            <p data-empty-copy>
               Try another search or browse all coverage.
             </p>
-            <button class="reset" id="reset">Show all coverage</button>
+            <div class="empty-actions">
+              <button class="reset" type="button" id="empty-retry" data-empty-retry hidden>
+                Try again
+              </button>
+              <button class="reset" type="button" id="reset" data-empty-reset>
+                Show all coverage
+              </button>
+            </div>
           </div>
           <p class="feed-note">
             Headlines and excerpts from publisher feeds. Follow original links
@@ -985,7 +1053,8 @@
       </section>
       <footer class="footer mono"></footer>
     </div>
-    <script>
+    <script type="module">
+      import { describeEmptyState } from "/assets/newsroom-states.js";
       const topicColors = {
         all: "#58e08d",
         cloud: "#f59e0b",
@@ -1050,6 +1119,8 @@
       let selected = "all";
       let microsoftFilter = "all";
       let loading = true;
+      let sourceHealth = [];
+      let loadError = "";
       const search = document.querySelector("#search"),
         feed = document.querySelector("#feed"),
         frontPage = document.querySelector("#front-page"),
@@ -1092,6 +1163,67 @@
           ? story.title.replace(/^MC\d+\s*[–:-]\s*/i, "")
           : story.title;
       }
+      function applyEmptyState(root, state) {
+        if (!root) return;
+        if (!state) {
+          root.hidden = true;
+          return;
+        }
+        root.hidden = false;
+        const eyebrow = root.querySelector("[data-empty-eyebrow]");
+        const title = root.querySelector("[data-empty-title]");
+        const copy = root.querySelector("[data-empty-copy]");
+        if (eyebrow) eyebrow.textContent = state.eyebrow;
+        if (title) title.textContent = state.title;
+        if (copy) copy.textContent = state.body;
+        root.querySelectorAll("[data-empty-retry]").forEach((button) => {
+          button.hidden = !state.retry;
+          button.disabled = loading;
+        });
+        root.querySelectorAll("[data-empty-reset]").forEach((button) => {
+          button.hidden = !state.reset;
+        });
+      }
+      function appendSkeletonLines(parent, widths) {
+        widths.forEach((width) => {
+          const line = document.createElement("div");
+          line.className = "skeleton-line";
+          line.style.width = width;
+          parent.append(line);
+        });
+      }
+      function renderSkeletons(container, variant, count) {
+        container.replaceChildren();
+        for (let index = 0; index < count; index++) {
+          const item = document.createElement("article");
+          item.className =
+            (variant === "front-page" ? "front-page-story" : "story") +
+            " skeleton-story";
+          item.setAttribute("aria-hidden", "true");
+          const meta = document.createElement("div");
+          meta.className = "story-meta";
+          appendSkeletonLines(meta, ["28%", "22%"]);
+          const title = document.createElement("div");
+          title.className = "skeleton-title";
+          appendSkeletonLines(title, ["92%", "74%"]);
+          const body = document.createElement("div");
+          body.className = "skeleton-body";
+          appendSkeletonLines(body, ["100%", "86%"]);
+          item.append(meta, title, body);
+          container.append(item);
+        }
+      }
+      function emptyStateFor(view, visibleCount, hasQuery = false) {
+        return describeEmptyState({
+          loading,
+          articleCount: stories.length,
+          visibleCount,
+          sources: sourceHealth,
+          loadError,
+          hasQuery,
+          view,
+        });
+      }
       function messageCenterBadge() {
         const badge = document.createElement("span");
         badge.className = "message-center-badge";
@@ -1126,6 +1258,16 @@
           day: "numeric",
           year: "numeric",
         }).format(new Date());
+        const status = document.querySelector("#front-page-status");
+        if (loading && !stories.length) {
+          if (status) status.textContent = "Loading headlines…";
+          frontPageFeed.setAttribute("aria-busy", "true");
+          renderSkeletons(frontPageFeed, "front-page", 4);
+          applyEmptyState(frontPageEmpty, null);
+          return;
+        }
+        if (status) status.textContent = "";
+        frontPageFeed.setAttribute("aria-busy", "false");
         const frontPagePriority = (story) =>
           story.topic === "cloud" || story.topic === "identity" ? 0 : 1;
         const headlines = stories
@@ -1209,7 +1351,7 @@
         if (headlines.length > 1) {
           columns.forEach((column) => frontPageFeed.append(column));
         }
-        frontPageEmpty.hidden = loading || headlines.length !== 0;
+        applyEmptyState(frontPageEmpty, emptyStateFor("front-page", headlines.length));
       }
       function render(resetPage = true) {
         if (resetPage) visibleLimit = 40;
@@ -1251,6 +1393,17 @@
         document.querySelector("#section-title").textContent =
           selected === "all" ? "Latest coverage" : topic.name;
         document.querySelector("#description").textContent = topic.description;
+        const briefingStatus = document.querySelector("#briefing-status");
+        if (loading && !stories.length) {
+          if (briefingStatus) briefingStatus.textContent = "Loading coverage…";
+          feed.setAttribute("aria-busy", "true");
+          renderSkeletons(feed, "briefing", 4);
+          document.querySelector("#load-more").hidden = true;
+          applyEmptyState(document.querySelector("#empty"), null);
+          return;
+        }
+        if (briefingStatus) briefingStatus.textContent = "";
+        feed.setAttribute("aria-busy", "false");
         feed.replaceChildren();
         feed.classList.toggle("microsoft-feed", selected === "microsoft");
         document.querySelector("#load-more").hidden =
@@ -1334,8 +1487,10 @@
           else columns[(index - 1) % 2].append(article);
         });
         if (visible.length > 1) columns.forEach((column) => feed.append(column));
-        document.querySelector("#empty").hidden =
-          loading || visible.length !== 0;
+        applyEmptyState(
+          document.querySelector("#empty"),
+          emptyStateFor("briefing", visible.length, Boolean(query)),
+        );
       }
       topics.forEach((t) => {
         const b = document.createElement("button");
@@ -1396,6 +1551,12 @@
       });
       document.querySelector("#clear").addEventListener("click", reset);
       document.querySelector("#reset").addEventListener("click", reset);
+      document.querySelector("#front-page-retry").addEventListener("click", () => {
+        loadNews();
+      });
+      document.querySelector("#empty-retry").addEventListener("click", () => {
+        loadNews();
+      });
       document.addEventListener("keydown", (e) => {
         if (
           e.key === "/" &&
@@ -1417,6 +1578,9 @@
       });
       async function loadNews() {
         loading = true;
+        document.querySelectorAll("[data-empty-retry]").forEach((button) => {
+          button.disabled = true;
+        });
         render();
         try {
           if (location.protocol === "file:")
@@ -1453,12 +1617,16 @@
                 s.sourceCategory ||
                 (microsoftSources.has(s.source) ? "microsoft" : undefined),
             }));
+          sourceHealth = data.sources;
+          loadError = "";
           const updated =
             data.updatedAt && Number.isFinite(Date.parse(data.updatedAt))
               ? new Date(data.updatedAt).toLocaleString()
               : "Not available";
           document.documentElement.dataset.updatedAt = updated;
         } catch (e) {
+          loadError = e.message;
+          if (!stories.length) sourceHealth = [];
           console.warn(
             "Unable to load news. " +
               e.message +
@@ -1466,9 +1634,13 @@
           );
         } finally {
           loading = false;
+          document.querySelectorAll("[data-empty-retry]").forEach((button) => {
+            button.disabled = false;
+          });
           render();
         }
       }
+      window.loadNews = loadNews;
       loadNews();
     </script>
   </body>
