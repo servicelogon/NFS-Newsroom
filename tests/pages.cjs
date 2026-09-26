@@ -19,7 +19,7 @@ const path = require('node:path');
     page.on('pageerror', error => errors.push(error.message));
     for (const width of [1440, 390, 320]) {
       await page.setViewportSize({width, height:1000});
-      for (const route of ['/', '/blog/entra-default-settings-that-you-should-change', '/tools', '/newsroom']) {
+        for (const route of ['/', '/blog/entra-default-settings-that-you-should-change', '/blog/tag/conditional-access', '/tools', '/newsroom']) {
         await page.goto(base + route);
         assert.equal(await page.locator('main').count(), 1);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} overflows at ${width}`);
@@ -60,18 +60,24 @@ const path = require('node:path');
     assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
     await page.getByRole('button', {name:'Switch to dark mode'}).click();
     await page.goto(base);
-    assert.equal(await page.locator('.featured-post .tag').count(), 0);
+    assert.equal(await page.locator('.featured-post .post-tags .tag').count(), 5);
+    await page.locator('.featured-post .post-tags .tag', { hasText: 'Identity' }).click();
+    assert.ok(page.url().endsWith('/blog/tag/identity'));
+    assert.ok(await page.getByRole('heading', { name: 'Identity', exact: true }).isVisible());
+    assert.equal(await page.locator('.post-tile').count(), 1);
+    await page.goto(base);
+    assert.equal(await page.locator('.featured-post .tag').count(), 5);
     assert.equal(await page.getByRole('link', {name:'Read the story'}).count(), 0);
     assert.equal(await page.locator('.site-footer .social-placeholder').count(), 0);
     assert.ok(await page.getByRole('heading', {name:/Notes from the frontier/}).isVisible());
-    assert.equal(await page.locator('.feature-image img').getAttribute('src'), '/assets/blog/entra-default-settings-header.jpg');
+    assert.match(await page.locator('.feature-image img').getAttribute('src'), /^\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}$/);
     assert.ok(await page.locator('.feature-image img').evaluate(img => img.complete && img.naturalWidth > 0));
     await page.locator('#featured-title a').click();
     assert.ok(page.url().endsWith('/blog/entra-default-settings-that-you-should-change'));
-    assert.equal(await page.locator('.post-heading .tag').count(), 0);
+    assert.equal(await page.locator('.post-heading .post-tags .tag').count(), 5);
     assert.doesNotMatch(await page.locator('.post-heading h1').evaluate(el => getComputedStyle(el).fontFamily), /Georgia|Times New Roman/i);
     assert.doesNotMatch(await page.locator('.prose h2').first().evaluate(el => getComputedStyle(el).fontFamily), /Georgia|Times New Roman/i);
-    assert.equal(await page.locator('.post-hero img').getAttribute('src'), '/assets/blog/entra-default-settings-header.jpg');
+    assert.match(await page.locator('.post-hero img').getAttribute('src'), /^\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}$/);
     assert.ok(await page.locator('.post-hero img').evaluate(img => img.complete && img.naturalWidth > 0));
     assert.equal(await page.locator('.prose img').count(), 3);
     assert.equal(await page.locator('.prose table').count(), 1);
@@ -97,6 +103,9 @@ const path = require('node:path');
     const response = await page.goto(base + '/blog/missing');
     assert.equal(response.status(),404);
     assert.ok(await page.getByRole('link', {name:'Back to the blog'}).isVisible());
+    const missingTag = await page.goto(base + '/blog/tag/not-a-real-tag');
+    assert.equal(missingTag.status(), 404);
+    assert.ok(await page.getByRole('heading', {name:'No notes under that tag.'}).isVisible());
     assert.deepEqual(errors,[]);
     console.log('Blog, post, tools, newsroom navigation, responsive layouts, and folder refresh checks passed.');
   } finally {
