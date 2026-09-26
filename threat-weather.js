@@ -3,12 +3,27 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 export const WEATHER_TOPICS = [
   { id: "cloud", name: "Cloud", phrase: "cloud" },
   { id: "identity", name: "Identity", phrase: "identity" },
-  { id: "vulnerabilities", name: "Vulnerabilities", phrase: "vulnerabilities" },
   { id: "incidents", name: "Incidents", phrase: "incidents" },
   { id: "malware", name: "Malware", phrase: "malware" },
   { id: "operations", name: "Operations", phrase: "operations" },
   { id: "microsoft", name: "Microsoft", phrase: "microsoft" },
 ];
+
+const ICON_PATHS = {
+  clear:
+    '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4"/>',
+  light:
+    '<circle cx="9.5" cy="9.5" r="3.2"/><path d="M9.5 3.2v1.5m-6.3 4.8h1.5m1-5.3 1.1 1.1M16 14.2a4.2 4.2 0 0 0-7.4-1.4 3.3 3.3 0 1 0-.3 6.5h7.4a3.5 3.5 0 0 0 .3-6.6Z"/>',
+  active:
+    '<path d="M16.2 13.2a4.2 4.2 0 0 0-7.5-1.5A3.3 3.3 0 1 0 8 18.4h7.6a3.5 3.5 0 0 0 .6-5.2Z"/><path d="m9 20-1 3m4-3-1 3m4-3-1 3"/>',
+  stormy:
+    '<path d="M16.2 12.4a4.2 4.2 0 0 0-7.5-1.5A3.3 3.3 0 1 0 8 17.6h7.6a3.5 3.5 0 0 0 .6-5.2Z"/><path d="m11.2 15 1.8 3h-2.2l1.6 3.4"/>',
+};
+
+export function weatherIconSvg(band) {
+  const paths = ICON_PATHS[band] || ICON_PATHS.clear;
+  return `<svg class="threat-weather-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
 
 const STANDARD_TOPIC_IDS = new Set(
   WEATHER_TOPICS.filter((topic) => topic.id !== "microsoft").map((topic) => topic.id),
@@ -49,14 +64,14 @@ export function describeThreatWeather(counts = {}) {
   });
   const max = Math.max(...topics.map((topic) => topic.count));
   if (max <= 0) {
-    return { sentence: "Clear skies across coverage.", topics };
+    return { sentence: "Clear skies across coverage.", topics, headlineBand: "clear" };
   }
   const stormiest = topics.filter((topic) => topic.count === max).slice(0, 2);
   const clear = topics.find((topic) => topic.count === 0);
   const names = stormiest.map((topic) => topic.phrase).join(" and ");
   let sentence = `${capitalize(stormiest[0].band)} in ${names}`;
   if (clear) sentence += `, clear in ${clear.phrase}`;
-  return { sentence: `${sentence}.`, topics };
+  return { sentence: `${sentence}.`, topics, headlineBand: stormiest[0].band };
 }
 
 export function shouldShowThreatWeather({ loading = false, articleCount = 0 } = {}) {

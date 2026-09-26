@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  WEATHER_TOPICS,
   countLast24h,
   describeThreatWeather,
   isWithinLast24h,
   shouldShowThreatWeather,
   weatherBand,
+  weatherIconSvg,
 } from "../threat-weather.js";
 
 const NOW = Date.parse("2026-09-26T12:00:00.000Z");
@@ -42,7 +44,7 @@ test("countLast24h uses story.topic and isMicrosoftStory, not category alone", (
       { topic: "identity", category: "identity", publishedAt: hour(2), source: "Microsoft Entra Blog", title: "Entra" },
       { topic: "cloud", category: "cloud", publishedAt: hour(30), source: "Fixture", title: "Old cloud" },
       { topic: "microsoft", category: "microsoft", publishedAt: hour(1), source: "Fixture", title: "Partner CVE-2026-1" },
-      { topic: "vulnerabilities", category: "microsoft", publishedAt: hour(1), source: "MSRC", title: "CVE-2026-9 advisory" },
+      { topic: "incidents", category: "incidents", publishedAt: hour(1), source: "Fixture", title: "Breach note" },
       { topic: "microsoft", category: "microsoft", publishedAt: hour(1), source: "MS Message Center", title: "MC1 note" },
       { topic: "operations", category: "operations", publishedAt: "bad", source: "Fixture", title: "Skip" },
     ],
@@ -51,8 +53,7 @@ test("countLast24h uses story.topic and isMicrosoftStory, not category alone", (
   assert.deepEqual(counts, {
     cloud: 0,
     identity: 2,
-    vulnerabilities: 1,
-    incidents: 0,
+    incidents: 1,
     malware: 0,
     operations: 0,
     microsoft: 2,
@@ -64,7 +65,6 @@ test("describeThreatWeather covers quiet, mixed, stormy, and ties", () => {
     describeThreatWeather({
       cloud: 0,
       identity: 0,
-      vulnerabilities: 0,
       incidents: 0,
       malware: 0,
       operations: 0,
@@ -77,7 +77,6 @@ test("describeThreatWeather covers quiet, mixed, stormy, and ties", () => {
     describeThreatWeather({
       cloud: 0,
       identity: 6,
-      vulnerabilities: 1,
       incidents: 0,
       malware: 0,
       operations: 2,
@@ -90,7 +89,6 @@ test("describeThreatWeather covers quiet, mixed, stormy, and ties", () => {
     describeThreatWeather({
       cloud: 4,
       identity: 4,
-      vulnerabilities: 1,
       incidents: 1,
       malware: 1,
       operations: 1,
@@ -103,14 +101,22 @@ test("describeThreatWeather covers quiet, mixed, stormy, and ties", () => {
     describeThreatWeather({
       cloud: 1,
       identity: 1,
-      vulnerabilities: 0,
       incidents: 0,
       malware: 0,
       operations: 0,
       microsoft: 0,
     }).sentence,
-    "Light in cloud and identity, clear in vulnerabilities.",
+    "Light in cloud and identity, clear in incidents.",
   );
+});
+
+test("weather forecast covers six topics and ships band icons", () => {
+  assert.deepEqual(
+    WEATHER_TOPICS.map((topic) => topic.id),
+    ["cloud", "identity", "incidents", "malware", "operations", "microsoft"],
+  );
+  assert.match(weatherIconSvg("stormy"), /<svg/);
+  assert.match(weatherIconSvg("clear"), /<svg/);
 });
 
 test("shouldShowThreatWeather hides empty feeds and avoids a clear-skies flash", () => {

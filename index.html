@@ -911,7 +911,13 @@
           hidden
           aria-label="Threat weather"
         >
-          <p class="threat-weather-lead" id="threat-weather-lead" hidden></p>
+          <div class="threat-weather-now">
+            <div class="threat-weather-hero-icon" id="threat-weather-hero-icon" aria-hidden="true"></div>
+            <div class="threat-weather-now-copy">
+              <p class="threat-weather-kicker">Last 24 hours</p>
+              <p class="threat-weather-lead" id="threat-weather-lead" hidden></p>
+            </div>
+          </div>
           <div class="threat-weather-strip" id="threat-weather-strip"></div>
         </div>
       </section>
@@ -1068,6 +1074,7 @@
         countLast24h,
         describeThreatWeather,
         shouldShowThreatWeather,
+        weatherIconSvg,
       } from "/assets/threat-weather.js";
       const topicColors = {
         all: "#58e08d",
@@ -1145,6 +1152,7 @@
         frontPageLink = document.querySelector("#front-page-link"),
         microsoftFilterWrap = document.querySelector("#microsoft-filter"),
         threatWeather = document.querySelector("#threat-weather"),
+        threatWeatherHero = document.querySelector("#threat-weather-hero-icon"),
         threatWeatherLead = document.querySelector("#threat-weather-lead"),
         threatWeatherStrip = document.querySelector("#threat-weather-strip");
       const microsoftNewsSources = new Set([
@@ -1201,21 +1209,24 @@
         if (mode === "hidden") {
           threatWeatherLead.hidden = true;
           threatWeatherLead.textContent = "";
+          threatWeatherHero.replaceChildren();
           threatWeatherStrip.replaceChildren();
           return;
         }
         if (mode === "placeholder") {
           threatWeatherLead.hidden = true;
           threatWeatherLead.textContent = "";
+          threatWeatherHero.innerHTML = weatherIconSvg("light");
           const placeholder = document.createElement("div");
           placeholder.className = "threat-weather-placeholder";
           placeholder.setAttribute("aria-hidden", "true");
           threatWeatherStrip.replaceChildren(placeholder);
           return;
         }
-        const { sentence, topics: weatherTopics } = describeThreatWeather(
+        const { sentence, topics: weatherTopics, headlineBand } = describeThreatWeather(
           countLast24h(stories, { isMicrosoftStory }),
         );
+        threatWeatherHero.innerHTML = weatherIconSvg(headlineBand);
         threatWeatherLead.hidden = false;
         threatWeatherLead.textContent = sentence;
         threatWeatherStrip.replaceChildren();
@@ -1233,16 +1244,20 @@
             "aria-label",
             `${topic.name}, ${topic.count} ${topic.band}`,
           );
+          const icon = document.createElement("span");
+          icon.className = "threat-weather-chip-icon";
+          icon.setAttribute("aria-hidden", "true");
+          icon.innerHTML = weatherIconSvg(topic.band);
           const label = document.createElement("span");
           label.className = "threat-weather-chip-label";
           label.textContent = topic.name;
-          const count = document.createElement("span");
-          count.className = "threat-weather-chip-count";
-          count.textContent = String(topic.count);
           const band = document.createElement("span");
           band.className = "threat-weather-chip-band";
           band.textContent = topic.band;
-          chip.append(label, count, band);
+          const count = document.createElement("span");
+          count.className = "threat-weather-chip-count";
+          count.textContent = String(topic.count);
+          chip.append(icon, label, band, count);
           chip.addEventListener("click", () => selectTopic(topic.id));
           threatWeatherStrip.append(chip);
         });
