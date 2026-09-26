@@ -248,6 +248,7 @@ const assert = require("node:assert/strict");
     assert.equal(await page.locator("#threat-weather").isVisible(), true);
     assert.equal(await page.locator("#threat-weather").getAttribute("data-loading"), "false");
     assert.equal(await page.locator("#threat-weather-lead").textContent(), "Clear skies across coverage.");
+    assert.equal((await page.locator(".threat-weather-title").textContent()).trim(), "24h Forecast");
     assert.equal(await page.locator("#threat-weather [data-topic]").count(), 6);
     assert.equal(await page.locator("#threat-weather .threat-weather-icon-svg").count(), 7);
     await page.locator('#threat-weather [data-topic="identity"]').click();
