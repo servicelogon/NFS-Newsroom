@@ -184,7 +184,7 @@
 .threat-weather-lead { margin:0; color:var(--muted); font-size:13px; text-align:right; }
 .threat-weather-strip { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scroll-snap-type:x proximity; }
 .threat-weather-placeholder { flex:0 0 100%; height:72px; border-radius:7px; background:linear-gradient(90deg,var(--panel),var(--hover),var(--panel)); }
-.threat-weather-chip { display:flex; flex:0 0 88px; flex-direction:column; align-items:center; gap:2px; min-height:44px; margin:0; padding:8px 6px; border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--muted); font:12px/1.25 var(--sans); cursor:pointer; scroll-snap-align:start; }
+.threat-weather-chip { display:flex; flex:0 0 104px; flex-direction:column; align-items:center; gap:2px; min-height:44px; margin:0; padding:8px 6px; border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--muted); font:12px/1.25 var(--sans); cursor:pointer; scroll-snap-align:start; }
 .threat-weather-chip:hover { color:var(--ink); background:var(--panel); }
 .threat-weather-chip[aria-pressed="true"] { color:var(--ink); background:var(--panel); border-color:#555; }
 .threat-weather-chip[data-band="stormy"] { border-color:color-mix(in srgb,var(--pink) 32%, var(--line)); }
