@@ -176,7 +176,7 @@
 [data-theme="light"] .story.message-center-story .message-center-badge { color:#315c8f; }
 [data-theme="light"] .topic,[data-theme="light"] .category[aria-pressed="true"],[data-theme="light"] .story h2 a:hover,[data-theme="light"] .story-footer a:hover { color:color-mix(in srgb,var(--topic-color) 52%,#171725); }
 [data-theme="light"] .front-page-atmosphere { opacity:.25; }
-.threat-weather { margin-top:28px; padding-top:22px; border-top:1px solid var(--line); color:var(--muted); font:13px/1.45 var(--sans); }
+.threat-weather { margin-top:32px; padding-top:26px; border-top:1px solid var(--line); color:var(--muted); font:13px/1.45 var(--sans); }
 .threat-weather-now { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
 .threat-weather-hero-icon { display:grid; place-items:center; width:64px; height:64px; flex:0 0 64px; border-radius:18px; background:linear-gradient(180deg,#2a3344 0%,#1d1d21 100%); color:#e8eef8; }
 .threat-weather-hero-icon .threat-weather-icon-svg { width:40px; height:40px; }
@@ -187,7 +187,7 @@
 .threat-weather-placeholder { height:96px; width:min(100%, 560px); border-radius:14px; background:linear-gradient(90deg,var(--panel),var(--hover),var(--panel)); }
 .threat-weather-chip { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:86px; margin:0; padding:10px 8px 12px; border:1px solid var(--line); border-radius:16px; background:var(--panel); color:var(--muted); font:12px/1.25 var(--sans); cursor:pointer; }
 .threat-weather-chip:hover { color:var(--ink); background:var(--hover); }
-.threat-weather-chip[aria-pressed="true"] { color:var(--ink); border-color:#5a5a62; }
+.threat-weather-chip[aria-pressed="true"] { color:var(--ink); border-color:var(--ink); }
 .threat-weather-chip[data-band="stormy"] { color:var(--ink); background:linear-gradient(180deg,#2a2430 0%,#1d1d21 100%); }
 .threat-weather-chip-icon { display:grid; place-items:center; width:36px; height:36px; color:#d7deea; }
 .threat-weather-chip-icon .threat-weather-icon-svg { width:28px; height:28px; }
@@ -198,6 +198,13 @@
 [data-theme="light"] .threat-weather-hero-icon { background:linear-gradient(180deg,#d7e4f6 0%,#fff 100%); color:#3b4a63; }
 [data-theme="light"] .threat-weather-chip[data-band="stormy"] { background:linear-gradient(180deg,#efe8f4 0%,#fff 100%); }
 [data-theme="light"] .threat-weather-chip-icon { color:#3b4a63; }
+@media(max-width:700px) {
+  .threat-weather { margin-top:24px; padding-top:20px; }
+  .threat-weather-now { align-items:flex-start; }
+  .threat-weather-lead { font-size:20px; }
+  .threat-weather-strip { flex-wrap:wrap; overflow:visible; }
+  .threat-weather-chip { flex:1 1 calc(50% - 8px); min-width:0; }
+}
 @media(max-width:1000px) { .featured-post { gap:0; } }
 @media(max-width:700px) {
   .header-actions { gap:4px; }
