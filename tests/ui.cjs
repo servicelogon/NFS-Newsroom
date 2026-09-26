@@ -287,17 +287,17 @@ const assert = require("node:assert/strict");
       "https://example.com/operations",
     );
     assert.equal(await page.locator(".category .count").count(), 0);
-    await page.locator('[data-topic="cloud"]').click();
+    await page.locator('.category[data-topic="cloud"]').click();
     await page.waitForFunction(() =>
-      document.querySelector('[data-topic="cloud"]')?.getAttribute("aria-pressed") === "true",
+      document.querySelector('.category[data-topic="cloud"]')?.getAttribute("aria-pressed") === "true",
     );
     assert.equal(await page.locator("#feed .story").count(), 1);
     assert.equal(await page.locator("#feed .story h2").textContent(), "Fixture cloud posture issue");
     await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('[data-topic="cloud"]')).color === "rgb(245, 158, 11)",
+      getComputedStyle(document.querySelector('.category[data-topic="cloud"]')).color === "rgb(245, 158, 11)",
     );
     assert.equal(
-      await page.locator('[data-topic="cloud"]').evaluate((e) => getComputedStyle(e).color),
+      await page.locator('.category[data-topic="cloud"]').evaluate((e) => getComputedStyle(e).color),
       "rgb(245, 158, 11)",
     );
     assert.match(
@@ -320,28 +320,28 @@ const assert = require("node:assert/strict");
       await titleLink.evaluate((e) => getComputedStyle(e).color),
       await page.locator(".story .topic").first().evaluate((e) => getComputedStyle(e).color),
     );
-    await page.locator('[data-topic="identity"]').click();
+    await page.locator('.category[data-topic="identity"]').click();
     await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('[data-topic="identity"]')).color === "rgb(192, 132, 252)",
+      getComputedStyle(document.querySelector('.category[data-topic="identity"]')).color === "rgb(192, 132, 252)",
     );
     assert.equal(await page.locator(".story h2").textContent(), "Fixture identity token theft");
-    await page.locator('[data-topic="all"]').click();
+    await page.locator('.category[data-topic="all"]').click();
     await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('[data-topic="all"]')).color === "rgb(88, 224, 141)",
+      getComputedStyle(document.querySelector('.category[data-topic="all"]')).color === "rgb(88, 224, 141)",
     );
     assert.equal(
-      await page.locator('[data-topic="all"]').evaluate((e) => getComputedStyle(e).color),
+      await page.locator('.category[data-topic="all"]').evaluate((e) => getComputedStyle(e).color),
       "rgb(88, 224, 141)",
     );
-    assert.equal(await page.locator('[data-topic="microsoft"]').count(), 1);
+    assert.equal(await page.locator('.category[data-topic="microsoft"]').count(), 1);
     includeMicrosoftLeaks = true;
     await page.evaluate(() => loadNews());
-    await page.locator('[data-topic="microsoft"]').click();
+    await page.locator('.category[data-topic="microsoft"]').click();
     await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('[data-topic="microsoft"]')).color === "rgb(96, 165, 250)",
+      getComputedStyle(document.querySelector('.category[data-topic="microsoft"]')).color === "rgb(96, 165, 250)",
     );
     assert.equal(
-      await page.locator('[data-topic="microsoft"]').evaluate((e) => getComputedStyle(e).color),
+      await page.locator('.category[data-topic="microsoft"]').evaluate((e) => getComputedStyle(e).color),
       "rgb(96, 165, 250)",
     );
     assert.equal(await page.locator(".story").count(), 2);
@@ -378,7 +378,7 @@ const assert = require("node:assert/strict");
     await page.locator('[data-microsoft-filter="all"]').click();
     includeMicrosoftLeaks = false;
     await page.evaluate(() => loadNews());
-    await page.locator('[data-topic="incidents"]').click();
+    await page.locator('.category[data-topic="incidents"]').click();
     assert.equal(await page.locator("#empty").isVisible(), true);
     assert.equal(await page.locator("#empty-retry").isVisible(), false);
     assert.equal(await page.locator("#reset").isVisible(), true);
