@@ -8,7 +8,24 @@ const path = require('node:path');
   const postsDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'nfs-pages-'));
   const sample = await fs.readFile('content/posts/entra-default-settings-that-you-should-change.md', 'utf8');
   await fs.writeFile(path.join(postsDirectory, 'entra-default-settings-that-you-should-change.md'), sample);
-  const server = createAppServer({ postsDirectory, service: { getNews:async () => ({articles:[],sources:[],updatedAt:null}) } });
+  const server = createAppServer({
+    postsDirectory,
+    service: {
+      getNews: async () => ({
+        articles: [{
+          id: 'palette-headline',
+          title: 'Palette cloud headline',
+          url: 'https://example.com/palette-headline',
+          source: 'Fixture Wire',
+          publishedAt: '2026-09-01T12:00:00Z',
+          summary: 'A searchable newsroom headline',
+          category: 'cloud',
+        }],
+        sources: [],
+        updatedAt: null,
+      }),
+    },
+  });
   let browser;
   try {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -54,6 +71,27 @@ const path = require('node:path');
         }
       }
     }
+    for (const route of ['/', '/blog/entra-default-settings-that-you-should-change', '/blog/tag/conditional-access', '/tools', '/newsroom']) {
+      await page.setViewportSize({width:1440, height:1000});
+      await page.goto(base + route);
+      await page.keyboard.press('Control+k');
+      assert.ok(await page.locator('.command-palette').isVisible(), `${route} opens the search palette`);
+      assert.ok(await page.locator('#command-palette-input').evaluate(el => document.activeElement === el));
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('.command-palette').isVisible(), false);
+    }
+    await page.goto(base);
+    await page.keyboard.press('Control+k');
+    await page.locator('#command-palette-input').fill('passkey');
+    assert.ok(await page.locator('.command-palette-group', { hasText: 'Tools' }).isVisible());
+    assert.ok(await page.getByRole('option', { name: /Passkey AAGUID Lookup/ }).isVisible());
+    await page.locator('#command-palette-input').fill('palette cloud');
+    await page.waitForFunction(() => [...document.querySelectorAll('.command-palette-group')].some(el => el.textContent === 'Newsroom'));
+    assert.ok(await page.getByRole('option', { name: /Palette cloud headline/ }).isVisible());
+    await page.locator('#command-palette-input').fill('Entra Default Settings');
+    assert.ok(await page.locator('.command-palette-group', { hasText: 'Posts' }).isVisible());
+    await page.keyboard.press('Enter');
+    await page.waitForURL(/\/blog\/entra-default-settings-that-you-should-change$/);
     await page.goto(base);
     await page.getByRole('button', {name:'Switch to light mode'}).click();
     await page.goto(base + '/tools');

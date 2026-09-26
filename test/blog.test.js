@@ -5,7 +5,7 @@ import { gunzipSync, brotliDecompressSync } from 'node:zlib';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { loadPosts, SITE_ORIGIN } from '../blog.js';
+import { loadPosts, SITE_ORIGIN, searchIndexScript } from '../blog.js';
 import { createAppServer } from '../server.js';
 const source = (title, date = '2026-09-14', extra = '', body = '## Heading\n\n**Strong** and [safe](https://example.com).') => `---\ntitle: ${title}\ndescription: A test field note\ndate: ${date}\n${extra}---\n${body}`;
 async function directory(t) {
@@ -64,8 +64,14 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
     const response = await fetch(base + path);
     assert.equal(response.status, 200, path);
   }
-  assert.match(await (await fetch(base)).text(), /href="\/blog\/published"/);
+  const home = await (await fetch(base)).text();
+  assert.match(home, /href="\/blog\/published"/);
+  assert.match(home, /id="nfs-search-index"/);
+  assert.match(home, /"href":"\/blog\/published"/);
+  assert.doesNotMatch(home, /\/blog\/draft/);
   const tools = await (await fetch(base + '/tools')).text();
+  assert.match(tools, /id="nfs-search-index"/);
+  assert.match(tools, /id="copilot-security-trail"/);
   assert.match(tools, /https:\/\/servicelogon.github.io\/copilot-security-trail\//);
   assert.match(tools, /https:\/\/servicelogon.github.io\/PasskeyLookup\//);
   for (const path of ['/blog/draft', '/blog/missing', '/blog/%2e%2e%2fserver', '/content/posts/published.md', '/blog.js', '/assets/../package.json']) {
@@ -137,6 +143,9 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   const newsroom = await (await fetch(base + '/newsroom')).text();
   assert.match(newsroom, /property="og:title" content="New Frontier Security — Newsroom"/);
   assert.match(newsroom, /rel="canonical" href="https:\/\/nfs\.example\/newsroom"/);
+  assert.match(newsroom, /id="nfs-search-index"/);
+  assert.match(newsroom, /"href":"\/blog\/published"/);
+  assert.match(searchIndexScript([{ slug: 'x', title: '<script>', description: 'note' }]), /\\u003cscript>/);
   assert.match(newsroom, /name="twitter:card" content="summary"/);
   const sitemap = await fetch(base + '/sitemap.xml');
   assert.equal(sitemap.status, 200);

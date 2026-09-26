@@ -1453,6 +1453,7 @@
                 s.sourceCategory ||
                 (microsoftSources.has(s.source) ? "microsoft" : undefined),
             }));
+          window.nfsNewsArticles = stories;
           const updated =
             data.updatedAt && Number.isFinite(Date.parse(data.updatedAt))
               ? new Date(data.updatedAt).toLocaleString()

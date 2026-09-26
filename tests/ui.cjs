@@ -121,7 +121,13 @@ const assert = require("node:assert/strict");
       }
       return r.fulfill({
         contentType: "text/html",
-        body: fs.readFileSync("index.html", "utf8"),
+        body: fs.readFileSync("index.html", "utf8").replace(
+          "</head>",
+          `<script type="application/json" id="nfs-search-index">${JSON.stringify({
+            posts: [{ title: "Fixture field note", href: "/blog/fixture-field-note", description: "Identity note" }],
+            tools: [{ title: "Passkey AAGUID Lookup", href: "/tools#passkey-aaguid-lookup", description: "Match an AAGUID" }],
+          })}</script></head>`,
+        ),
       });
     });
     await page.goto("http://beacon.test/newsroom");
@@ -298,6 +304,20 @@ const assert = require("node:assert/strict");
       true,
     );
     await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+k");
+    assert.ok(await page.locator(".command-palette").isVisible());
+    await page.locator("#command-palette-input").fill("cloud posture");
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('[role="option"]')].some((el) =>
+        el.textContent.includes("Fixture cloud posture issue"),
+      ),
+    );
+    assert.ok(await page.locator(".command-palette-group", { hasText: "Newsroom" }).isVisible());
+    assert.ok(await page.getByRole("option", { name: /Fixture cloud posture issue/ }).isVisible());
+    await page.locator("#command-palette-input").fill("passkey");
+    assert.ok(await page.getByRole("option", { name: /Passkey AAGUID Lookup/ }).isVisible());
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator(".command-palette").isVisible(), false);
     for (const width of [1440, 768, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(
