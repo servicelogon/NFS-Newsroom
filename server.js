@@ -11,7 +11,7 @@ import { brotliCompressSync, gzipSync } from 'node:zlib';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
 import { FEEDS } from './sources.js';
-import { loadPosts, blogPage, postPage, tagPage, tagNotFoundPage, toolsPage, notFoundPage, seoHead, sitemapXml, robotsTxt, tagSlug, SITE_ORIGIN, normalizeOrigin } from './blog.js';
+import { loadPosts, blogPage, postPage, tagPage, tagNotFoundPage, toolsPage, notFoundPage, seoHead, sitemapXml, robotsTxt, tagSlug, SITE_ORIGIN, normalizeOrigin, searchIndexScript } from './blog.js';
 export { FEEDS };
 const parser = new Parser();
 function text(value = '') {
@@ -217,11 +217,12 @@ export function createAppServer({ service = createNewsService(), postsDirectory 
       if (['/', '/index.html', '/blog', '/blog/'].includes(url.pathname)) {
         return html(200, blogPage(await loadPosts(postsDirectory), { origin }));
       }
-      if (['/tools', '/tools/'].includes(url.pathname)) return html(200, toolsPage({ origin }));
+      if (['/tools', '/tools/'].includes(url.pathname)) return html(200, toolsPage({ origin, posts: await loadPosts(postsDirectory) }));
       if (url.pathname === '/newsroom' || url.pathname === '/newsroom/') {
         const page = await readFile(join(ROOT, 'index.html'), 'utf8');
         const tags = seoHead({ title: NEWSROOM_TITLE, description: NEWSROOM_DESCRIPTION, path: '/newsroom', origin });
-        return html(200, page.replace('</head>', `${tags}</head>`));
+        const catalog = searchIndexScript(await loadPosts(postsDirectory));
+        return html(200, page.replace('</head>', `${tags}${catalog}</head>`));
       }
       const tagRoute = url.pathname.match(/^\/blog\/tag\/([^/]+)\/?$/);
       if (tagRoute) {
@@ -236,14 +237,15 @@ export function createAppServer({ service = createNewsService(), postsDirectory 
         }
         const posts = await loadPosts(postsDirectory);
         const matches = posts.filter(post => post.tags.some(tag => tagSlug(tag) === slug));
-        if (!matches.length) return html(404, tagNotFoundPage({ origin, path: `/blog/tag/${slug}` }));
+        if (!matches.length) return html(404, tagNotFoundPage({ origin, path: `/blog/tag/${slug}`, posts }));
         const label = matches.flatMap(post => post.tags).find(tag => tagSlug(tag) === slug);
-        return html(200, tagPage(label, matches, { origin }));
+        return html(200, tagPage(label, matches, { origin, posts }));
       }
       if (url.pathname.startsWith('/blog/')) {
         const slug = url.pathname.slice(6).replace(/\/$/, '');
-        const post = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ? (await loadPosts(postsDirectory)).find(post => post.slug === slug) : null;
-        return html(post ? 200 : 404, post ? postPage(post, { origin }) : notFoundPage({ origin, path: slug ? `/blog/${slug}` : url.pathname }));
+        const posts = await loadPosts(postsDirectory);
+        const post = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ? posts.find(post => post.slug === slug) : null;
+        return html(post ? 200 : 404, post ? postPage(post, { origin, posts }) : notFoundPage({ origin, path: slug ? `/blog/${slug}` : url.pathname, posts }));
       }
       const asset = STATIC.get(url.pathname);
       if (!asset) return send(404, 'Not found');

@@ -113,7 +113,7 @@
 .empty-state { padding:65px 0; }
 .empty-state h1,.empty-state h2 { font:40px/1.2 var(--serif); }
 .tool-grid { display:grid; grid-template-columns:1fr 1fr; gap:26px; padding:36px 0 12px; }
-.tool-card { --accent:#bddc9b; background:#1c211c; border:1px solid #394337; border-radius:9px; padding:26px; display:flex; flex-direction:column; transition:border-color .2s,transform .2s; }
+.tool-card { --accent:#bddc9b; background:#1c211c; border:1px solid #394337; border-radius:9px; padding:26px; display:flex; flex-direction:column; transition:border-color .2s,transform .2s; scroll-margin-top:24px; }
 .tool-card:hover { border-color:var(--accent); transform:translateY(-3px); }
 .passkey-card { --accent:#b5c7f5; background:#1c1f26; border-color:#363d4d; }
 .tool-top { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--accent); }
@@ -142,6 +142,23 @@
 @media(max-width:1000px) { .publication .shell { padding:0 28px; } .featured-post { gap:30px; } .tool-card { padding:22px; } .issue-label { display:none; } }
 @media(max-width:700px) { .publication .shell { padding:0 20px; } .publication .topbar { min-height:78px; gap:16px; } .publication .brand { width:160px; max-width:44vw; } .site-menu summary { min-width:110px; gap:20px; padding:10px 12px; } .page-intro { padding:28px 0; } .page-intro>.kicker { font-size:11px; } .page-intro>.kicker span { letter-spacing:0; } .page-intro h1 { margin-top:28px; } .featured-post { grid-template-columns:1fr; padding:28px 0; gap:22px; } .feature-content h2 { margin-top:16px; } .explore-strip { align-items:flex-start; flex-wrap:wrap; gap:16px 28px; } .explore-strip p { width:100%; } .site-footer { flex-wrap:wrap; gap:12px; } .tool-grid { grid-template-columns:1fr; gap:22px; padding-top:24px; } .tool-card { padding:22px; } .tool-copy h2 { font-size:42px; } .post-heading { margin-top:30px; } .post-deck { font-size:18px; } .prose { font-size:17px; } .prose h2 { font-size:25px; } .prose blockquote { font-size:18px; padding-left:18px; } }
 @media(prefers-reduced-motion:reduce) { .tool-card { transition:none; } .tool-card:hover { transform:none; } }
+.command-palette { position:fixed; inset:0; z-index:50; display:grid; place-items:start center; padding:12vh 16px 24px; }
+.command-palette[hidden] { display:none; }
+.command-palette-open { overflow:hidden; }
+.command-palette-backdrop { position:absolute; inset:0; background:#0008; }
+.command-palette-dialog { position:relative; width:min(640px,100%); max-height:min(72vh,640px); display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:var(--panel); box-shadow:0 24px 60px #0006; overflow:hidden; }
+.command-palette-title { margin:0; padding:14px 16px 0; font:12px/1.5 var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.command-palette-dialog input { width:100%; border:0; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:12px 16px 14px; font:16px/1.4 var(--sans); outline:none; }
+.command-palette-dialog input:focus-visible { outline:none; box-shadow:inset 0 0 0 2px var(--pink); }
+.command-palette-results { margin:0; padding:8px; overflow:auto; list-style:none; }
+.command-palette-group { padding:10px 10px 4px; font:11px/1.4 var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.command-palette-option { display:flex; flex-direction:column; gap:2px; padding:10px; border-radius:8px; cursor:pointer; }
+.command-palette-option.is-active,.command-palette-option:hover { background:var(--hover); }
+.command-palette-option-title { color:var(--ink); font:15px/1.35 var(--sans); }
+.command-palette-option-meta { color:var(--muted); font:12px/1.4 var(--sans); }
+.command-palette-empty { margin:0; padding:18px 16px; color:var(--muted); }
+.command-palette-hint { margin:0; padding:8px 16px 12px; border-top:1px solid var(--line); color:var(--muted); font:12px/1.4 var(--sans); }
+[data-theme="light"] .command-palette-backdrop { background:#1a1a1e55; }
 
 /* Keep original logo assets legible on a light page without changing their files. */
 [data-theme="light"] .brand-logo,[data-theme="light"] .newsroom-logo { filter:invert(1) hue-rotate(180deg); mix-blend-mode:multiply; }

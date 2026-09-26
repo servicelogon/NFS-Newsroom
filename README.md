@@ -63,7 +63,7 @@ The first post is `content/posts/entra-default-settings-that-you-should-change.m
 
 Blog home, tag pages, posts, the newsroom, and tools include canonical URLs plus Open Graph and Twitter card tags. A post’s hero image is the Open Graph image when the post has one.
 
-All pages have a top-right menu with Blog, Newsroom, and Tools. It works with keyboard and touch; Escape closes it and returns focus to its button.
+All pages have a top-right menu with Blog, Newsroom, and Tools. It works with keyboard and touch; Escape closes it and returns focus to its button. Cmd+K or Ctrl+K opens a site-wide search palette for field notes, tools, and newsroom headlines.
 
 ## What It Includes
 
