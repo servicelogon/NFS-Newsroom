@@ -1576,7 +1576,8 @@
           search.blur();
         }
       });
-      async function loadNews() {
+      let newsRequest = null;
+      async function loadNewsOnce() {
         loading = true;
         document.querySelectorAll("[data-empty-retry]").forEach((button) => {
           button.disabled = true;
@@ -1634,11 +1635,16 @@
           );
         } finally {
           loading = false;
+          newsRequest = null;
           document.querySelectorAll("[data-empty-retry]").forEach((button) => {
             button.disabled = false;
           });
           render();
         }
+      }
+      function loadNews() {
+        if (!newsRequest) newsRequest = loadNewsOnce();
+        return newsRequest;
       }
       window.loadNews = loadNews;
       loadNews();
