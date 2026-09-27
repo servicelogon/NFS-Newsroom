@@ -1,40 +1,85 @@
-// Loads Markdown posts and renders the public blog, tools page, search index,
-// and HTML document shell. SEO URLs stay root-relative unless SITE_ORIGIN is set.
+// blog.js — public blog, tools page, search index, and HTML document shell.
+//
+// Markdown files in the posts directory become HTML on each request. The same
+// module also builds the tools page, the Cmd+K search index, sitemap/robots
+// output, and the shared chrome (nav, SEO tags, skip link, footer).
+//
+// There is no published hostname in this repo. Set SITE_ORIGIN to a bare
+// origin (scheme + host only, no path or trailing slash) so canonical URLs,
+// Open Graph tags, sitemap.xml, and robots.txt use absolute links. When it is
+// unset, those links stay root-relative instead of inventing a domain.
+
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import hljs from 'highlight.js/lib/common';
 import MarkdownIt from 'markdown-it';
 
-// HTML entity map for page output. XML uses &apos; instead of &#39;.
-export const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-const xmlEscape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
+// ---------------------------------------------------------------------------
+// Escaping
+// ---------------------------------------------------------------------------
+// Page HTML uses &#39; for apostrophe. XML (sitemap) needs &apos; instead.
+// Two maps keep that distinction from leaking into the wrong document type.
 
-// This repository has no published hostname. Set SITE_ORIGIN to the public
-// origin (scheme and host only, no path or trailing slash) so canonical URLs,
-// Open Graph tags, sitemap.xml, and robots.txt use absolute links. When it is
-// unset, those links stay root-relative instead of inventing a domain.
+export const escapeHtml = value => String(value).replace(
+  /[&<>"']/g,
+  char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]
+);
+
+const xmlEscape = value => String(value).replace(
+  /[&<>"']/g,
+  char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]
+);
+
+// ---------------------------------------------------------------------------
+// Public origin and URLs
+// ---------------------------------------------------------------------------
+// Accept only a bare http(s) origin. Credentials, a query, a hash, or a path
+// other than `/` would produce canonical URLs we do not want, so those inputs
+// become '' and callers fall back to root-relative links.
+
 export function normalizeOrigin(value) {
   const raw = String(value ?? '').trim().replace(/\/+$/, '');
   if (!raw) return '';
   try {
     const url = new URL(raw);
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') return '';
+    if (
+      !['http:', 'https:'].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== '/'
+    ) return '';
     return url.origin;
   } catch {
     return '';
   }
 }
+
 export const SITE_ORIGIN = normalizeOrigin(process.env.SITE_ORIGIN);
-// Join a path to an origin when one is set; otherwise return a root-relative path.
+
+// Prefix a path with the origin when one is set. Paths are forced to start
+// with `/` so we never concatenate into `https://hostblog/slug`.
+
 export function absoluteUrl(origin, path) {
   const normalized = path.startsWith('/') ? path : `/${path}`;
   return origin ? `${normalizeOrigin(origin)}${normalized}` : normalized;
 }
-// URL slug for a tag: lowercase, hyphenated, empty if nothing usable remains.
+
+// ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+// Lowercase hyphenated slug for `/blog/tag/...`. Empty if the label has no
+// letters or digits, so punctuation-only tags never become a URL.
+
 export function tagSlug(tag) {
   return String(tag ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
-// One entry per tag slug, using the newest post date as sitemap lastmod.
+
+// One sitemap/archive entry per slug. The label is the first spelling we saw;
+// lastmod is the newest post date so crawlers re-fetch when a tagged post is
+// added.
+
 export function collectTags(posts) {
   const tags = new Map();
   for (const post of posts) {
@@ -49,10 +94,32 @@ export function collectTags(posts) {
   }
   return [...tags.values()].sort((a, b) => a.slug.localeCompare(b.slug));
 }
-// Canonical, Open Graph, and Twitter tags. Empty origin keeps links root-relative.
-export function seoHead({ title, description, path, origin = '', image = null, type = 'website', published = null, robots = null }) {
+
+// ---------------------------------------------------------------------------
+// SEO, sitemap, robots
+// ---------------------------------------------------------------------------
+// Canonical, Open Graph, and Twitter tags. Optional fields (robots, image,
+// published time) are empty strings that filter(Boolean) drops so we do not
+// emit blank meta tags. An image that is already http(s) is passed through;
+// a site path is resolved with absoluteUrl. Twitter uses summary_large_image
+// only when an image is present.
+
+export function seoHead({
+  title,
+  description,
+  path,
+  origin = '',
+  image = null,
+  type = 'website',
+  published = null,
+  robots = null
+}) {
   const url = absoluteUrl(origin, path);
-  const imageUrl = !image ? null : /^https?:\/\//i.test(image) ? image : absoluteUrl(origin, image);
+  const imageUrl = !image
+    ? null
+    : /^https?:\/\//i.test(image)
+      ? image
+      : absoluteUrl(origin, image);
   return [
     robots ? `<meta name="robots" content="${escapeHtml(robots)}">` : '',
     `<link rel="canonical" href="${escapeHtml(url)}">`,
@@ -69,7 +136,10 @@ export function seoHead({ title, description, path, origin = '', image = null, t
     imageUrl ? `<meta name="twitter:image" content="${escapeHtml(imageUrl)}">` : '',
   ].filter(Boolean).join('');
 }
-// Sitemap of static routes, each post, and each tag archive.
+
+// Home, newsroom, tools, each post, and each tag archive. lastmod is omitted
+// on the static routes because those pages are not dated.
+
 export function sitemapXml(posts, origin = '') {
   const urls = [
     { loc: absoluteUrl(origin, '/') },
@@ -81,27 +151,48 @@ export function sitemapXml(posts, origin = '') {
   const body = urls.map(url => `  <url><loc>${xmlEscape(url.loc)}</loc>${url.lastmod ? `<lastmod>${xmlEscape(url.lastmod)}</lastmod>` : ''}</url>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
 }
-// Allow all crawlers and advertise the sitemap URL.
+
+// Allow all crawlers and point them at the sitemap (absolute when SITE_ORIGIN
+// is set).
+
 export function robotsTxt(origin = '') {
   return `User-agent: *\nAllow: /\n\nSitemap: ${absoluteUrl(origin, '/sitemap.xml')}\n`;
 }
-// Markdown renderer with raw HTML disabled. Fences use highlight.js when the
-// language is known; otherwise the code is escaped as plain text.
+
+// ---------------------------------------------------------------------------
+// Markdown
+// ---------------------------------------------------------------------------
+// Raw HTML is off so a post cannot inject <script> or event handlers. URLs in
+// the text are auto-linked; typographer turns quotes into typographic ones.
+// Fences use highlight.js when the language is known; otherwise the code is
+// escaped as plain text so an unknown fence cannot emit raw markup.
+
 const markdown = new MarkdownIt({
   html: false,
   linkify: true,
   typographer: true,
   highlight(code, language) {
     const normalizedLanguage = String(language || '').trim().toLowerCase();
-    // Allowlist the language class so a fence label cannot break the class attribute.
-    const className = normalizedLanguage && /^[a-z0-9+-]+$/.test(normalizedLanguage) ? ` language-${normalizedLanguage}` : '';
+    // Only a token of letters, digits, +, - may become a CSS class. That
+    // stops a fence label like `bash"><script>` from breaking out of class="".
+    const className = normalizedLanguage && /^[a-z0-9+-]+$/.test(normalizedLanguage)
+      ? ` language-${normalizedLanguage}`
+      : '';
     const highlighted = normalizedLanguage && hljs.getLanguage(normalizedLanguage)
       ? hljs.highlight(code, { language: normalizedLanguage, ignoreIllegals: true }).value
       : escapeHtml(code);
     return `<pre class="hljs"><code class="hljs${className}">${highlighted}</code></pre>`;
   },
 });
-// Booleans, [inline, lists], and quoted strings from a YAML scalar.
+
+// ---------------------------------------------------------------------------
+// Front matter
+// ---------------------------------------------------------------------------
+// Posts use a small YAML subset, not a full parser: booleans, [inline, lists],
+// quoted strings, and `key:` followed by `- item` lines. Nested parse so
+// [true, "x"] becomes typed values instead of leftover quotes. Empty items
+// after a split are dropped.
+
 function frontmatterValue(value) {
   const trimmed = value.trim();
   if (trimmed === 'true') return true;
@@ -109,7 +200,11 @@ function frontmatterValue(value) {
   if (/^\[.*\]$/.test(trimmed)) return trimmed.slice(1, -1).split(',').map(item => frontmatterValue(item)).filter(Boolean);
   return trimmed.replace(/^(['"])(.*)\1$/, '$2');
 }
-// Small YAML subset: `key: value` or `key:` followed by `- item` lines.
+
+// `key: value` sets a scalar. `key:` with an empty value starts a list; the
+// following `- item` lines append to it. Any other line is ignored so a
+// comment or blank line in the YAML block cannot crash the load.
+
 function parseFrontmatter(source) {
   const data = {};
   let listKey = null;
@@ -131,11 +226,16 @@ function parseFrontmatter(source) {
   }
   return data;
 }
+
 const requiredString = (data, key) => {
   if (typeof data[key] !== 'string' || !data[key].trim()) throw new Error(`Missing ${key}`);
   return data[key].trim();
 };
-// Hero images: /assets/blog/<kebab>.jpg|webp, or an https URL. Other values are ignored.
+
+// Hero images: a local /assets/blog/<kebab>.jpg|webp path, or an https URL.
+// http, data:, and arbitrary filesystem paths are dropped so a post cannot
+// point at private files or mixed-content URLs.
+
 const optionalImage = value => {
   if (typeof value !== 'string' || !value.trim()) return null;
   const image = value.trim();
@@ -148,85 +248,163 @@ const optionalImage = value => {
   }
 };
 
-// Read on each request so dropping in, editing, or removing a post needs no restart.
+// ---------------------------------------------------------------------------
+// Post loading
+// ---------------------------------------------------------------------------
+// Read the folder on every request so dropping in, editing, or removing a
+// post needs no restart. A missing directory is an empty blog, not a crash.
+// One bad file is skipped with a warning so it cannot take the whole blog
+// down.
+
 export async function loadPosts(directory) {
   let files;
-  // Missing posts directory is an empty blog, not a crash.
-  try { files = await readdir(directory, { withFileTypes: true }); }
-  catch (error) { if (error.code === 'ENOENT') return []; throw error; }
-  // Filename must be kebab-case.md (README.md and similar are not posts).
-  const posts = await Promise.all(files.filter(file => file.isFile() && /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(file.name)).map(async file => {
-    try {
-      // Strip BOM and normalize newlines so front matter matching is reliable.
-      const source = (await readFile(join(directory, file.name), 'utf8')).replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
-      const frontmatter = source.match(/^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/);
-      if (!frontmatter) throw new Error('Expected YAML front matter');
-      const data = parseFrontmatter(frontmatter[1]);
-      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Expected metadata fields');
-      if (data.draft === true) return null;
-      const title = requiredString(data, 'title');
-      const description = requiredString(data, 'description');
-      const date = requiredString(data, 'date');
-      // Regex plus Date round-trip so values like 2026-02-30 are rejected.
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) throw new Error('Expected a valid YYYY-MM-DD date');
-      const body = frontmatter[2];
-      const image = optionalImage(data.image);
-      return { slug: file.name.slice(0, -3), title, description, date,
-        author: typeof data.author === 'string' ? data.author : 'Nathan Hess',
-        tags: Array.isArray(data.tags) ? data.tags.filter(tag => typeof tag === 'string').slice(0, 5) : [],
-        sample: data.sample === true,
-        ...(image ? { image, imageAlt: typeof data.imageAlt === 'string' && data.imageAlt.trim() ? data.imageAlt.trim() : title } : {}),
-        minutes: Math.max(1, Math.ceil(body.trim().split(/\s+/).length / 220)),
-        html: markdown.render(body) };
-    } catch (error) {
-      console.warn(`Skipping blog post ${file.name}: ${error.message}`);
-      return null;
-    }
-  }));
-  // Newest first; slug breaks ties so the order stays stable.
+  try {
+    files = await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+
+  // Filename must be kebab-case.md so README.md and similar are not posts.
+  const posts = await Promise.all(
+    files
+      .filter(file => file.isFile() && /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(file.name))
+      .map(async file => {
+        try {
+          // Strip BOM and CRLF so the `---` front-matter regex always matches.
+          const source = (await readFile(join(directory, file.name), 'utf8')).replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+          const frontmatter = source.match(/^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/);
+          if (!frontmatter) throw new Error('Expected YAML front matter');
+          const data = parseFrontmatter(frontmatter[1]);
+          if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Expected metadata fields');
+          if (data.draft === true) return null;
+          const title = requiredString(data, 'title');
+          const description = requiredString(data, 'description');
+          const date = requiredString(data, 'date');
+          // Regex plus Date round-trip so values like 2026-02-30 are rejected.
+          // Date.parse alone would roll that over to March 2.
+          if (
+            !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+            !Number.isFinite(Date.parse(date)) ||
+            new Date(date).toISOString().slice(0, 10) !== date
+          ) throw new Error('Expected a valid YYYY-MM-DD date');
+          const body = frontmatter[2];
+          const image = optionalImage(data.image);
+          return {
+            slug: file.name.slice(0, -3),
+            title,
+            description,
+            date,
+            author: typeof data.author === 'string' ? data.author : 'Nathan Hess',
+            tags: Array.isArray(data.tags) ? data.tags.filter(tag => typeof tag === 'string').slice(0, 5) : [],
+            sample: data.sample === true,
+            ...(image ? { image, imageAlt: typeof data.imageAlt === 'string' && data.imageAlt.trim() ? data.imageAlt.trim() : title } : {}),
+            // About 220 words per minute, always at least 1 so empty bodies
+            // still show a read time.
+            minutes: Math.max(1, Math.ceil(body.trim().split(/\s+/).length / 220)),
+            html: markdown.render(body)
+          };
+        } catch (error) {
+          console.warn(`Skipping blog post ${file.name}: ${error.message}`);
+          return null;
+        }
+      })
+  );
+
+  // Newest date first; slug is the tie-breaker so the order is stable.
   return posts.filter(Boolean).sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
 }
 
-// Tools listed in the search palette. hrefs jump to the matching card on /tools.
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+// Tools listed in the Cmd+K palette. hrefs jump to the matching card on
+// /tools via the fragment id.
+
 export const SITE_TOOLS = [
   { title: 'Copilot Security Trail', href: '/tools#copilot-security-trail', description: 'Five stops through Copilot security, data protection, and Zero Trust.' },
   { title: 'Passkey AAGUID Lookup', href: '/tools#passkey-aaguid-lookup', description: 'Match an AAGUID to its passkey provider, or browse the directory.' },
 ];
-// Client search: post titles plus SITE_TOOLS. Empty query matches everything.
+
+// Published posts plus SITE_TOOLS. The client reads this JSON; news headlines
+// are merged in elsewhere and may include a `source` field.
+
 export function searchIndex(posts = []) {
   return {
     posts: posts.map(post => ({ title: post.title, href: `/blog/${post.slug}`, description: post.description })),
     tools: SITE_TOOLS,
   };
 }
-// Title, description, and optional news source; blog posts have no source field.
+
+// One lowercase haystack so matching is case-insensitive. Blog posts have no
+// source; news items do, which is why that field is included.
+
 export function searchHaystack(item = {}) {
   return [item.title, item.description, item.source].filter(Boolean).join(' ').toLowerCase();
 }
+
+// Empty query matches everything so the palette can show the full index
+// until the visitor types.
+
 export function itemMatchesQuery(item, query) {
   const q = String(query || '').trim().toLowerCase();
   return !q || searchHaystack(item).includes(q);
 }
-// JSON in a script tag. `\u003c` prevents a title from closing the tag.
+
+// Embed the index in a JSON script tag. Replacing `<` with `\u003c` stops a
+// title like `</script>` from closing the tag and turning the rest into HTML
+// (XSS).
+
 export function searchIndexScript(posts = []) {
   return `<script type="application/json" id="nfs-search-index">${JSON.stringify(searchIndex(posts)).replace(/</g, '\\u003c')}</script>`;
 }
-// Desktop links, theme toggle, and the mobile <details> menu share one link list.
+
+// ---------------------------------------------------------------------------
+// Document shell
+// ---------------------------------------------------------------------------
+// Desktop nav, theme toggle, and the mobile <details> menu share one link
+// list so the three places cannot drift. aria-current marks the active page.
+
 export function navigation(active) {
   const links = [['Blog', '/'], ['Newsroom', '/newsroom'], ['Tools', '/tools']].map(([name, href]) => `<a href="${href}"${active === name ? ' aria-current="page"' : ''}>${name}</a>`).join('');
   return `<div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation">${links}</nav><button class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation">${links}</nav></details></div>`;
 }
+
 const footer = `<footer class="site-footer"></footer>`;
-// Document shell used by every public HTML page.
+
+// Shared document used by every public HTML page: SEO head, search index,
+// skip link, brand, nav, main, footer.
+
 function layout(title, description, active, body, seo = {}) {
   const documentTitle = `${title} — New Frontier Security`;
-  const head = seoHead({ title: documentTitle, description, path: seo.path || '/', origin: seo.origin || '', image: seo.image || null, type: seo.type || 'website', published: seo.published || null, robots: seo.robots || null });
+  const head = seoHead({
+    title: documentTitle,
+    description,
+    path: seo.path || '/',
+    origin: seo.origin || '',
+    image: seo.image || null,
+    type: seo.type || 'website',
+    published: seo.published || null,
+    robots: seo.robots || null
+  });
   return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}<link rel="stylesheet" href="/assets/site.css"><script src="/assets/site.js"></script>${searchIndexScript(seo.posts || [])}</head><body class="publication"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="1585" height="423" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main">${body}</main>${footer}</div></body></html>`;
 }
-// Format at noon UTC so the calendar day does not shift in US timezones.
-const dateLabel = date => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+
+// Format at noon UTC so the calendar day does not shift in US timezones
+// (midnight UTC is still the previous evening in America).
+
+const dateLabel = date => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC'
+});
+
 const metadata = post => `<div class="post-meta"><time datetime="${post.date}">${dateLabel(post.date)}</time><span>${post.minutes} min read</span>${post.sample ? '<span class="sample-label">Sample post</span>' : ''}</div>`;
-// One chip per slug; "Entra" and "entra" collapse to the same link.
+
+// One chip per slug so "Entra" and "entra" do not both render. The visible
+// label keeps the author's original spelling.
+
 function tagChips(post) {
   const seen = new Set();
   const items = [];
@@ -239,10 +417,23 @@ function tagChips(post) {
   }
   return items.length ? `<ul class="post-tags">${items.join('')}</ul>` : '';
 }
-const postImage = (post, className, loading = 'lazy') => post.image ? `<a class="${className}" href="/blog/${post.slug}" aria-label="Read ${escapeHtml(post.title)}"><img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt)}" loading="${loading}" decoding="async"></a>` : '';
-// Featured (newest) tile uses eager image load and a LATEST ENTRY kicker.
+
+const postImage = (post, className, loading = 'lazy') => post.image
+  ? `<a class="${className}" href="/blog/${post.slug}" aria-label="Read ${escapeHtml(post.title)}"><img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt)}" loading="${loading}" decoding="async"></a>`
+  : '';
+
+// Featured (newest) tile uses eager image load and a LATEST ENTRY kicker so
+// the home page's first image is not lazy-loaded below the fold by mistake.
+
 const postTile = (post, { latest = false } = {}) => `<article class="featured-post post-tile"${latest ? ' aria-labelledby="featured-title"' : ''}>${postImage(post, 'feature-image', latest ? 'eager' : 'lazy')}<div class="feature-content"><span class="kicker">${latest ? 'LATEST ENTRY' : 'FIELD NOTE'}</span>${metadata(post)}${tagChips(post)}<h2${latest ? ' id="featured-title"' : ''}><a href="/blog/${post.slug}">${escapeHtml(post.title)}</a></h2><p>${escapeHtml(post.description)}</p></div></article>`;
-// Home: newest post featured, the rest as field-note tiles.
+
+// ---------------------------------------------------------------------------
+// Pages
+// ---------------------------------------------------------------------------
+// Home: newest post as the featured tile, the rest as field-note tiles, plus
+// links into the newsroom and tools. An empty posts list shows a placeholder
+// instead of a broken featured section.
+
 export function blogPage(posts, seo = {}) {
   const [featured, ...rest] = posts;
   return layout('Blog', 'Notes, ideas, and field guides on identity and cloud security by Nathan Hess.', 'Blog', `
@@ -251,11 +442,17 @@ export function blogPage(posts, seo = {}) {
     ${rest.length ? `<section class="more-posts" aria-label="More field notes">${rest.map(post => postTile(post)).join('')}</section>` : ''}
     <aside class="explore-strip"><p>Keep exploring.</p><a class="internal-button" href="/newsroom">Read the Newsroom</a><a class="internal-button" href="/tools">Open the toolbox</a></aside>`, { path: '/', origin: seo.origin || '', image: featured?.image || null, posts });
 }
-// Single post with Open Graph type=article and the published date.
+
+// Single post: heading, optional hero, rendered Markdown. Open Graph type is
+// article and published is the post date so shares show as an article.
+
 export function postPage(post, seo = {}) {
   return layout(post.title, post.description, 'Blog', `<article class="post-page"><a class="internal-button back-link" href="/">All field notes</a><header class="post-heading"><h1>${escapeHtml(post.title)}</h1><p class="post-deck">${escapeHtml(post.description)}</p>${metadata(post)}${tagChips(post)}<p class="byline">By ${escapeHtml(post.author)}</p></header>${post.image ? `<figure class="post-hero"><img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt)}" decoding="async"></figure>` : ''}${post.sample ? '<aside class="sample-note">This is a placeholder post to try out the blog. Replace it with your own field notes when you’re ready.</aside>' : ''}<div class="prose">${post.html}</div><a class="internal-button post-return" href="/">Back to the blog</a></article>`, { path: `/blog/${post.slug}`, origin: seo.origin || '', image: post.image || null, type: 'article', published: post.date, posts: seo.posts || [post] });
 }
-// Archive of posts that share a tag.
+
+// Archive of posts that share a tag. The intro noun is singular when there
+// is only one matching note.
+
 export function tagPage(label, posts, seo = {}) {
   const count = posts.length;
   const noun = count === 1 ? 'field note' : 'field notes';
@@ -264,14 +461,20 @@ export function tagPage(label, posts, seo = {}) {
     <section class="more-posts" aria-label="Field notes tagged ${escapeHtml(label)}">${posts.map(post => postTile(post)).join('')}</section>
     <aside class="explore-strip"><p>Keep exploring.</p><a class="internal-button" href="/">All field notes</a></aside>`, { path: `/blog/tag/${tagSlug(label)}`, origin: seo.origin || '', image: posts.find(post => post.image)?.image || null, posts: seo.posts || posts });
 }
-// 404 pages send noindex so missing URLs are not indexed.
+
+// 404 pages send noindex so missing tag/post URLs are not indexed.
+
 export function tagNotFoundPage(seo = {}) {
   return layout('Tag not found', 'No published field notes use this tag.', 'Blog', '<section class="empty-state"><p class="kicker">404 / OFF THE MAP</p><h1>No notes under that tag.</h1><p>That tag is not on any published field note.</p><a class="internal-button" href="/">Back to the blog</a></section>', { path: seo.path || '/blog/tag', origin: seo.origin || '', robots: 'noindex', posts: seo.posts || [] });
 }
+
 export function notFoundPage(seo = {}) {
   return layout('Post not found', 'This field note could not be found.', 'Blog', '<section class="empty-state"><p class="kicker">404 / OFF THE MAP</p><h1>This trail ends here.</h1><p>That post may have moved or is still being written.</p><a class="internal-button" href="/">Back to the blog</a></section>', { path: seo.path || '/blog', origin: seo.origin || '', robots: 'noindex', posts: seo.posts || [] });
 }
-// Static toolbox; the two tools are hosted on GitHub Pages, not this server.
+
+// Static toolbox page. The two tools live on GitHub Pages; this server only
+// renders the cards and outbound links.
+
 export function toolsPage(seo = {}) {
   return layout('Tools', 'Explore Copilot Security Trail and Passkey AAGUID Lookup, tools by Nathan Hess.', 'Tools', `
     <section class="page-intro tools-intro"><div class="kicker">THE TOOLBOX <span>BUILT BY NATHAN HESS</span></div><h1>Serious security.<br><em>Room to play.</em></h1><div class="intro-bottom"><p>A few useful things for the identity-curious. Pick one. Dig in.</p><span class="issue-label">02 TOOLS / READY TO EXPLORE</span></div></section>
