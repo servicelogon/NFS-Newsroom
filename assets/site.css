@@ -74,7 +74,7 @@
 .explore-strip { display:flex; align-items:center; gap:36px; padding:32px 0; }
 .explore-strip p { margin:0 auto 0 0; font:700 18px/1.4 var(--sans); color:var(--ink); }
 .explore-strip a { font-size:14px; }
-.site-footer,.footer { position:relative; isolation:isolate; overflow:hidden; display:flex; justify-content:center; align-items:flex-end; min-height:560px; margin-top:24px; padding:0 20px 96px; color:var(--muted); font-size:12px; }
+.site-footer,.footer { position:relative; isolation:isolate; overflow:hidden; display:flex; justify-content:center; align-items:flex-end; min-height:calc(560px + env(safe-area-inset-bottom)); margin-top:24px; padding:0 max(20px, env(safe-area-inset-right)) calc(96px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); color:var(--muted); font-size:12px; }
 .footer-mark { position:static; display:grid; place-items:center; }
 .footer-mark::before { content:""; position:absolute; z-index:0; inset:0; background:radial-gradient(ellipse 60% 55% at 22% 100%, rgba(96, 165, 250, 0.2), transparent 70%),radial-gradient(ellipse 55% 50% at 80% 100%, rgba(237, 179, 199, 0.13), transparent 70%),linear-gradient(to bottom, transparent 0%, rgba(6, 8, 16, 0.35) 45%, rgba(6, 8, 16, 0.85) 80%, #05070d 100%); pointer-events:none; }
 .footer-stars { position:absolute; z-index:0; inset:0; overflow:hidden; pointer-events:none; -webkit-mask-image:linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.2) 30%, rgba(0, 0, 0, 0.7) 65%, #000 100%); mask-image:linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.2) 30%, rgba(0, 0, 0, 0.7) 65%, #000 100%); }
@@ -154,7 +154,7 @@
 .tool-note { font-size:12px; color:#a7aebb; margin:18px 0 0; }
 @media(min-width:1000px) { .trail-card { padding-bottom:63px; } }
 @media(max-width:1000px) { .publication .shell { padding:0 28px; } .featured-post { gap:30px; } .tool-card { padding:22px; } .issue-label { display:none; } }
-@media(max-width:700px) { .publication .shell { padding:0 20px; } .publication .topbar { min-height:78px; gap:16px; } .publication .brand { width:160px; max-width:44vw; } .site-menu summary { min-width:110px; gap:20px; padding:10px 12px; } .page-intro { padding:28px 0; } .page-intro>.kicker { font-size:11px; } .page-intro>.kicker span { letter-spacing:0; } .page-intro h1 { margin-top:28px; } .featured-post { grid-template-columns:1fr; padding:28px 0; gap:22px; } .feature-content h2 { margin-top:16px; } .explore-strip { align-items:flex-start; flex-wrap:wrap; gap:16px 28px; } .explore-strip p { width:100%; } .site-footer,.footer { min-height:420px; padding-bottom:72px; } .footer-logo { width:104px; } .tool-grid { grid-template-columns:1fr; gap:22px; padding-top:24px; } .tool-card { padding:22px; } .tool-copy h2 { font-size:42px; } .post-heading { margin-top:30px; } .post-deck { font-size:18px; } .prose { font-size:17px; } .prose h2 { font-size:25px; } .prose blockquote { font-size:18px; padding-left:18px; } }
+@media(max-width:700px) { .publication .shell { padding:0 20px; } .publication .topbar { min-height:78px; gap:16px; } .publication .brand { width:160px; max-width:44vw; } .site-menu summary { min-width:110px; gap:20px; padding:10px 12px; } .page-intro { padding:28px 0; } .page-intro>.kicker { font-size:11px; } .page-intro>.kicker span { letter-spacing:0; } .page-intro h1 { margin-top:28px; } .featured-post { grid-template-columns:1fr; padding:28px 0; gap:22px; } .feature-content h2 { margin-top:16px; } .explore-strip { align-items:flex-start; flex-wrap:wrap; gap:16px 28px; } .explore-strip p { width:100%; } .site-footer,.footer { min-height:calc(420px + env(safe-area-inset-bottom)); padding-bottom:calc(72px + env(safe-area-inset-bottom)); } .footer-logo { width:104px; } .tool-grid { grid-template-columns:1fr; gap:22px; padding-top:24px; } .tool-card { padding:22px; } .tool-copy h2 { font-size:42px; } .post-heading { margin-top:30px; } .post-deck { font-size:18px; } .prose { font-size:17px; } .prose h2 { font-size:25px; } .prose blockquote { font-size:18px; padding-left:18px; } }
 @media(prefers-reduced-motion:reduce) { .tool-card { transition:none; } .tool-card:hover { transform:none; } }
 .command-palette { position:fixed; inset:0; z-index:50; display:grid; place-items:start center; padding:12vh 16px 24px; }
 .command-palette[hidden] { display:none; }
@@ -225,3 +225,6 @@
   .feature-content { padding:24px; }
   .feature-content h2 { margin-top:14px; }
 }
+/* viewport-fit=cover lets the footer sky reach under the iOS toolbar, so keep page content clear of landscape notches. */
+@media (max-width:1000px) { body > .shell,.publication > .shell { padding-left:max(28px, env(safe-area-inset-left)); padding-right:max(28px, env(safe-area-inset-right)); } }
+@media (max-width:700px) { body > .shell,.publication > .shell { padding-left:max(20px, env(safe-area-inset-left)); padding-right:max(20px, env(safe-area-inset-right)); } }
