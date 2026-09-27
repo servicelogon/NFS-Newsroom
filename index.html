@@ -730,8 +730,8 @@
       }
       .footer {
         display: flex;
-        justify-content: flex-end;
-        gap: 24px;
+        justify-content: center;
+        align-items: center;
         border-top: 1px solid var(--line);
         padding: 26px 0 36px;
         color: var(--muted);
@@ -852,8 +852,6 @@
         }
         .footer {
           font-size: 11px;
-          flex-direction: column;
-          gap: 10px;
         }
       }
       @media (prefers-reduced-motion: no-preference) {
@@ -1066,7 +1064,22 @@
           story back to its original source.
         </p>
       </section>
-      <footer class="footer mono"></footer>
+      <footer class="footer mono">
+        <div class="footer-mark">
+          <div class="footer-stars" aria-hidden="true">
+            <span class="footer-stars-far"></span>
+            <span class="footer-stars-mid"></span>
+            <span class="footer-stars-near"></span>
+          </div>
+          <img
+            class="footer-logo"
+            src="/assets/nfs-footer-mark.png"
+            width="640"
+            height="640"
+            alt="New Frontier Security"
+          />
+        </div>
+      </footer>
     </div>
     <script type="module">
       import { describeEmptyState } from "/assets/newsroom-states.js";

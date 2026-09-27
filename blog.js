@@ -370,7 +370,7 @@ export function navigation(active) {
   return `<div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation">${links}</nav><button class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation">${links}</nav></details></div>`;
 }
 
-const footer = `<footer class="site-footer"></footer>`;
+const footer = `<footer class="site-footer"><div class="footer-mark"><div class="footer-stars" aria-hidden="true"><span class="footer-stars-far"></span><span class="footer-stars-mid"></span><span class="footer-stars-near"></span></div><img class="footer-logo" src="/assets/nfs-footer-mark.png" width="640" height="640" alt="New Frontier Security"></div></footer>`;
 
 // Shared document used by every public HTML page: SEO head, search index,
 // skip link, brand, nav, main, footer.
