@@ -39,6 +39,9 @@ const path = require('node:path');
         for (const route of ['/', '/blog/entra-default-settings-that-you-should-change', '/blog/tag/conditional-access', '/tools', '/newsroom']) {
         await page.goto(base + route);
         assert.equal(await page.locator('main').count(), 1);
+        assert.equal(await page.locator('.footer-logo').count(), 1);
+        assert.equal(await page.locator('.social-placeholder').count(), 0);
+        assert.ok(await page.locator('.footer-logo').evaluate(img => img.complete && img.naturalWidth > 0 && img.alt === 'New Frontier Security'), `${route} footer mark`);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} overflows at ${width}`);
         if (width > 700) {
           assert.ok(await page.locator('.desktop-nav').isVisible());

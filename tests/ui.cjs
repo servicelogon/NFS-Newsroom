@@ -41,6 +41,11 @@ const assert = require("node:assert/strict");
           contentType: "image/png",
           body: fs.readFileSync("assets/newsroom-logo.png"),
         });
+      if (r.request().url().endsWith("/assets/nfs-footer-mark.png"))
+        return r.fulfill({
+          contentType: "image/png",
+          body: fs.readFileSync("assets/nfs-footer-mark.png"),
+        });
       if (r.request().url().endsWith("/api/news")) {
         if (holdNews) await holdNews;
         if (fail) return r.fulfill({ status: 503, body: "unavailable" });
