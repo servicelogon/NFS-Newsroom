@@ -466,6 +466,10 @@ const assert = require("node:assert/strict");
         true,
       );
       assert.equal(await page.locator(".footer .social-placeholder").count(), 0);
+      assert.equal(await page.locator(".footer-name").textContent(), "New Frontier Security");
+      assert.equal(await page.locator(".footer-nav a").count(), 3);
+      assert.equal(await page.locator(".footer-nav [aria-current='page']").count(), 1);
+      assert.equal(await page.locator("footer").getByText("©").count(), 0);
       assert.equal(await page.locator(".footer").getByText("RSS edition").count(), 0);
     }
     large = true;
