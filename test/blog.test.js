@@ -77,6 +77,9 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.match(tools, /id="copilot-security-trail"/);
   assert.match(tools, /https:\/\/servicelogon.github.io\/copilot-security-trail\//);
   assert.match(tools, /https:\/\/servicelogon.github.io\/PasskeyLookup\//);
+  assert.doesNotMatch(tools, /BUILT BY NATHAN HESS/);
+  assert.doesNotMatch(home, /BUILT BY NATHAN HESS/);
+  assert.doesNotMatch(await (await fetch(base + '/newsroom')).text(), /BUILT BY NATHAN HESS/);
   for (const path of ['/blog/draft', '/blog/missing', '/blog/%2e%2e%2fserver', '/content/posts/published.md', '/blog.js', '/assets/../package.json']) {
     assert.equal((await fetch(base + path)).status, 404, path);
   }
