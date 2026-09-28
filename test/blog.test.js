@@ -60,7 +60,7 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/assets/site.css', '/assets/site.js', '/assets/notes-from-the-frontier.png', '/assets/new-frontier-security-logo.png', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp']) {
+  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/assets/site.css', '/assets/site.js', '/assets/notes-from-the-frontier.png', '/assets/toolbox-wordmark.png', '/assets/new-frontier-security-logo.png', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp']) {
     const response = await fetch(base + path);
     assert.equal(response.status, 200, path);
   }
@@ -72,7 +72,10 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.doesNotMatch(home, /\/blog\/draft/);
   const tools = await (await fetch(base + '/tools')).text();
   assert.match(tools, /id="nfs-search-index"/);
-  assert.match(tools, /<h1>Toolbox<\/h1>/);
+  assert.match(tools, /toolbox-wordmark\.png/);
+  assert.match(tools, /alt="Toolbox"/);
+  assert.doesNotMatch(tools, /THE TOOLBOX/);
+  assert.doesNotMatch(tools, /Built to be useful/);
   assert.match(tools, />Toolbox<\/a>/);
   assert.doesNotMatch(tools, /Serious security/);
   assert.match(tools, /id="copilot-security-trail"/);

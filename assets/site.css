@@ -43,6 +43,8 @@
 .blog-intro h1 { font-family:var(--serif); font-size:clamp(54px,6.6vw,94px); line-height:1.02; font-weight:400; margin:0 0 26px; }
 .blog-intro h1.blog-wordmark { margin:0 0 26px; font-size:0; line-height:0; }
 .blog-intro .blog-wordmark img { display:block; width:min(920px,100%); height:auto; }
+.tools-intro h1.toolbox-wordmark { margin:0 0 26px; font-size:0; line-height:0; }
+.tools-intro .toolbox-wordmark img { display:block; width:min(760px,100%); height:auto; }
 .blog-intro h1 em { display:inline; font-family:inherit; font-size:inherit; font-style:italic; line-height:inherit; text-transform:none; letter-spacing:0; padding-inline:.06em; margin-inline:-.06em; }
 .blog-intro .intro-bottom p { max-width:620px; color:var(--muted); }
 .page-intro h1 em,.feature-content .kicker,.page-intro>.kicker { background:var(--brand-gradient); background-clip:text; -webkit-background-clip:text; color:transparent; }
@@ -183,7 +185,7 @@
 [data-theme="light"] .command-palette-backdrop { background:#1a1a1e55; }
 
 /* Keep original logo assets legible on a light page without changing their files. */
-[data-theme="light"] .brand-logo,[data-theme="light"] .newsroom-logo,[data-theme="light"] .blog-wordmark img { filter:invert(1) hue-rotate(180deg); mix-blend-mode:multiply; }
+[data-theme="light"] .brand-logo,[data-theme="light"] .newsroom-logo,[data-theme="light"] .blog-wordmark img,[data-theme="light"] .toolbox-wordmark img { filter:invert(1) hue-rotate(180deg); mix-blend-mode:multiply; }
 [data-theme="light"] .tool-card { --accent:#416b26; background:#f1f6ed; border-color:#d1dfc9; }
 [data-theme="light"] .passkey-card { --accent:#3b5b9e; background:#eef2fa; border-color:#d0d9ec; }
 [data-theme="light"] .tool-copy>p:not(.kicker),[data-theme="light"] .tool-note,[data-theme="light"] .lookup-answer { color:var(--body); }

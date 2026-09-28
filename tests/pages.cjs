@@ -135,6 +135,10 @@ const path = require('node:path');
     await page.locator('.site-menu summary').click();
     await page.getByRole('navigation', {name:'Mobile navigation'}).getByRole('link', {name:'Toolbox'}).click();
     assert.ok(page.url().endsWith('/tools'));
+    assert.ok(await page.getByRole('heading', { name: /^Toolbox$/i }).isVisible());
+    assert.ok(await page.locator('.toolbox-wordmark img').evaluate(img => img.complete && img.naturalWidth > 0));
+    assert.equal(await page.locator('.tools-intro .kicker').count(), 0);
+    assert.equal(await page.getByText('Built to be useful. Shared to be explored.').count(), 0);
     assert.equal(await page.locator('.tool-launch').count(), 2);
     for (const anchor of await page.locator('.tool-actions a').all()) {
       assert.match(await anchor.getAttribute('href'), /^https:\/\//);
