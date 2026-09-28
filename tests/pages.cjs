@@ -132,7 +132,7 @@ const path = require('node:path');
     assert.ok(await page.getByRole('heading', {name:/Security Defaults vs\. Conditional Access/}).isVisible());
     await page.getByRole('link', {name:'All field notes'}).click();
     await page.locator('.site-menu summary').click();
-    await page.getByRole('navigation', {name:'Mobile navigation'}).getByRole('link', {name:'Tools'}).click();
+    await page.getByRole('navigation', {name:'Mobile navigation'}).getByRole('link', {name:'Toolbox'}).click();
     assert.ok(page.url().endsWith('/tools'));
     assert.equal(await page.locator('.tool-launch').count(), 2);
     for (const anchor of await page.locator('.tool-actions a').all()) {
