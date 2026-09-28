@@ -1,3 +1,4 @@
+// Blog markdown loading and HTTP routes for posts, tools, and newsroom assets.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
@@ -8,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { loadPosts, SITE_ORIGIN, searchIndexScript } from '../blog.js';
 import { createAppServer } from '../server.js';
 const source = (title, date = '2026-09-14', extra = '', body = '## Heading\n\n**Strong** and [safe](https://example.com).') => `---\ntitle: ${title}\ndescription: A test field note\ndate: ${date}\n${extra}---\n${body}`;
-async function directory(t) {
+async function directory(t) { // temp posts folder, deleted after the test
   const dir = await mkdtemp(join(tmpdir(), 'nfs-posts-'));
   t.after(() => rm(dir, { recursive:true, force:true }));
   return dir;
@@ -32,7 +33,7 @@ test('drafts, malformed metadata, invalid dates and non-post files are excluded'
   await writeFile(join(dir, 'draft.md'), source('Draft', '2026-09-14', 'draft: true\n'));
   await writeFile(join(dir, 'invalid.md'), 'no front matter');
   await writeFile(join(dir, 'bad-date.md'), source('Bad date', '2026-02-30'));
-  await writeFile(join(dir, 'README.md'), source('Instructions'));
+  await writeFile(join(dir, 'README.md'), source('Instructions')); // kebab-case slugs only; README.md is skipped
   await writeFile(join(dir, 'good.md'), source('Good'));
   assert.deepEqual((await loadPosts(dir)).map(p => p.slug), ['good']);
   assert.deepEqual(await loadPosts(join(dir, 'missing')), []);
@@ -56,7 +57,7 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   const dir = await directory(t);
   await writeFile(join(dir, 'published.md'), source('Published'));
   await writeFile(join(dir, 'draft.md'), source('Draft', '2026-09-14', 'draft: true\n'));
-  const server = createAppServer({ postsDirectory:dir, service:{ getNews:async () => ({ articles:[], sources:[] }) } });
+  const server = createAppServer({ postsDirectory:dir, service:{ getNews:async () => ({ articles:[], sources:[] }) } }); // stub news so this test never hits RSS
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -87,7 +88,7 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   for (const path of ['/blog/draft', '/blog/missing', '/blog/%2e%2e%2fserver', '/content/posts/published.md', '/blog.js', '/assets/../package.json']) {
     assert.equal((await fetch(base + path)).status, 404, path);
   }
-  assert.equal(await (await fetch(base + '/blog/published', {method:'HEAD'})).text(), '');
+  assert.equal(await (await fetch(base + '/blog/published', {method:'HEAD'})).text(), ''); // HEAD must not return a body
   assert.equal((await fetch(base + '/tools', {method:'POST'})).status, 405);
   await rm(join(dir, 'published.md'));
   assert.match(await (await fetch(base)).text(), /A new chapter is on the way/);

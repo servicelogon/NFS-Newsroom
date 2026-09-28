@@ -277,7 +277,7 @@ export async function loadPosts(directory) {
           if (!frontmatter) throw new Error('Expected YAML front matter');
           const data = parseFrontmatter(frontmatter[1]);
           if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Expected metadata fields');
-          if (data.draft === true) return null;
+          if (data.draft === true) return null; // unpublished files stay on disk but never render
           const title = requiredString(data, 'title');
           const description = requiredString(data, 'description');
           const date = requiredString(data, 'date');

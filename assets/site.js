@@ -1,6 +1,7 @@
+// Shared chrome for blog, tools, and newsroom: theme + mobile nav.
 // Apply the saved preference before the page paints, including on navigation.
 let theme = 'dark';
-try { theme = localStorage.getItem('nfs-theme') === 'light' ? 'light' : 'dark'; } catch {}
+try { theme = localStorage.getItem('nfs-theme') === 'light' ? 'light' : 'dark'; } catch {} // private mode / blocked storage is fine
 document.documentElement.dataset.theme = theme;
 
 function readSearchIndex() {
@@ -82,18 +83,19 @@ document.addEventListener('DOMContentLoaded', () => {
     try { localStorage.setItem('nfs-theme', next); } catch {}
     updateToggle();
   });
+  // Newsroom uses this file too; skip menu wiring if the page has no hamburger.
   const menu = document.querySelector('.site-menu');
   if (menu) {
     menu.addEventListener('toggle', () => {
       menu.querySelector('summary').setAttribute('aria-label', menu.open ? 'Close navigation menu' : 'Open navigation menu');
     });
     document.addEventListener('click', event => {
-      if (!menu.contains(event.target)) menu.open = false;
+      if (!menu.contains(event.target)) menu.open = false; // click outside closes the menu
     });
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && menu.open && !document.querySelector('.command-palette:not([hidden])')) {
         menu.open = false;
-        menu.querySelector('summary').focus();
+        menu.querySelector('summary').focus(); // return focus to the hamburger
       }
     });
   }

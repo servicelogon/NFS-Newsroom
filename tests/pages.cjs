@@ -1,3 +1,4 @@
+// Playwright: blog, post, tools, and newsroom layout at desktop and phone widths.
 const { chromium } = require('@playwright/test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -8,7 +9,7 @@ const path = require('node:path');
   const postsDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'nfs-pages-'));
   const sample = await fs.readFile('content/posts/entra-default-settings-that-you-should-change.md', 'utf8');
   await fs.writeFile(path.join(postsDirectory, 'entra-default-settings-that-you-should-change.md'), sample);
-  const server = createAppServer({
+  const server = createAppServer({ // no live RSS in layout checks
     postsDirectory,
     service: {
       getNews: async () => ({
@@ -34,7 +35,7 @@ const path = require('node:path');
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 390, 320]) { // desktop, iPhone-ish, small phone
       await page.setViewportSize({width, height:1000});
         for (const route of ['/', '/blog/entra-default-settings-that-you-should-change', '/blog/tag/conditional-access', '/tools', '/newsroom']) {
         await page.goto(base + route);
@@ -49,7 +50,7 @@ const path = require('node:path');
         assert.equal(await page.locator('.footer-nav [aria-current="page"]').count(), 1);
         assert.equal(await page.locator('footer').getByText('©').count(), 0);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} overflows at ${width}`);
-        if (width > 700) {
+        if (width > 700) { // CSS breakpoint: desktop nav vs hamburger
           assert.ok(await page.locator('.desktop-nav').isVisible());
           assert.equal(await page.locator('.desktop-nav a').count(), 3);
           assert.equal(await page.locator('.desktop-nav [aria-current="page"]').count(), 1);
@@ -105,7 +106,7 @@ const path = require('node:path');
     await page.goto(base);
     await page.getByRole('button', {name:'Switch to light mode'}).click();
     await page.goto(base + '/tools');
-    assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
+    assert.equal(await page.locator('html').getAttribute('data-theme'), 'light'); // theme survives navigation
     await page.getByRole('button', {name:'Switch to dark mode'}).click();
     await page.goto(base);
     assert.equal(await page.locator('.featured-post .post-tags .tag').count(), 5);
@@ -144,7 +145,7 @@ const path = require('node:path');
       assert.match(await anchor.getAttribute('href'), /^https:\/\//);
       assert.match(await anchor.getAttribute('rel'), /noopener/);
     }
-    await fs.writeFile(path.join(postsDirectory, 'another-post.md'), sample.replace('Entra Default Settings That You Should Change', 'A second field note').replace('2026-09-14', '2026-09-15'));
+    await fs.writeFile(path.join(postsDirectory, 'another-post.md'), sample.replace('Entra Default Settings That You Should Change', 'A second field note').replace('2026-09-14', '2026-09-15')); // drop-in file should appear without restarting the server
     await page.goto(base);
     assert.match(await page.locator('#featured-title').textContent(), /A second field note/);
     assert.equal(await page.locator('.post-tile').count(), 2);

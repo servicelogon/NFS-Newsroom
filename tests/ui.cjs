@@ -1,3 +1,4 @@
+// Playwright: newsroom UI (topics, Microsoft filter, front page) against fixture /api/news.
 const { chromium } = require("@playwright/test");
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
@@ -8,7 +9,7 @@ const assert = require("node:assert/strict");
     let fail = false;
     let stale = false;
     let large = false;
-    let includeMicrosoftLeaks = false;
+    let includeMicrosoftLeaks = false; // toggle these to change the mocked /api/news payload
     let freshWeather = false;
     let outage = false;
     let holdNews = null;
@@ -20,7 +21,7 @@ const assert = require("node:assert/strict");
         body: fs.readFileSync("assets/newsroom-logo.png"),
       }),
     );
-    await page.route("http://beacon.test/**", async (r) => {
+    await page.route("http://beacon.test/**", async (r) => { // intercept the newsroom instead of starting Node
       const assetPath = new URL(r.request().url()).pathname;
       const rootScripts = {
         "/assets/newsroom-states.js": "newsroom-states.js",
@@ -190,6 +191,7 @@ const assert = require("node:assert/strict");
       releaseNews = resolve;
     });
     await page.goto("http://beacon.test/newsroom");
+    // Front page: cloud/identity lead, two columns, parallax CSS vars, then switch to briefing.
     await page.waitForFunction(
       () => document.querySelectorAll(".skeleton-story").length >= 4,
       {},
@@ -342,7 +344,7 @@ const assert = require("node:assert/strict");
     );
     assert.equal(await page.locator('.category[data-topic="microsoft"]').count(), 1);
     includeMicrosoftLeaks = true;
-    await page.evaluate(() => loadNews());
+    await page.evaluate(() => loadNews()); // CVE items must not appear in the Microsoft topic
     await page.locator('.category[data-topic="microsoft"]').click();
     await page.waitForFunction(() =>
       getComputedStyle(document.querySelector('.category[data-topic="microsoft"]')).color === "rgb(96, 165, 250)",
@@ -473,7 +475,7 @@ const assert = require("node:assert/strict");
       assert.equal(await page.locator(".footer").getByText("RSS edition").count(), 0);
     }
     large = true;
-    await page.reload();
+    await page.reload(); // 100 extra articles: front page caps at 8, briefing pages in 40s
     await page.waitForFunction(
       () => document.querySelectorAll(".front-page-story").length === 8,
     );
@@ -512,7 +514,7 @@ const assert = require("node:assert/strict");
     await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
     assert.equal(await page.locator(".story").count(), 5);
     fail = true;
-    await page.evaluate(() => loadNews());
+    await page.evaluate(() => loadNews()); // keep last good stories; a later full reload with fail shows empty
     await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
     assert.equal(await page.locator(".story").count(), 5);
     await page.reload();

@@ -1,9 +1,10 @@
+// News service and HTTP allow-list tests. Shared RSS fixture is at the bottom of this file.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-const backend = await import('../server.js').catch(() => ({}));
+const backend = await import('../server.js').catch(() => ({})); // empty object so later asserts fail clearly if import breaks
 test('disk TTL cache coalesces refreshes and preserves stale data with errors', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'beacon-cache-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -15,7 +16,7 @@ test('disk TTL cache coalesces refreshes and preserves stale data with errors', 
     return new Response(fixture);
   } };
   const service = backend.createNewsService(options);
-  const [first] = await Promise.all([service.getNews(), service.getNews()]);
+  const [first] = await Promise.all([service.getNews(), service.getNews()]); // overlapping calls must share one refresh
   assert.equal(calls, backend.FEEDS.length);
   await service.getNews();
   assert.equal(calls, backend.FEEDS.length);
@@ -164,8 +165,8 @@ test('default byte budget admits MSRC-sized feeds but stays bounded at 3 MB', as
     assert.equal((await service.getNews()).sources[0].status,status);
   }
 });
-const fixture = `<?xml version="1.0"?><rss version="2.0"><channel><title>Security</title><item><title>Critical CVE vulnerability fixed</title><link>https://example.com/story?utm_source=rss</link><pubDate>Mon, 07 Sep 2026 10:00:00 GMT</pubDate><description><![CDATA[<p><img src="https://example.com/image.jpg?utm_campaign=x" />A &amp; B patch</p>]]></description><enclosure url="https://example.com/enclosure.jpg" type="image/jpeg" /></item><item><title>Duplicate</title><link>https://example.com/story</link></item><item><title>Bad URL</title><link>javascript:alert(1)</link></item></channel></rss>`;
-async function setup(t, options = {}) {
+const fixture = `<?xml version="1.0"?><rss version="2.0"><channel><title>Security</title><item><title>Critical CVE vulnerability fixed</title><link>https://example.com/story?utm_source=rss</link><pubDate>Mon, 07 Sep 2026 10:00:00 GMT</pubDate><description><![CDATA[<p><img src="https://example.com/image.jpg?utm_campaign=x" />A &amp; B patch</p>]]></description><enclosure url="https://example.com/enclosure.jpg" type="image/jpeg" /></item><item><title>Duplicate</title><link>https://example.com/story</link></item><item><title>Bad URL</title><link>javascript:alert(1)</link></item></channel></rss>`; // duplicate URL + javascript: link should be stripped
+async function setup(t, options = {}) { // isolated cache dir plus the shared RSS fixture unless overridden
   const dir = await mkdtemp(join(tmpdir(), 'beacon-test-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   assert.equal(typeof backend.createNewsService, 'function', 'news service exists');

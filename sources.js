@@ -1,5 +1,6 @@
 // Public endpoints verified 2026-09-08. See SOURCE-COVERAGE.md for discovery and exclusions.
 // Canonical final URLs keep automatic redirects disabled. No user-provided URLs.
+// Optional category:"microsoft" is a source tag; cloud/identity/CVE wording still reclassifies the article.
 export const FEEDS = Object.freeze([
   {
     "name": "BleepingComputer",

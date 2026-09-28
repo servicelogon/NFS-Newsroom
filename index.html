@@ -1089,6 +1089,7 @@
         shouldShowThreatWeather,
         weatherIconSvg,
       } from "/assets/threat-weather.js";
+      // Newsroom SPA: fetch /api/news, then switch between the front page and topic briefing.
       const topicColors = {
         all: "#58e08d",
         cloud: "#f59e0b",
@@ -1144,6 +1145,7 @@
       let stories = [];
       let visibleLimit = 40;
       let frontPageMode = true;
+      // Microsoft is a source-based view, not a classifier bucket, so it is appended last.
       topics.push({
         id: "microsoft",
         name: "Microsoft",
@@ -1168,6 +1170,7 @@
         threatWeatherHero = document.querySelector("#threat-weather-hero-icon"),
         threatWeatherLead = document.querySelector("#threat-weather-lead"),
         threatWeatherStrip = document.querySelector("#threat-weather-strip");
+      // CVE writeups stay in Vulnerabilities; this view is blogs + Message Center only.
       const microsoftNewsSources = new Set([
         "Microsoft Security Blog",
         "Defender for Cloud Blog",
@@ -1188,15 +1191,17 @@
         );
       }
       function isMicrosoftStory(story) {
+        // CVE mentions stay in Vulnerabilities even when they came from a Microsoft feed.
         if (mentionsCve(story)) return false;
         return isMessageCenterStory(story) || microsoftNewsSources.has(story.source);
       }
-      function microsoftStoryTypeMatches(story) {
+      function microsoftStoryTypeMatches(story) { // News vs Message Center sub-filter on the Microsoft topic
         if (microsoftFilter === "message-center") return isMessageCenterStory(story);
         if (microsoftFilter === "news") return !isMessageCenterStory(story);
         return true;
       }
       function formatStoryTitle(story) {
+        // Message Center titles often start with "MC123456 —"; the badge already names the source.
         return isMessageCenterStory(story)
           ? story.title.replace(/^MC\d+\s*[–:-]\s*/i, "")
           : story.title;
@@ -1344,7 +1349,7 @@
         return badge;
       }
       let frontPageScrollFrame = 0;
-      function updateFrontPageParallax() {
+      function updateFrontPageParallax() { // starfield CSS vars; no-op once briefing is showing
         const distance = frontPageMode ? Math.min(window.scrollY, 900) : 0;
         frontPage.style.setProperty("--front-page-star-far-y", distance * -0.12 + "px");
         frontPage.style.setProperty("--front-page-star-mid-y", distance * -0.32 + "px");
@@ -1363,7 +1368,7 @@
         },
         { passive: true },
       );
-      function renderFrontPage() {
+      function renderFrontPage() { // eight headlines; cloud/identity first, then recency
         frontPageDate.textContent = new Intl.DateTimeFormat(undefined, {
           weekday: "long",
           month: "long",
@@ -1457,6 +1462,7 @@
           read.setAttribute("aria-label", "Read " + s.title + " at " + s.source);
           footer.append(source, read);
           item.append(meta, heading, summary, footer);
+          // Lead story is full-width; remaining headlines split across two columns.
           if (index === 0) frontPageFeed.append(item);
           else columns[(index - 1) % 2].append(item);
         });
@@ -1465,6 +1471,7 @@
         }
         applyEmptyState(frontPageEmpty, emptyStateFor("front-page", headlines.length));
       }
+      // Briefing view: filter by topic/search. resetPage=false keeps the current "load more" window.
       function render(resetPage = true) {
         if (resetPage) visibleLimit = 40;
         const query = search.value.trim().toLowerCase();
@@ -1498,6 +1505,7 @@
           );
         });
         renderThreatWeather();
+        // Topic buttons still update pressed state, then the front page paints instead of the feed.
         if (frontPageMode) {
           renderFrontPage();
           return;
@@ -1624,7 +1632,7 @@
           render();
         });
       });
-      function reset() {
+      function reset() { // briefing + All coverage, empty search
         frontPageMode = false;
         updateFrontPageParallax();
         frontPage.hidden = true;
@@ -1650,7 +1658,7 @@
         updateFrontPageParallax();
         render();
       });
-      search.addEventListener("input", render);
+      search.addEventListener("input", render); // live filter; "/" focuses, Escape clears
       document.querySelector("#load-more").addEventListener("click", () => {
         visibleLimit += 40;
         render(false);
@@ -1689,6 +1697,7 @@
         });
         render();
         try {
+          // Opening index.html from disk has no /api/news; the Node server is required.
           if (location.protocol === "file:")
             throw new Error(
               "Start the Node server with npm start, then open http://localhost:3000.",
@@ -1716,6 +1725,7 @@
             })
             .map((s) => ({
               ...s,
+              // Unknown categories fall through to operations so the UI always has a topic.
               topic: topics.some((t) => t.id === s.category && t.id !== "all")
                 ? s.category
                 : "operations",

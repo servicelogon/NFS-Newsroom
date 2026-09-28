@@ -1,3 +1,5 @@
+// Site server: markdown blog + tools pages, a static newsroom SPA, and GET /api/news.
+// News comes only from the frozen catalog in sources.js — callers cannot supply feed URLs.
 import { createServer } from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { resolve } from 'node:path';
@@ -14,9 +16,13 @@ import { FEEDS } from './sources.js';
 import { loadPosts, blogPage, postPage, tagPage, tagNotFoundPage, toolsPage, notFoundPage, seoHead, sitemapXml, robotsTxt, tagSlug, SITE_ORIGIN, normalizeOrigin, searchIndexScript } from './blog.js';
 export { FEEDS };
 const parser = new Parser();
+
+// Strip markup so classification and summaries never see raw HTML from a feed.
 function text(value = '') {
   return String(value).replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\s+/g, ' ').trim();
 }
+
+// First matching bucket wins. Identity/cloud sit above CVE/breach so a "Kubernetes CVE" stays cloud.
 function category(value) {
   if (/\b(identity|entra|okta|iam|sso|mfa|oauth|saml|passkey|token|session|credential|account access|phishing|voice call|social engineering)\b/i.test(value)) return 'identity';
   if (/\b(cloud|aws|amazon web services|azure|gcp|google cloud|kubernetes|k8s|container|saas|cloud posture|cloud asset|storage bucket|blob storage|ci\/cd|pipeline|supply chain)\b/i.test(value)) return 'cloud';
@@ -25,6 +31,8 @@ function category(value) {
   if (/malware|ransomware|trojan|botnet/i.test(value)) return 'malware';
   return 'operations';
 }
+
+// Allow only http(s) article/image URLs; drop tracking params and credentials.
 function cleanUrl(value) {
   try {
     const url = new URL(String(value || '').trim());
@@ -36,6 +44,8 @@ function cleanUrl(value) {
     return null;
   }
 }
+
+// Prefer enclosure/media tags; fall back to the first <img> in the item HTML.
 function imageUrl(item) {
   const candidates = [
     item.enclosure?.type?.startsWith('image/') ? item.enclosure.url : null,
@@ -48,6 +58,8 @@ function imageUrl(item) {
   if (match) candidates.push(match[1]);
   return candidates.map(cleanUrl).find(Boolean) || null;
 }
+
+// Drop items without a safe URL or title. Id is a short hash of the canonical URL.
 function article(item, source, forcedCategory) {
   const href = cleanUrl(item.link);
   if (!href) return null;
@@ -58,6 +70,7 @@ function article(item, source, forcedCategory) {
   const image = imageUrl(item);
   const content = `${title} ${summary} ${(item.categories || []).join(" ")}`;
   const detectedCategory = category(content);
+  // Microsoft feeds default to "microsoft", but cloud/identity/CVE language still wins the topic.
   const articleCategory = forcedCategory === 'microsoft' && ['identity', 'cloud', 'vulnerabilities'].includes(detectedCategory)
     ? detectedCategory
     : forcedCategory || detectedCategory;
@@ -67,10 +80,13 @@ function article(item, source, forcedCategory) {
     ...(forcedCategory ? { sourceCategory: forcedCategory } : {}),
     category: articleCategory };
 }
+
+// Bounded RSS fetch: no redirects, hard timeout, stream capped at maxBytes.
 async function fetchFeed(url, fetchImpl, timeoutMs, maxBytes, refreshSignal) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error('Feed request timed out')), timeoutMs);
   try {
+    // redirect:'error' blocks open-redirect hops; refreshSignal aborts leftover fetches at the global deadline.
     const response = await fetchImpl(url, { signal: AbortSignal.any([controller.signal, refreshSignal]), redirect: 'error', headers: { 'User-Agent': 'BeaconNews/1.0 RSS reader', Accept: 'application/rss+xml, application/xml, text/xml' } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     if (Number(response.headers.get('content-length')) > maxBytes) { await response.body?.cancel(); throw new Error('Feed exceeds size limit'); }
@@ -90,6 +106,8 @@ async function fetchFeed(url, fetchImpl, timeoutMs, maxBytes, refreshSignal) {
     return await parser.parseString(Buffer.concat(chunks).toString('utf8'));
   } finally { clearTimeout(timer); }
 }
+
+// Aggregates all feeds, persists a 5-minute disk cache, and coalesces overlapping getNews() calls.
 export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile = join(ROOT, '.cache/news.json'), ttlMs = 300_000, now = Date.now, timeoutMs = 8_000, concurrency = 8, totalTimeoutMs = 24_000, maxBytes = 3_000_000 } = {}) {
   let cache = null, inflight = null, loaded = false;
   async function refresh() {
@@ -99,6 +117,7 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
         const disk = JSON.parse(await readFile(cacheFile, 'utf8'));
         if (disk.version === 1 && Array.isArray(disk.batches) && disk.batches.every(b => typeof b.source?.name === 'string' && Array.isArray(b.articles))) {
           const byName = new Map(disk.batches.map(b => [b.source.name, b]));
+          // Reuse articles by source name if the catalog changed; force a refresh when names don't match.
           const sameCatalog = disk.batches.length === feeds.length && feeds.every(f => byName.has(f.name));
           cache = { ...disk, checkedAt: sameCatalog ? disk.checkedAt : 0, batches: feeds.map(f => byName.get(f.name) || {source:{name:f.name,status:'error'},articles:[]}) };
         }
@@ -117,11 +136,13 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
         successes++;
         return { articles: parsed.items.map(item => article(item, feed.name, feed.category)).filter(Boolean), source: { name: feed.name, status: 'ok' } };
       } catch (err) {
+        // Keep the last good articles for this source rather than emptying the feed.
         const articles = cache?.batches.find(b => b.source.name === feed.name)?.articles || [];
         return { articles, source: { name: feed.name, status: articles.length ? 'stale' : 'error', error: String(err.message).slice(0, 200) } };
       }
     };
     try {
+      // Fixed-size worker pool: each worker pulls the next feed index until the list (or deadline) is done.
       await Promise.all(Array.from({length: Math.min(feeds.length, Math.max(1, Math.floor(concurrency)))}, async () => {
         while (next < feeds.length) {
           const i = next++;
@@ -134,15 +155,24 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
       await mkdir(dirname(cacheFile), { recursive: true });
       const temp = `${cacheFile}.${process.pid}.tmp`;
       await writeFile(temp, JSON.stringify(cache), { mode: 0o600 });
-      await rename(temp, cacheFile);
+      await rename(temp, cacheFile); // atomic replace so a crash never leaves a half-written cache
     } catch (err) { console.warn(`Beacon cache write failed: ${err.message}`); }
     return output(cache);
   }
   return { getNews() {
+    // One refresh at a time; overlapping callers share the same promise.
     if (!inflight) inflight = refresh().finally(() => { inflight = null; });
     return inflight;
   } };
 }
+
+// Flatten batches, drop duplicate URLs, newest first. Used by both TTL hits and fresh refreshes.
+function output(cache) {
+  const unique = new Map();
+  for (const a of cache.batches.flatMap(b => b.articles)) if (!unique.has(a.url)) unique.set(a.url, a);
+  return { articles: [...unique.values()].sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0)), sources: cache.batches.map(b => b.source), updatedAt: cache.updatedAt };
+}
+
 // Only these exact paths are public. Add reviewed assets explicitly; never expose a directory.
 const STATIC = new Map([['/assets/site.css', ['assets/site.css', 'text/css; charset=utf-8']], ['/assets/site.js', ['assets/site.js', 'text/javascript; charset=utf-8']], ['/assets/newsroom-states.js', ['newsroom-states.js', 'text/javascript; charset=utf-8']], ['/assets/threat-weather.js', ['threat-weather.js', 'text/javascript; charset=utf-8']], ['/assets/newsroom-logo.png', ['assets/newsroom-logo.png', 'image/png']], ['/assets/new-frontier-security-logo.png', ['assets/new-frontier-security-logo.png', 'image/png']], ['/assets/notes-from-the-frontier.png', ['assets/notes-from-the-frontier.png', 'image/png']], ['/assets/toolbox-wordmark.png', ['assets/toolbox-wordmark.png', 'image/png']], ['/assets/nfs-footer-mark.png', ['assets/nfs-footer-mark.png', 'image/png']], ['/assets/blog/entra-default-settings-header.jpg', ['assets/blog/entra-default-settings-header.jpg', 'image/jpeg']], ['/assets/blog/entra-block-legacy-authentication.jpg', ['assets/blog/entra-block-legacy-authentication.jpg', 'image/jpeg']], ['/assets/blog/entra-user-default-permissions.jpg', ['assets/blog/entra-user-default-permissions.jpg', 'image/jpeg']], ['/assets/blog/entra-user-consent-settings.jpg', ['assets/blog/entra-user-consent-settings.jpg', 'image/jpeg']], ['/assets/blog/evilginx-quickstart-header.webp', ['assets/blog/evilginx-quickstart-header.webp', 'image/webp']], ['/assets/blog/evilginx-start-console.webp', ['assets/blog/evilginx-start-console.webp', 'image/webp']], ['/assets/blog/evilginx-configure-phishlet.webp', ['assets/blog/evilginx-configure-phishlet.webp', 'image/webp']], ['/assets/blog/evilginx-enable-phishlet.webp', ['assets/blog/evilginx-enable-phishlet.webp', 'image/webp']], ['/assets/blog/evilginx-list-lures.webp', ['assets/blog/evilginx-list-lures.webp', 'image/webp']], ['/assets/blog/evilginx-create-lure.webp', ['assets/blog/evilginx-create-lure.webp', 'image/webp']], ['/assets/blog/evilginx-get-lure-url.webp', ['assets/blog/evilginx-get-lure-url.webp', 'image/webp']], ['/assets/blog/evilginx-login-page.webp', ['assets/blog/evilginx-login-page.webp', 'image/webp']], ['/assets/blog/evilginx-captured-session.webp', ['assets/blog/evilginx-captured-session.webp', 'image/webp']], ['/assets/blog/evilginx-session-token.webp', ['assets/blog/evilginx-session-token.webp', 'image/webp']], ['/assets/blog/entra-conditional-access-baselines-header.webp', ['assets/blog/entra-conditional-access-baselines-header.webp', 'image/webp']], ['/assets/blog/entra-conditional-access-policy-list.webp', ['assets/blog/entra-conditional-access-policy-list.webp', 'image/webp']]]);
 const ASSET_VERSIONS = new Map([...STATIC].filter(([urlPath]) => urlPath.startsWith('/assets/')).map(([urlPath, [file]]) => [urlPath, createHash('sha256').update(readFileSync(join(ROOT, file))).digest('hex').slice(0, 12)]));
@@ -186,6 +216,7 @@ function encodeBody(acceptEncoding, body, type) {
   if (encoding === 'gzip') return { body: gzipSync(buffer), encoding: 'gzip', vary: true };
   return { body: buffer, encoding: null, vary: true };
 }
+// HTTP handler: GET/HEAD only. Routes are an allow-list — unknown paths 404.
 export function createAppServer({ service = createNewsService(), postsDirectory = join(ROOT, 'content/posts'), siteOrigin = SITE_ORIGIN } = {}) {
   const origin = normalizeOrigin(siteOrigin);
   return createServer(async (req, res) => {
@@ -198,7 +229,7 @@ export function createAppServer({ service = createNewsService(), postsDirectory 
       if (encoded.vary) headers.Vary = 'Accept-Encoding';
       if (encoded.encoding) headers['Content-Encoding'] = encoded.encoding;
       res.writeHead(status, headers);
-      res.end(req.method === 'HEAD' ? undefined : encoded.body);
+      res.end(req.method === 'HEAD' ? undefined : encoded.body); // HEAD gets headers only
     };
     const html = (status, body) => send(status, body, 'text/html; charset=utf-8', status === 200 ? CACHE.html : CACHE.error);
     try {
@@ -209,6 +240,7 @@ export function createAppServer({ service = createNewsService(), postsDirectory 
       }
       if (url.pathname === '/robots.txt') return send(200, robotsTxt(origin), 'text/plain; charset=utf-8', CACHE.meta);
       if (url.pathname === '/sitemap.xml') return send(200, sitemapXml(await loadPosts(postsDirectory), origin), 'application/xml; charset=utf-8', CACHE.meta);
+      // GET /api/news is the only JSON endpoint. Query strings are rejected so callers cannot pass URLs.
       if (url.pathname === '/api/news') {
         // The news payload is the same for every caller. Rejected and failed responses stay uncached.
         if (url.search) return send(400, 'Query parameters are not supported');
@@ -242,6 +274,7 @@ export function createAppServer({ service = createNewsService(), postsDirectory 
         return html(200, tagPage(label, matches, { origin, posts }));
       }
       if (url.pathname.startsWith('/blog/')) {
+        // Slugs must match the on-disk filename pattern; anything else is a 404, not a path walk.
         const slug = url.pathname.slice(6).replace(/\/$/, '');
         const posts = await loadPosts(postsDirectory);
         const post = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ? posts.find(post => post.slug === slug) : null;
@@ -258,7 +291,8 @@ export function createAppServer({ service = createNewsService(), postsDirectory 
     }
   });
 }
-function localNetworkAddress() {
+
+function localNetworkAddress() { // first non-loopback IPv4 for the LAN preview URL
   for (const entries of Object.values(networkInterfaces())) {
     for (const entry of entries || []) {
       if (entry.family === 'IPv4' && !entry.internal) return entry.address;
@@ -266,6 +300,7 @@ function localNetworkAddress() {
   }
   return null;
 }
+// Tests import this file; only bind a port when it is run as `node server.js`.
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 3000);
   const server = createAppServer();
@@ -277,9 +312,4 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   });
   server.on('error', err => { console.error(err.message); process.exitCode = 1; });
   for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => server.close());
-}
-function output(cache) {
-  const unique = new Map();
-  for (const a of cache.batches.flatMap(b => b.articles)) if (!unique.has(a.url)) unique.set(a.url, a);
-  return { articles: [...unique.values()].sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0)), sources: cache.batches.map(b => b.source), updatedAt: cache.updatedAt };
 }

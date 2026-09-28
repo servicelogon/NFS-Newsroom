@@ -1,3 +1,4 @@
+/* Shared styles for blog, tools, and newsroom. Light theme is :root[data-theme="light"]. */
 :root { --bg:#151515; --ink:#f5f5f5; --body:#d0d0d4; --muted:#a1a1aa; --line:#333338; --panel:#1d1d21; --hover:#29292f; --pink:#f7ff00; --brand-gradient:linear-gradient(110deg,#f7ff00 0%,#f3fb00 52%,#e4ec00 100%); --serif:Georgia,'Times New Roman',serif; --sans:'Helvetica Neue',Helvetica,Arial,sans-serif; color-scheme:dark; }
 :root[data-theme="light"] { --bg:#f7f7fa; --image-bg:#f7f7fa; --ink:#20202a; --body:#454551; --muted:#626270; --line:#dcdce5; --panel:#fff; --hover:#eeeef4; --pink:#6f7400; --brand-gradient:linear-gradient(110deg,#8a9000 0%,#6f7400 52%,#5e6300 100%); color-scheme:light; }
 .header-actions { display:flex; align-items:center; gap:14px; }
