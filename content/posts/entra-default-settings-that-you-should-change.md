@@ -4,7 +4,7 @@ description: A practical checklist for tightening Microsoft Entra defaults, from
 date: 2026-09-14
 author: Nathan Hess
 image: /assets/blog/entra-default-settings-header.jpg
-imageAlt: Default settings title art with the Microsoft Entra icon
+imageAlt: Entra Default Settings You Should Change title art
 tags:
   - Microsoft Entra
   - Identity
