@@ -71,6 +71,9 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.doesNotMatch(home, /\/blog\/draft/);
   const tools = await (await fetch(base + '/tools')).text();
   assert.match(tools, /id="nfs-search-index"/);
+  assert.match(tools, /<h1>Toolbox<\/h1>/);
+  assert.match(tools, />Toolbox<\/a>/);
+  assert.doesNotMatch(tools, /Serious security/);
   assert.match(tools, /id="copilot-security-trail"/);
   assert.match(tools, /https:\/\/servicelogon.github.io\/copilot-security-trail\//);
   assert.match(tools, /https:\/\/servicelogon.github.io\/PasskeyLookup\//);
@@ -138,7 +141,7 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   assert.match(await missingTag.text(), /No notes under that tag/);
   assert.equal((await fetch(base + '/blog/tag/!!!')).status, 404);
   const tools = await (await fetch(base + '/tools')).text();
-  assert.match(tools, /property="og:title" content="Tools — New Frontier Security"/);
+  assert.match(tools, /property="og:title" content="Toolbox — New Frontier Security"/);
   assert.match(tools, /rel="canonical" href="https:\/\/nfs\.example\/tools"/);
   const newsroom = await (await fetch(base + '/newsroom')).text();
   assert.match(newsroom, /property="og:title" content="New Frontier Security — Newsroom"/);
