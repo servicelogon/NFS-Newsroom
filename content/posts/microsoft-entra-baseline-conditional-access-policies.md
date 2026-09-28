@@ -4,7 +4,7 @@ description: A list of baseline Conditional Access policies to help secure your 
 date: 2026-03-30
 author: Nate Hess
 image: /assets/blog/entra-conditional-access-baselines-header.webp
-imageAlt: Microsoft Entra Baseline Conditional Access Policies title art
+imageAlt: Conditional Access Policies To Get Started title art
 tags:
   - Entra
   - Conditional Access

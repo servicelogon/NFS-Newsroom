@@ -397,7 +397,7 @@ function layout(title, description, active, body, seo = {}) {
     published: seo.published || null,
     robots: seo.robots || null
   });
-  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}<link rel="stylesheet" href="/assets/site.css"><script src="/assets/site.js"></script>${searchIndexScript(seo.posts || [])}</head><body class="publication"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="1585" height="423" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main">${body}</main></div>${siteFooter(active)}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}<link rel="stylesheet" href="/assets/site.css"><script src="/assets/site.js"></script>${searchIndexScript(seo.posts || [])}</head><body class="publication"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="2010" height="529" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main">${body}</main></div>${siteFooter(active)}</body></html>`;
 }
 
 // Format at noon UTC so the calendar day does not shift in US timezones
@@ -447,7 +447,7 @@ const postTile = (post, { latest = false } = {}) => `<article class="featured-po
 export function blogPage(posts, seo = {}) {
   const [featured, ...rest] = posts;
   return layout('Blog', 'Notes, ideas, and field guides on identity and cloud security by Nathan Hess.', 'Blog', `
-    <section class="page-intro blog-intro"><h1>Notes from<br>the <em>frontier.</em></h1><div class="intro-bottom"><p>Identity, cloud, and the questions worth exploring.</p></div></section>
+    <section class="page-intro blog-intro"><h1 class="blog-wordmark"><img src="/assets/notes-from-the-frontier.png" width="1849" height="453" alt="Notes from the Frontier"></h1><div class="intro-bottom"><p>Identity, cloud, and the questions worth exploring.</p></div></section>
     ${featured ? postTile(featured, { latest: true }) : '<section class="empty-state"><h2>A new chapter is on the way.</h2><p>Check back soon for the first field note.</p></section>'}
     ${rest.length ? `<section class="more-posts" aria-label="More field notes">${rest.map(post => postTile(post)).join('')}</section>` : ''}
     <aside class="explore-strip"><p>Keep exploring.</p><a class="internal-button" href="/newsroom">Read the Newsroom</a><a class="internal-button" href="/tools">Open the toolbox</a></aside>`, { path: '/', origin: seo.origin || '', image: featured?.image || null, posts });
