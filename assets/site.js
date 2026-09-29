@@ -69,8 +69,9 @@ function collectResults(index, articles, query) {
 }
 
 // Footer sky: stars stream right-to-left past the mark (it faces right), with
-// shooting stars and a warp boost while the logo is hovered. Only animates on
-// screen; reduced motion gets a single still frame.
+// shooting stars and a warp boost while the logo is hovered. The canvas backing
+// store is sized to whole device pixels and drawing snaps to that grid so stars
+// stay sharp. Only animates on screen; reduced motion gets a single still frame.
 function initFooterSky() {
   const mark = document.querySelector('.footer-mark');
   const canvas = mark?.querySelector('.footer-starfield');
@@ -79,8 +80,9 @@ function initFooterSky() {
   const logo = mark.querySelector('.footer-logo');
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const TAU = Math.PI * 2;
-  const palette = ['#ffffff', '#ffffff', '#f4f7ff', '#d7e4ff', '#b9d3ff', '#9ec5ff', '#ffeccc', '#edb3c7'];
+  const palette = ['#ffffff', '#ffffff', '#ffffff', '#eef3ff', '#d7e4ff', '#b9d3ff', '#ffeccc'];
   const pick = list => list[Math.floor(Math.random() * list.length)];
+  let dpr = 1;
   let width = 0;
   let height = 0;
   let stars = [];
@@ -94,32 +96,37 @@ function initFooterSky() {
   let warpTarget = 0;
   let visible = false;
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+  const snap = value => Math.round(value * dpr) / dpr;
+  const hairline = () => 1 / dpr;
 
   function makeStar(x) {
     const z = Math.random() ** 1.7;
-    return { x, y: Math.random() * height, z, r: 0.35 + z * 1.25, color: pick(palette), phase: Math.random() * TAU, rate: 0.5 + Math.random() * 2.4 };
+    return { x, y: Math.random() * height, z, size: z > 0.75 ? 2 : z > 0.35 ? 1.5 : 1, color: pick(palette), phase: Math.random() * TAU, rate: 0.5 + Math.random() * 2.2 };
   }
 
   function seed() {
-    const count = Math.round(Math.min(460, (width * height) / 2400));
+    const count = Math.round(Math.min(460, (width * height) / 2200));
     stars = Array.from({ length: count }, () => makeStar(Math.random() * width));
-    beacons = Array.from({ length: Math.max(3, Math.round(width / 240)) }, () => ({
+    beacons = Array.from({ length: Math.max(3, Math.round(width / 280)) }, () => ({
       ...makeStar(Math.random() * width),
-      y: height * (0.3 + Math.random() * 0.5),
-      z: 0.55 + Math.random() * 0.45,
-      r: 1.3 + Math.random() * 0.9,
-      color: pick(['#ffffff', '#d7e4ff', '#fff6cf', '#f7ff00']),
+      y: height * (0.3 + Math.random() * 0.55),
+      z: 0.6 + Math.random() * 0.4,
+      color: pick(['#ffffff', '#e3ecff', '#fff6d8']),
     }));
     meteors = [];
   }
 
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
+    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const box = mark.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(box.width * dpr));
+    canvas.height = Math.max(1, Math.round(box.height * dpr));
+    width = canvas.width / dpr;
+    height = canvas.height / dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
     seed();
     draw();
   }
@@ -132,10 +139,10 @@ function initFooterSky() {
       y: height * (0.3 + Math.random() * 0.4),
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      length: 140 + Math.random() * 180,
+      length: 120 + Math.random() * 160,
       age: 0,
       life: 0.8 + Math.random() * 0.6,
-      tint: Math.random() < 0.3 ? '247, 255, 0' : '158, 197, 255',
+      tint: Math.random() < 0.3 ? '247, 255, 0' : '200, 220, 255',
     });
   }
 
@@ -169,78 +176,71 @@ function initFooterSky() {
     });
   }
 
+  function spike(x, y, dx, dy, color, alpha) {
+    const line = ctx.createLinearGradient(x - dx, y - dy, x + dx, y + dy);
+    line.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    line.addColorStop(0.5, color);
+    line.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = line;
+    ctx.beginPath();
+    ctx.moveTo(x - dx, y - dy);
+    ctx.lineTo(x + dx, y + dy);
+    ctx.stroke();
+  }
+
   function draw() {
     ctx.clearRect(0, 0, width, height);
+    ctx.lineCap = 'butt';
     const streak = warp * 70;
     for (const star of stars) {
-      const x = star.x + pointer.x * star.z * 26;
-      const y = star.y + pointer.y * star.z * 16;
-      const alpha = (0.3 + 0.7 * star.z) * (0.62 + 0.38 * Math.sin(clock * star.rate + star.phase));
-      ctx.globalAlpha = alpha;
+      const size = Math.max(hairline(), snap(star.size));
+      const x = snap(star.x + pointer.x * star.z * 26 - size / 2);
+      const y = snap(star.y + pointer.y * star.z * 16 - size / 2);
+      ctx.globalAlpha = (0.6 + 0.4 * star.z) * (0.74 + 0.26 * Math.sin(clock * star.rate + star.phase));
       ctx.fillStyle = star.color;
-      if (streak * star.z > 1.5) {
-        ctx.strokeStyle = star.color;
-        ctx.lineWidth = star.r * 1.4;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + streak * star.z * star.z * 2, y);
-        ctx.stroke();
+      const length = streak * star.z * star.z * 2;
+      if (length > 1 || star.size === 1) {
+        ctx.fillRect(x, y, length > 1 ? snap(length) : size, size);
       } else {
         ctx.beginPath();
-        ctx.arc(x, y, star.r, 0, TAU);
+        ctx.arc(x + size / 2, y + size / 2, star.size / 2, 0, TAU);
         ctx.fill();
       }
     }
+    ctx.lineWidth = hairline();
     for (const beacon of beacons) {
-      const x = beacon.x + pointer.x * beacon.z * 26;
-      const y = beacon.y + pointer.y * beacon.z * 16;
-      const pulse = 0.55 + 0.45 * Math.sin(clock * beacon.rate * 0.6 + beacon.phase);
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, beacon.r * 9);
-      glow.addColorStop(0, beacon.color);
-      glow.addColorStop(0.18, 'rgba(158, 197, 255, 0.35)');
-      glow.addColorStop(1, 'rgba(158, 197, 255, 0)');
-      ctx.globalAlpha = 0.5 + pulse * 0.5;
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(x, y, beacon.r * 9, 0, TAU);
-      ctx.fill();
-      const spike = beacon.r * (7 + pulse * 7 + warp * 20);
-      ctx.strokeStyle = beacon.color;
-      ctx.lineWidth = 0.7;
-      ctx.globalAlpha = 0.25 + pulse * 0.45;
-      ctx.beginPath();
-      ctx.moveTo(x - spike * (1 + warp * 2), y);
-      ctx.lineTo(x + spike * (1 + warp * 2), y);
-      ctx.moveTo(x, y - spike * 0.8);
-      ctx.lineTo(x, y + spike * 0.8);
-      ctx.stroke();
+      const x = snap(beacon.x + pointer.x * beacon.z * 26) + hairline() / 2;
+      const y = snap(beacon.y + pointer.y * beacon.z * 16) + hairline() / 2;
+      const pulse = 0.5 + 0.5 * Math.sin(clock * beacon.rate * 0.6 + beacon.phase);
+      const reach = 8 + pulse * 6 + warp * 30;
+      spike(x, y, reach * (1 + warp * 2), 0, beacon.color, 0.55 + pulse * 0.35);
+      spike(x, y, 0, reach * 0.75, beacon.color, 0.45 + pulse * 0.35);
       ctx.globalAlpha = 1;
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = beacon.color;
       ctx.beginPath();
-      ctx.arc(x, y, beacon.r * 0.75, 0, TAU);
+      ctx.arc(x, y, 1.4, 0, TAU);
       ctx.fill();
     }
+    ctx.lineWidth = Math.max(hairline(), snap(1.25));
     for (const meteor of meteors) {
       const fade = Math.sin(Math.PI * (meteor.age / meteor.life));
       const speed = Math.hypot(meteor.vx, meteor.vy);
       const tailX = meteor.x - (meteor.vx / speed) * meteor.length * fade;
       const tailY = meteor.y - (meteor.vy / speed) * meteor.length * fade;
       const tail = ctx.createLinearGradient(meteor.x, meteor.y, tailX, tailY);
-      tail.addColorStop(0, `rgba(255, 255, 255, ${0.95 * fade})`);
-      tail.addColorStop(0.25, `rgba(${meteor.tint}, ${0.45 * fade})`);
+      tail.addColorStop(0, `rgba(255, 255, 255, ${fade})`);
+      tail.addColorStop(0.3, `rgba(${meteor.tint}, ${0.5 * fade})`);
       tail.addColorStop(1, `rgba(${meteor.tint}, 0)`);
       ctx.globalAlpha = 1;
       ctx.strokeStyle = tail;
-      ctx.lineWidth = 1.6;
-      ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(meteor.x, meteor.y);
       ctx.lineTo(tailX, tailY);
       ctx.stroke();
       ctx.fillStyle = `rgba(255, 255, 255, ${fade})`;
       ctx.beginPath();
-      ctx.arc(meteor.x, meteor.y, 1.6, 0, TAU);
+      ctx.arc(meteor.x, meteor.y, 1.2, 0, TAU);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
@@ -274,15 +274,9 @@ function initFooterSky() {
     pointer.tx = 0;
     pointer.ty = 0;
   });
-  logo?.addEventListener('pointerenter', () => {
-    warpTarget = 1;
-    mark.classList.add('is-warping');
-  });
-  logo?.addEventListener('pointerleave', () => {
-    warpTarget = 0;
-    mark.classList.remove('is-warping');
-  });
-  new ResizeObserver(resize).observe(canvas);
+  logo?.addEventListener('pointerenter', () => { warpTarget = 1; });
+  logo?.addEventListener('pointerleave', () => { warpTarget = 0; });
+  new ResizeObserver(resize).observe(mark);
   new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
     visible ? start() : stop();

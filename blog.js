@@ -379,7 +379,7 @@ function footerBase(active) {
 }
 
 function siteFooter(active) {
-  return `<footer class="site-footer"><div class="footer-mark"><div class="footer-sky" aria-hidden="true"><div class="footer-nebula"></div><canvas class="footer-starfield"></canvas></div><div class="footer-planet" aria-hidden="true"></div><img class="footer-logo" src="/assets/nfs-footer-mark.png" width="640" height="640" alt="New Frontier Security"></div>${footerBase(active)}</footer>`;
+  return `<footer class="site-footer"><div class="footer-mark"><div class="footer-sky" aria-hidden="true"><div class="footer-nebula"></div><canvas class="footer-starfield"></canvas></div><img class="footer-logo" src="/assets/nfs-footer-mark.png" width="640" height="640" alt="New Frontier Security"></div>${footerBase(active)}</footer>`;
 }
 
 // Shared document used by every public HTML page: SEO head, search index,
