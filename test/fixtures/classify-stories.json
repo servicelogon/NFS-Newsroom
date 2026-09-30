@@ -1,0 +1,266 @@
+[
+  {
+    "id": "okta-oauth",
+    "title": "Okta OAuth token phishing campaign",
+    "summary": "SSO session credentials targeted",
+    "expected": "identity"
+  },
+  {
+    "id": "k8s-posture",
+    "title": "Kubernetes cloud posture issue",
+    "summary": "AWS storage bucket and container exposure",
+    "expected": "cloud"
+  },
+  {
+    "id": "k8s-cve",
+    "title": "Kubernetes CVE patched in cloud controller",
+    "summary": "Azure cluster exploit fixed",
+    "expected": "vulnerabilities",
+    "note": "CVE mutex beats cloud/identity even when cluster wording is present"
+  },
+  {
+    "id": "critical-cve",
+    "title": "Critical CVE vulnerability fixed",
+    "summary": "A & B patch",
+    "expected": "vulnerabilities"
+  },
+  {
+    "id": "msrc-cve",
+    "title": "Critical CVE vulnerability fixed",
+    "summary": "A & B patch",
+    "forcedCategory": "microsoft",
+    "expected": "vulnerabilities",
+    "expectedSourceCategory": "microsoft"
+  },
+  {
+    "id": "entra-cve",
+    "title": "Entra ID CVE-2026-1111 advisory",
+    "summary": "Microsoft patched an Entra authentication bypass",
+    "expected": "vulnerabilities"
+  },
+  {
+    "id": "conditional-access",
+    "title": "New Conditional Access baselines for Entra ID",
+    "summary": "Require MFA and phishing-resistant passkeys for admins",
+    "expected": "identity"
+  },
+  {
+    "id": "okta-iam-only",
+    "title": "Okta workforce identity release",
+    "summary": "SSO and MFA policy updates for customers",
+    "expected": "identity"
+  },
+  {
+    "id": "azure-ad-no-infra",
+    "title": "Azure AD app consent changes",
+    "summary": "Administrators can restrict user consent in Entra",
+    "expected": "identity",
+    "note": "IAM without infra-cloud phrases stays identity even if Azure appears"
+  },
+  {
+    "id": "aws-s3",
+    "title": "Misconfigured S3 bucket exposed customer backups",
+    "summary": "AWS storage bucket public access was left enabled",
+    "expected": "cloud"
+  },
+  {
+    "id": "gcp-k8s",
+    "title": "GKE workload identity hardening",
+    "summary": "Google Cloud Kubernetes clusters and container runtime notes",
+    "expected": "cloud"
+  },
+  {
+    "id": "supply-chain",
+    "title": "npm supply chain attack hits CI/CD pipelines",
+    "summary": "Malicious package targeted build pipelines",
+    "expected": "cloud"
+  },
+  {
+    "id": "cisa-advisory",
+    "title": "CISA security advisory on exploited router flaw",
+    "summary": "Agencies must patch before the due date",
+    "expected": "vulnerabilities"
+  },
+  {
+    "id": "zero-day",
+    "title": "Chrome zero-day under active exploit",
+    "summary": "Google released an emergency patch",
+    "expected": "vulnerabilities"
+  },
+  {
+    "id": "hospital-ransomware",
+    "title": "LockBit ransomware attack on regional hospital",
+    "summary": "Incident response underway after a data breach and ransom demand",
+    "expected": "incidents"
+  },
+  {
+    "id": "lockbit-family",
+    "title": "LockBit 4.0 malware builder leaked",
+    "summary": "Researchers unpacked the trojan and botnet plugins",
+    "expected": "malware"
+  },
+  {
+    "id": "clop-campaign",
+    "title": "Clop ransomware gang exploits MOVEit again",
+    "summary": "Extortion emails followed a data theft from customer files",
+    "expected": "incidents"
+  },
+  {
+    "id": "plain-ransomware",
+    "title": "New ransomware strain uses novel encryption",
+    "summary": "Malware analysts reverse the trojan loader",
+    "expected": "malware"
+  },
+  {
+    "id": "data-breach",
+    "title": "Insurer discloses data breach",
+    "summary": "Customer records were stolen in a compromise last month",
+    "expected": "incidents"
+  },
+  {
+    "id": "outage",
+    "title": "IdP outage disrupts employee logins",
+    "summary": "The incident lasted four hours for Okta-connected apps",
+    "expected": "incidents",
+    "note": "Org-incident wording can outrank identity tokens when both appear; golden expects incidents if mutex prefers breach/outage. Adjust if classifier keeps identity."
+  },
+  {
+    "id": "detection-rule",
+    "title": "New SIEM detection content pack",
+    "summary": "Governance and monitoring playbooks for the SOC",
+    "expected": "operations"
+  },
+  {
+    "id": "empty-summary-phishing",
+    "title": "Voice call social engineering wave",
+    "summary": "",
+    "expected": "identity",
+    "lowScore": true
+  },
+  {
+    "id": "title-only-azure",
+    "title": "Azure status notification",
+    "summary": "",
+    "expected": "cloud",
+    "lowScore": true,
+    "note": "Weak title-only Azure is still cloud but topicScore stays too low for Front Page"
+  },
+  {
+    "id": "message-center-weak-cloud",
+    "title": "MC999001: Azure Information Protection label rollout",
+    "summary": "Message Center preview of an admin center change",
+    "forcedCategory": "microsoft",
+    "source": "MS Message Center",
+    "expected": "microsoft",
+    "expectedSourceCategory": "microsoft",
+    "note": "Score gap: a weak Azure word must not steal a Message Center item"
+  },
+  {
+    "id": "entra-blog-strong",
+    "title": "Conditional Access in Microsoft Entra ID",
+    "summary": "Phishing-resistant MFA and passkey support",
+    "forcedCategory": "microsoft",
+    "source": "Microsoft Entra Blog",
+    "expected": "identity",
+    "expectedSourceCategory": "microsoft"
+  },
+  {
+    "id": "defender-cloud-blog",
+    "title": "Defender for Cloud Kubernetes posture recommendations",
+    "summary": "AWS and Azure cloud asset inventory improvements",
+    "forcedCategory": "microsoft",
+    "source": "Defender for Cloud Blog",
+    "expected": "cloud",
+    "expectedSourceCategory": "microsoft"
+  },
+  {
+    "id": "ms-security-blog-ops",
+    "title": "Microsoft Secure Future Initiative progress",
+    "summary": "How engineering teams ship safer defaults",
+    "forcedCategory": "microsoft",
+    "expected": "microsoft",
+    "expectedSourceCategory": "microsoft"
+  },
+  {
+    "id": "rss-vuln-category",
+    "title": "Vendor ships firmware 12.4",
+    "summary": "Release notes for supported appliances",
+    "rssCategories": ["Security Advisory", "CVE"],
+    "expected": "vulnerabilities"
+  },
+  {
+    "id": "rss-identity",
+    "title": "Weekly directory digest",
+    "summary": "Product changelog",
+    "rssCategories": ["Identity", "OAuth"],
+    "expected": "identity"
+  },
+  {
+    "id": "passkeys",
+    "title": "Passkey adoption in workforce IAM",
+    "summary": "SSO portals add passwordless sign-in",
+    "expected": "identity"
+  },
+  {
+    "id": "blob-storage",
+    "title": "Azure blob storage public container risk",
+    "summary": "Cloud asset scan found open containers",
+    "expected": "cloud"
+  },
+  {
+    "id": "eks-pipeline",
+    "title": "EKS cluster tokens leaked in CI/CD",
+    "summary": "AWS pipeline logs contained service account secrets",
+    "expected": "cloud"
+  },
+  {
+    "id": "patch-tuesday",
+    "title": "Patch Tuesday: 80 CVEs including a zero-day",
+    "summary": "Microsoft released security updates",
+    "forcedCategory": "microsoft",
+    "expected": "vulnerabilities",
+    "expectedSourceCategory": "microsoft"
+  },
+  {
+    "id": "emotet",
+    "title": "Emotet botnet returns with new loaders",
+    "summary": "The malware drops a trojan on infected hosts",
+    "expected": "malware"
+  },
+  {
+    "id": "extortion-no-family",
+    "title": "Law firm faces extortion after data theft",
+    "summary": "Attackers leaked client files following a compromise",
+    "expected": "incidents"
+  },
+  {
+    "id": "generic-security",
+    "title": "Board briefing on cyber risk",
+    "summary": "Quarterly governance metrics and tabletop notes",
+    "expected": "operations"
+  },
+  {
+    "id": "token-in-cloud-iam",
+    "title": "OAuth token phishing against SaaS admins",
+    "summary": "Identity provider session cookies stolen",
+    "expected": "identity"
+  },
+  {
+    "id": "k8s-no-cve",
+    "title": "Kubernetes admission controller bypass",
+    "summary": "Cluster cloud posture failed on privileged containers",
+    "expected": "cloud"
+  },
+  {
+    "id": "saml-bypass-no-cve",
+    "title": "SAML SSO bypass in workforce IAM",
+    "summary": "Okta-adjacent identity flaw in session handling",
+    "expected": "identity"
+  },
+  {
+    "id": "cve-and-okta",
+    "title": "CVE-2026-2222 in Okta connector",
+    "summary": "Advisory: patch the identity connector immediately",
+    "expected": "vulnerabilities"
+  }
+]

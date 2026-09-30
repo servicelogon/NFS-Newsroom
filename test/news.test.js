@@ -135,10 +135,19 @@ test('Cloud and identity topics are classified ahead of general security buckets
     <item><title>Kubernetes CVE patched in cloud controller</title><link>https://example.com/cloud-cve</link><description>Azure cluster exploit fixed</description></item>
   </channel></rss>`;
   const service = await setup(t, {feeds:[{name:'Focused',url:'https://example.com/rss'}], fetchImpl:async()=>new Response(xml)});
-  const byUrl = new Map((await service.getNews()).articles.map(a => [a.url, a.category]));
-  assert.equal(byUrl.get('https://example.com/identity'), 'identity');
-  assert.equal(byUrl.get('https://example.com/cloud'), 'cloud');
-  assert.equal(byUrl.get('https://example.com/cloud-cve'), 'cloud');
+  const news = await service.getNews();
+  const byUrl = new Map(news.articles.map(a => [a.url, a]));
+  assert.equal(byUrl.get('https://example.com/identity').category, 'identity');
+  assert.equal(byUrl.get('https://example.com/cloud').category, 'cloud');
+  assert.equal(byUrl.get('https://example.com/cloud-cve').category, 'vulnerabilities');
+  for (const article of news.articles) {
+    assert.equal(typeof article.topicScore, 'number');
+    assert.ok(article.topicScore >= 0 && article.topicScore <= 1);
+  }
+  assert.ok(Array.isArray(news.frontPageIds));
+  assert.ok(news.frontPageIds.includes(byUrl.get('https://example.com/identity').id));
+  assert.ok(news.frontPageIds.includes(byUrl.get('https://example.com/cloud').id));
+  assert.ok(!news.frontPageIds.includes(byUrl.get('https://example.com/cloud-cve').id));
 });
 test('Microsoft feeds keep stronger cloud, identity and vulnerability signals out of the Microsoft category', async t => {
   const service = await setup(t, {feeds:[{name:'MSRC',url:'https://example.com/rss',category:'microsoft'}]});
