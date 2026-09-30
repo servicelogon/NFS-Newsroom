@@ -75,6 +75,12 @@ test('HTTP serves app and API only, rejects arbitrary files and user feed URLs',
   const logo = await fetch(`${base}/assets/newsroom-logo.png`);
   assert.equal(logo.status, 200);
   assert.match(logo.headers.get('content-type'), /image\/png/);
+  const favicon = await fetch(`${base}/favicon.ico`);
+  assert.equal(favicon.status, 200);
+  assert.match(favicon.headers.get('content-type'), /image\/x-icon|image\/vnd\.microsoft\.icon/);
+  const faviconPng = await fetch(`${base}/assets/favicon-32.png`);
+  assert.equal(faviconPng.status, 200);
+  assert.match(faviconPng.headers.get('content-type'), /image\/png/);
   const states = await fetch(`${base}/assets/newsroom-states.js`);
   assert.equal(states.status, 200);
   assert.match(states.headers.get('content-type'), /javascript/);

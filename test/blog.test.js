@@ -61,7 +61,7 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/assets/site.css', '/assets/site.js', '/assets/notes-from-the-frontier.png', '/assets/toolbox-wordmark.png', '/assets/new-frontier-security-logo.png', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp']) {
+  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/favicon.ico', '/assets/favicon.ico', '/assets/favicon-32.png', '/assets/apple-touch-icon.png', '/assets/site.css', '/assets/site.js', '/assets/notes-from-the-frontier.png', '/assets/toolbox-wordmark.png', '/assets/new-frontier-security-logo.png', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp']) {
     const response = await fetch(base + path);
     assert.equal(response.status, 200, path);
   }
@@ -121,6 +121,10 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   assert.match(home, /<a class="tag" href="\/blog\/tag\/script">&lt;script&gt;<\/a>/);
   assert.doesNotMatch(home, /<a class="tag"[^>]*>\s*<script>/);
   assert.match(home, /rel="canonical" href="https:\/\/nfs\.example\/"/);
+  assert.match(home, /rel="icon" href="\/favicon\.ico" sizes="any"/);
+  assert.match(home, /rel="icon" type="image\/png" sizes="32x32" href="\/assets\/favicon-32\.png\?v=[a-f0-9]{12}"/);
+  assert.match(home, /rel="apple-touch-icon" sizes="180x180" href="\/assets\/apple-touch-icon\.png\?v=[a-f0-9]{12}"/);
+  assert.match(home, /class="brand-logo" src="\/assets\/new-frontier-security-logo\.png/);
   assert.match(home, /property="og:image" content="https:\/\/nfs\.example\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}"/);
   assert.match(home, /name="twitter:card" content="summary_large_image"/);
   assert.equal((await fetch(base)).headers.get('cache-control'), 'no-cache');
@@ -158,6 +162,11 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   assert.match(newsroom, /"href":"\/blog\/published"/);
   assert.match(searchIndexScript([{ slug: 'x', title: '<script>', description: 'note' }]), /\\u003cscript>/);
   assert.match(newsroom, /name="twitter:card" content="summary"/);
+  assert.match(newsroom, /rel="icon" type="image\/png" sizes="32x32" href="\/assets\/favicon-32\.png\?v=[a-f0-9]{12}"/);
+  assert.match(newsroom, /rel="apple-touch-icon" sizes="180x180" href="\/assets\/apple-touch-icon\.png\?v=[a-f0-9]{12}"/);
+  assert.match(post, /rel="icon" href="\/favicon\.ico"/);
+  assert.match(tagHtml, /rel="apple-touch-icon"/);
+  assert.match(tools, /rel="icon" type="image\/png" sizes="32x32"/);
   const sitemap = await fetch(base + '/sitemap.xml');
   assert.equal(sitemap.status, 200);
   assert.match(sitemap.headers.get('content-type'), /application\/xml/);
