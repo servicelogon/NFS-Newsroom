@@ -144,13 +144,13 @@
 .tool-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .tool-top .kicker,.tool-copy>.kicker { background:var(--brand-gradient); background-clip:text; -webkit-background-clip:text; color:transparent; }
 .tool-pill { border:1px solid var(--line); padding:4px 10px; border-radius:20px; font-size:11px; letter-spacing:.04em; color:var(--muted); }
-.tool-visual { height:180px; margin:22px 0 24px; border:1px solid var(--line); border-radius:8px; background:color-mix(in srgb,#000 26%,var(--tile)); }
-.trail-stops { display:flex; align-items:center; justify-content:space-between; padding:12px 14px 28px; }
+.tool-visual { height:165px; margin:22px 0 24px; background:transparent; border:0; }
+.trail-stops { display:flex; align-items:center; justify-content:space-between; padding:0 4px 20px; }
 .trail-stops>span { position:relative; border:1px solid var(--pink); border-radius:50%; width:35px; height:35px; flex-shrink:0; display:grid; place-items:center; color:var(--pink); font:12px ui-monospace,monospace; }
 .trail-stops>span:nth-of-type(even) { transform:translateY(24px); }
 .trail-stops small { position:absolute; top:43px; font:11px var(--sans); white-space:nowrap; color:var(--muted); }
 .trail-stops i { height:0; flex:1; border-top:1px dashed color-mix(in srgb,var(--pink) 42%,transparent); background:none; margin:0 4px; }
-.lookup-visual { display:flex; flex-direction:column; justify-content:center; padding:16px 20px; gap:9px; }
+.lookup-visual { display:flex; flex-direction:column; justify-content:center; padding:12px 4px; gap:9px; }
 .lookup-prompt { font:11px ui-monospace,monospace; letter-spacing:.12em; color:var(--muted); }
 .lookup-code { font:clamp(17px,2.2vw,25px)/1.2 ui-monospace,monospace; letter-spacing:.06em; color:var(--pink); }
 .lookup-answer { font-size:12px; display:flex; justify-content:space-between; color:color-mix(in srgb,var(--pink) 50%,var(--muted)); }
@@ -190,7 +190,6 @@
 [data-theme="light"] .passkey-card { --tile:color-mix(in srgb,#c8d0e4 24%,var(--panel)); }
 [data-theme="light"] .tool-copy>p:not(.kicker),[data-theme="light"] .tool-note,[data-theme="light"] .lookup-answer { color:var(--body); }
 [data-theme="light"] .tool-launch { color:#fff!important; }
-[data-theme="light"] .tool-visual { background:color-mix(in srgb,var(--ink) 5%,var(--tile)); border-color:var(--line); }
 [data-theme="light"] .tag,[data-theme="light"] .tool-pill { border-color:var(--line); }
 [data-theme="light"] .trail-stops i { border-top-color:color-mix(in srgb,var(--pink) 45%,transparent); background:none; }
 .prose blockquote,.sample-note { border-image:var(--brand-gradient) 1; background:var(--panel); color:var(--body); }
