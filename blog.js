@@ -122,6 +122,9 @@ export function seoHead({
       : absoluteUrl(origin, image);
   return [
     robots ? `<meta name="robots" content="${escapeHtml(robots)}">` : '',
+    `<link rel="icon" href="/favicon.ico" sizes="any">`,
+    `<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">`,
+    `<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">`,
     `<link rel="canonical" href="${escapeHtml(url)}">`,
     `<meta property="og:site_name" content="New Frontier Security">`,
     `<meta property="og:type" content="${escapeHtml(type)}">`,
