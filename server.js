@@ -13,8 +13,9 @@ import { brotliCompressSync, gzipSync } from 'node:zlib';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
 import { FEEDS } from './sources.js';
+import { classify, selectFrontPage } from './topic-classifier.js';
 import { loadPosts, blogPage, postPage, tagPage, tagNotFoundPage, toolsPage, notFoundPage, seoHead, sitemapXml, robotsTxt, tagSlug, SITE_ORIGIN, normalizeOrigin, searchIndexScript } from './blog.js';
-export { FEEDS };
+export { FEEDS, classify, selectFrontPage };
 const parser = new Parser();
 
 // Strip markup so classification and summaries never see raw HTML from a feed.
@@ -22,15 +23,6 @@ function text(value = '') {
   return String(value).replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\s+/g, ' ').trim();
 }
 
-// First matching bucket wins. Identity/cloud sit above CVE/breach so a "Kubernetes CVE" stays cloud.
-function category(value) {
-  if (/\b(identity|entra|okta|iam|sso|mfa|oauth|saml|passkey|token|session|credential|account access|phishing|voice call|social engineering)\b/i.test(value)) return 'identity';
-  if (/\b(cloud|aws|amazon web services|azure|gcp|google cloud|kubernetes|k8s|container|saas|cloud posture|cloud asset|storage bucket|blob storage|ci\/cd|pipeline|supply chain)\b/i.test(value)) return 'cloud';
-  if (/vulnerab|\bcve-|patch|zero.day|exploit/i.test(value)) return 'vulnerabilities';
-  if (/breach|data leak|data theft|extortion|compromise|incident|outage/i.test(value)) return 'incidents';
-  if (/malware|ransomware|trojan|botnet/i.test(value)) return 'malware';
-  return 'operations';
-}
 
 // Allow only http(s) article/image URLs; drop tracking params and credentials.
 function cleanUrl(value) {
@@ -68,17 +60,19 @@ function article(item, source, forcedCategory) {
   const summary = text(item.contentSnippet || item.summary || item.content).slice(0, 600);
   const date = Date.parse(item.isoDate || item.pubDate);
   const image = imageUrl(item);
-  const content = `${title} ${summary} ${(item.categories || []).join(" ")}`;
-  const detectedCategory = category(content);
-  // Microsoft feeds default to "microsoft", but cloud/identity/CVE language still wins the topic.
-  const articleCategory = forcedCategory === 'microsoft' && ['identity', 'cloud', 'vulnerabilities'].includes(detectedCategory)
-    ? detectedCategory
-    : forcedCategory || detectedCategory;
+  const classified = classify({
+    title,
+    summary,
+    rssCategories: item.categories || [],
+    source,
+    forcedCategory,
+  });
   return { id: createHash('sha256').update(href).digest('hex').slice(0, 24), title, url: href, source,
     publishedAt: Number.isFinite(date) ? new Date(date).toISOString() : null, summary,
     ...(image ? { imageUrl: image } : {}),
-    ...(forcedCategory ? { sourceCategory: forcedCategory } : {}),
-    category: articleCategory };
+    ...(classified.sourceCategory ? { sourceCategory: classified.sourceCategory } : {}),
+    category: classified.category,
+    topicScore: classified.topicScore };
 }
 
 // Bounded RSS fetch: no redirects, hard timeout, stream capped at maxBytes.
@@ -170,7 +164,8 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
 function output(cache) {
   const unique = new Map();
   for (const a of cache.batches.flatMap(b => b.articles)) if (!unique.has(a.url)) unique.set(a.url, a);
-  return { articles: [...unique.values()].sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0)), sources: cache.batches.map(b => b.source), updatedAt: cache.updatedAt };
+  const articles = [...unique.values()].sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0));
+  return { articles, sources: cache.batches.map(b => b.source), updatedAt: cache.updatedAt, frontPageIds: selectFrontPage(articles) };
 }
 
 // Only these exact paths are public. Add reviewed assets explicitly; never expose a directory.

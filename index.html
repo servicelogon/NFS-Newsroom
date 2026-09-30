@@ -1374,7 +1374,8 @@
         },
         { passive: true },
       );
-      function renderFrontPage() { // eight headlines; cloud/identity first, then recency
+      let frontPageIds = null; // server list from /api/news; null means use the client fallback sort
+      function renderFrontPage() { // eight headlines from frontPageIds, or cloud/identity then recency
         frontPageDate.textContent = new Intl.DateTimeFormat(undefined, {
           weekday: "long",
           month: "long",
@@ -1391,17 +1392,23 @@
         }
         if (status) status.textContent = "";
         frontPageFeed.setAttribute("aria-busy", "false");
-        const frontPagePriority = (story) =>
-          story.topic === "cloud" || story.topic === "identity" ? 0 : 1;
-        const headlines = stories
-          .map((story, index) => ({ story, index }))
-          .sort(
-            (a, b) =>
-              frontPagePriority(a.story) - frontPagePriority(b.story) ||
-              a.index - b.index,
-          )
-          .slice(0, 8)
-          .map(({ story }) => story);
+        let headlines;
+        if (Array.isArray(frontPageIds)) {
+          const byId = new Map(stories.map((story) => [story.id, story]));
+          headlines = frontPageIds.map((id) => byId.get(id)).filter(Boolean).slice(0, 8);
+        } else {
+          const frontPagePriority = (story) =>
+            story.topic === "cloud" || story.topic === "identity" ? 0 : 1;
+          headlines = stories
+            .map((story, index) => ({ story, index }))
+            .sort(
+              (a, b) =>
+                frontPagePriority(a.story) - frontPagePriority(b.story) ||
+                a.index - b.index,
+            )
+            .slice(0, 8)
+            .map(({ story }) => story);
+        }
         frontPageFeed.replaceChildren();
         const columns = [0, 1].map(() => {
           const column = document.createElement("div");
@@ -1718,6 +1725,7 @@
           const data = await response.json();
           if (!Array.isArray(data.articles) || !Array.isArray(data.sources))
             throw new Error("Invalid response from news service.");
+          frontPageIds = Array.isArray(data.frontPageIds) ? data.frontPageIds : null;
           stories = data.articles
             .filter((s) => {
               try {

@@ -10,6 +10,7 @@
     "start": "node server.js",
     "test": "node --test test/*.test.js",
     "test:live": "node scripts/check-feeds.js",
+    "check:categories": "node scripts/check-categories.js",
     "test:ui": "node tests/ui.cjs && node tests/pages.cjs"
   },
   "dependencies": {
