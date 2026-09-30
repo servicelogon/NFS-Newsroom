@@ -141,6 +141,12 @@ const path = require('node:path');
     assert.equal(await page.locator('.tools-intro .kicker').count(), 0);
     assert.equal(await page.getByText('Built to be useful. Shared to be explored.').count(), 0);
     assert.equal(await page.locator('.tool-launch').count(), 2);
+    assert.ok(await page.locator('.trail-stops').isVisible());
+    assert.ok(await page.locator('.lookup-code').isVisible());
+    const trailBg = await page.locator('.trail-card').evaluate(el => getComputedStyle(el).backgroundColor);
+    const passkeyBg = await page.locator('.passkey-card').evaluate(el => getComputedStyle(el).backgroundColor);
+    assert.notEqual(trailBg, passkeyBg, 'toolbox tiles should stay visually distinct');
+    assert.match(await page.locator('.tool-launch').first().evaluate(el => getComputedStyle(el).backgroundColor), /rgb\(\s*247,\s*255,\s*0\s*\)/);
     for (const anchor of await page.locator('.tool-actions a').all()) {
       assert.match(await anchor.getAttribute('href'), /^https:\/\//);
       assert.match(await anchor.getAttribute('rel'), /noopener/);
