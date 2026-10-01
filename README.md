@@ -142,6 +142,8 @@ Unknown, repeated, or invalid parameters return HTTP 400. Callers cannot supply 
 
 Articles are sorted newest-first, stripped of fragments and common tracking parameters, and deduplicated by URL; the first source/item wins. Publisher dates are preserved, including future dates, but future/invalid dates do not enter the coverage pulse. The front page selects cloud/identity stories with source diversity. An empty front page offers All coverage. Load-more starts again if the server snapshot changes, preserving a consistent order rather than mixing pages from two refreshes.
 
+Newsroom only includes external publishers. NFS articles (by publisher name or site domain, including subdomains and `SITE_ORIGIN`) and NFS-hosted story images are excluded at ingestion and when reading snapshots, including older disk caches. These exclusions also apply to front-page selection, headline search, topic counts, and coverage pulse. NFS posts remain in Field Notes.
+
 ## Microsoft Coverage
 
 The Microsoft tab contains public Microsoft-source security updates and the community Message Center preview feed:

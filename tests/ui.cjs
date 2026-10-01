@@ -37,7 +37,7 @@ const assert = require('node:assert/strict');
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('https://example.com/advisory.jpg', route => route.fulfill({ path: 'assets/blog/entra-default-settings-header.jpg', contentType: 'image/jpeg' }));
+    await page.route('https://example.com/advisory.jpg', route => route.fulfill({ path: 'test/fixtures/publisher-image.svg', contentType: 'image/svg+xml' }));
     await page.goto(base + '/newsroom');
     await expect(page.locator('#front-page-feed .skeleton-story')).toHaveCount(4);
     await expect(page.locator('#coverage-pulse')).toHaveAttribute('data-loading', 'true');

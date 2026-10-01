@@ -1,6 +1,7 @@
 import { TOPICS, TOPIC_BY_ID, matchesTopic, isMicrosoftStory } from './assets/news-topics.js';
 import { searchHaystack } from './assets/search.js';
 import { countLast24h } from './assets/coverage-pulse.js';
+import { externalNewsArticle } from './news-policy.js';
 
 const ALLOWED = new Set(['topic', 'query', 'offset', 'limit', 'microsoftFilter', 'refresh']);
 export function newsQuery(params, { search = false } = {}) {
@@ -26,9 +27,9 @@ export function newsQuery(params, { search = false } = {}) {
 const indexes = new WeakMap();
 function indexFor(snapshot) {
   if (!indexes.has(snapshot)) {
-    const articles = snapshot.articles || [];
+    const articles = (snapshot.articles || []).map(externalNewsArticle).filter(Boolean);
     indexes.set(snapshot, {
-      entries: articles.map(article => ({ article, text: searchHaystack(article) })),
+      articles, entries: articles.map(article => ({ article, text: searchHaystack(article) })),
       topicCounts: Object.fromEntries(TOPICS.map(topic => [topic.id, articles.filter(a => matchesTopic(a, topic.id)).length])),
       frontPage: (() => {
         const byId = new Map(articles.map(article => [article.id, article]));
@@ -47,13 +48,13 @@ export function newsPage(snapshot, options = {}) {
   const minute = Math.floor(Date.now() / 60000);
   if (index.pulseMinute !== minute) {
     index.pulseMinute = minute;
-    index.pulseCounts = countLast24h(snapshot.articles, { isMicrosoftStory });
+    index.pulseCounts = countLast24h(index.articles, { isMicrosoftStory });
   }
   const articles = matches.slice(offset, offset + limit).map(entry => entry.article);
   return {
     articles, sources: snapshot.sources || [], updatedAt: snapshot.updatedAt || null,
     checkedAt: snapshot.checkedAt || null, refreshAvailableAt: snapshot.refreshAvailableAt || null,
-    frontPage: index.frontPage, frontPageIds: snapshot.frontPageIds || [],
+    frontPage: index.frontPage, frontPageIds: index.frontPage.map(article => article.id),
     topicCounts: index.topicCounts,
     pulseCounts: index.pulseCounts,
     total: matches.length, totalArticles: index.entries.length,
