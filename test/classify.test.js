@@ -1,9 +1,10 @@
+import { classifyLegacy } from './fixtures/classify-legacy.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classify, classifyLegacy, selectFrontPage, CLASSIFIER_CONSTANTS } from '../topic-classifier.js';
+import { classify, selectFrontPage, CLASSIFIER_CONSTANTS } from '../topic-classifier.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const stories = JSON.parse(await readFile(join(root, 'fixtures/classify-stories.json'), 'utf8'));

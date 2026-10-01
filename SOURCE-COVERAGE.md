@@ -1,12 +1,12 @@
-# Beacon source coverage
+# NFS Newsroom source coverage
 
 Verified 2026-09-08 using real Node fetch and rss-parser, unauthenticated public requests only. Homepages were checked for RSS/Atom links; plausible public feed endpoints were tested independently. Redirect discovery was allowed during investigation only; production uses reviewed final URLs with `redirect: error`. A homepage block does not imply its separate public RSS endpoint is blocked. No login, WAF bypass, Graph, or tenant data access was performed.
 
 ## Dispositions of all 33 supplied entries
 
-**20 enabled public feeds (5 forced `microsoft`), 9 reference-only, 2 unavailable, 2 authentication-required = 33.** Enabled includes explicitly labeled successor/public-blog alternatives below. The Microsoft category is intentionally limited to security-focused streams; general product roadmaps and release announcements remain documented as reference-only. The Hacker News means the cybersecurity publication, not Y Combinator Hacker News; the latter was probed to resolve ambiguity but is not enabled. No duplicate Azure Security Center feed is manufactured from the Defender feed.
+**The original 33 entries comprise 20 enabled public feeds (5 Microsoft streams), 9 reference-only, 2 unavailable, and 2 authentication-required.** An additional community Message Center RSS preview brings the current catalog to **21 public feeds, including 6 Microsoft streams**. This preview is not authenticated tenant Message Center data. Enabled includes explicitly labeled successor/public-blog alternatives below. The Microsoft category is intentionally limited to security-focused streams; general product roadmaps and release announcements remain documented as reference-only. The Hacker News means the cybersecurity publication, not Y Combinator Hacker News; the latter was probed to resolve ambiguity but is not enabled. No duplicate Azure Security Center feed is manufactured from the Defender feed.
 
-| # | Requested source | Exact supplied homepage | Disposition | Working feed used by Beacon | Observed result / scope |
+| # | Requested source | Exact supplied homepage | Disposition | Working feed used by NFS Newsroom | Observed result / scope |
 |---|---|---|---|---|---|
 | 1 | The Hacker News | https://thehackernews.com/ | **enabled** | https://feeds.feedburner.com/TheHackersNews | HTTP 200. Feed fetched successfully as RSS/Atom (HTTP 200). |
 | 2 | BleepingComputer | https://www.bleepingcomputer.com/ | **enabled** | https://www.bleepingcomputer.com/feed/ | HTTP 200. Feed fetched successfully as RSS/Atom (HTTP 200). |
@@ -54,7 +54,7 @@ All five remain marked as Microsoft-source feeds. Article categorization may sti
 
 ## Runtime bounds and API compatibility
 
-- `GET /api/news` keeps `{articles, sources, updatedAt}` and existing article/source fields. Reference-only, unavailable and tenant-only entries are not fake feed status rows.
+- `GET /api/news` keeps normalized article/source fields and adds bounded pagination, full-catalog counts, front-page stories, and per-source freshness; `/api/search` provides compact full-catalog headline search. See README.md for the query contract. Reference-only, unavailable and tenant-only entries are not fake feed status rows.
 - Maximum eight simultaneous upstream requests, eight-second per-feed timeout, shared 24-second refresh deadline (active requests aborted, remaining queued sources get errors/stale data). This leaves headroom for the frontend's 30-second timeout. Parsing/cache I/O adds small overhead; the deadline is for upstream work, not a hard real-time CPU guarantee.
 - Decoded streaming body limit and Content-Length guard: 3,000,000 bytes per feed. Raised from 2 MB specifically because real MSRC RSS is 2.29 MB; no unlimited body parsing. Redirects remain prohibited, URLs are static server-side catalog entries, and API query URLs remain rejected.
 - Five-minute TTL, request coalescing, atomic private-mode disk cache and stale fallback remain. Cache v1 batches now match by source **name**, not array index: additions trigger refresh without discarding old source articles; removed sources vanish and reordered catalogs retain matching data.
@@ -63,9 +63,9 @@ All five remain marked as Microsoft-source feeds. Article categorization may sti
 
 ## Live backend verification
 
-The enabled catalog contains **20 feeds**, including **5 security-focused Microsoft streams**. Live article totals vary by publisher and refresh time; run `npm run test:live` for current results.
+The enabled catalog contains **21 feeds**, including **6 Microsoft streams** (the five original streams plus the community Message Center preview at `https://msmessagecenter.com/feed.xml`). Live article totals vary by publisher and refresh time; run `npm run test:live` for current results.
 
-`node --test test/news.test.js`: covers cache migration, 40-source concurrency/deadline, cloud/identity categorization, Microsoft source bucket behavior, MSRC-sized bounded bodies, malformed XML, HTTP failures, redirects, coalescing, stale fallback, normalization and API static-path restrictions.
+`node --test test/news.test.js`: covers cache migration, 40-source concurrency/deadline, cloud/identity categorization, Microsoft source bucket behavior, MSRC-sized bounded bodies, malformed XML, HTTP failures, redirects, coalescing, seven-day stale retention, normalization and API static-path restrictions.
 
 ## Feed candidate probe ledger
 

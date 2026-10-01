@@ -9,10 +9,11 @@
 // Open Graph tags, sitemap.xml, and robots.txt use absolute links. When it is
 // unset, those links stay root-relative instead of inventing a domain.
 
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import hljs from 'highlight.js/lib/common';
 import MarkdownIt from 'markdown-it';
+export { searchHaystack, itemMatchesQuery } from './assets/search.js';
 
 // ---------------------------------------------------------------------------
 // Escaping
@@ -254,67 +255,86 @@ const optionalImage = value => {
 // ---------------------------------------------------------------------------
 // Post loading
 // ---------------------------------------------------------------------------
-// Read the folder on every request so dropping in, editing, or removing a
+// Check file metadata on every request so dropping in, editing, or removing a
 // post needs no restart. A missing directory is an empty blog, not a crash.
 // One bad file is skipped with a warning so it cannot take the whole blog
 // down.
 
+// Add stable heading anchors while Markdown is rendered; no browser rewrite is needed.
+markdown.renderer.rules.heading_open = (tokens, index, options, env, renderer) => {
+  const token = tokens[index];
+  if (['h2', 'h3'].includes(token.tag)) {
+    const text = (tokens[index + 1]?.children || []).filter(t => ['text', 'code_inline'].includes(t.type)).map(t => t.content).join('');
+    const base = tagSlug(text) || 'section';
+    env.headingIds ||= new Set();
+    let id = base, suffix = 2;
+    while (env.headingIds.has(id)) id = `${base}-${suffix++}`;
+    env.headingIds.add(id);
+    token.attrSet('id', id);
+    (env.toc ||= []).push({ id, title: text, level: Number(token.tag.slice(1)) });
+  }
+  return renderer.renderToken(tokens, index, options);
+};
+
+export function parsePost(source, slug, { includeDrafts = false } = {}) {
+  source = source.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  const frontmatter = source.match(/^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/);
+  if (!frontmatter) throw new Error('Expected YAML front matter');
+  const data = parseFrontmatter(frontmatter[1]);
+  if (data.draft === true && !includeDrafts) return null;
+  const title = requiredString(data, 'title');
+  const description = requiredString(data, 'description');
+  const date = requiredString(data, 'date');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) throw new Error('Expected a valid YYYY-MM-DD date');
+  const body = frontmatter[2];
+  const image = optionalImage(data.image);
+  if (data.image && !image) throw new Error('Expected an HTTPS or /assets/blog image');
+  const env = {};
+  const html = markdown.render(body, env);
+  return {
+    slug, title, description, date,
+    author: typeof data.author === 'string' ? data.author : 'Nathan Hess',
+    tags: Array.isArray(data.tags) ? data.tags.filter(tag => typeof tag === 'string').slice(0, 5) : [],
+    draft: data.draft === true, sample: data.sample === true,
+    ...(image ? { image, imageAlt: typeof data.imageAlt === 'string' && data.imageAlt.trim() ? data.imageAlt.trim() : title } : {}),
+    minutes: Math.max(1, Math.ceil(body.trim().split(/\s+/).length / 220)),
+    html, toc: env.toc || [],
+  };
+}
+
+// Stat on each request to preserve immediate folder updates; only changed
+// files are reread, parsed, and highlighted. Concurrent readers share work.
+const directories = new Map();
 export async function loadPosts(directory) {
   let files;
-  try {
-    files = await readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    if (error.code === 'ENOENT') return [];
-    throw error;
+  try { files = await readdir(directory, { withFileTypes: true }); }
+  catch (error) { if (error.code === 'ENOENT') { directories.delete(directory); return []; } throw error; }
+  if (!directories.has(directory)) {
+    if (directories.size >= 16) directories.delete(directories.keys().next().value);
+    directories.set(directory, new Map());
   }
-
-  // Filename must be kebab-case.md so README.md and similar are not posts.
-  const posts = await Promise.all(
-    files
-      .filter(file => file.isFile() && /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(file.name))
-      .map(async file => {
-        try {
-          // Strip BOM and CRLF so the `---` front-matter regex always matches.
-          const source = (await readFile(join(directory, file.name), 'utf8')).replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
-          const frontmatter = source.match(/^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/);
-          if (!frontmatter) throw new Error('Expected YAML front matter');
-          const data = parseFrontmatter(frontmatter[1]);
-          if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Expected metadata fields');
-          if (data.draft === true) return null; // unpublished files stay on disk but never render
-          const title = requiredString(data, 'title');
-          const description = requiredString(data, 'description');
-          const date = requiredString(data, 'date');
-          // Regex plus Date round-trip so values like 2026-02-30 are rejected.
-          // Date.parse alone would roll that over to March 2.
-          if (
-            !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-            !Number.isFinite(Date.parse(date)) ||
-            new Date(date).toISOString().slice(0, 10) !== date
-          ) throw new Error('Expected a valid YYYY-MM-DD date');
-          const body = frontmatter[2];
-          const image = optionalImage(data.image);
-          return {
-            slug: file.name.slice(0, -3),
-            title,
-            description,
-            date,
-            author: typeof data.author === 'string' ? data.author : 'Nathan Hess',
-            tags: Array.isArray(data.tags) ? data.tags.filter(tag => typeof tag === 'string').slice(0, 5) : [],
-            sample: data.sample === true,
-            ...(image ? { image, imageAlt: typeof data.imageAlt === 'string' && data.imageAlt.trim() ? data.imageAlt.trim() : title } : {}),
-            // About 220 words per minute, always at least 1 so empty bodies
-            // still show a read time.
-            minutes: Math.max(1, Math.ceil(body.trim().split(/\s+/).length / 220)),
-            html: markdown.render(body)
-          };
-        } catch (error) {
-          console.warn(`Skipping blog post ${file.name}: ${error.message}`);
+  const cache = directories.get(directory);
+  const names = files.filter(file => file.isFile() && /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(file.name)).map(file => file.name);
+  for (const name of cache.keys()) if (!names.includes(name)) cache.delete(name);
+  const posts = await Promise.all(names.map(async name => {
+    try {
+      const file = join(directory, name);
+      const info = await stat(file);
+      const signature = `${info.mtimeMs}:${info.ctimeMs}:${info.size}:${info.ino}`;
+      if (cache.get(name)?.signature !== signature) {
+        const post = readFile(file, 'utf8').then(source => parsePost(source, name.slice(0, -3))).catch(error => {
+          console.warn(`Skipping blog post ${name}: ${error.message}`);
           return null;
-        }
-      })
-  );
-
-  // Newest date first; slug is the tie-breaker so the order is stable.
+        });
+        cache.set(name, { signature, post });
+      }
+      return await cache.get(name).post;
+    } catch (error) {
+      cache.delete(name);
+      if (error.code !== 'ENOENT') console.warn(`Skipping blog post ${name}: ${error.message}`);
+      return null;
+    }
+  }));
   return posts.filter(Boolean).sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
 }
 
@@ -339,21 +359,6 @@ export function searchIndex(posts = []) {
   };
 }
 
-// One lowercase haystack so matching is case-insensitive. Blog posts have no
-// source; news items do, which is why that field is included.
-
-export function searchHaystack(item = {}) {
-  return [item.title, item.description, item.source].filter(Boolean).join(' ').toLowerCase();
-}
-
-// Empty query matches everything so the palette can show the full index
-// until the visitor types.
-
-export function itemMatchesQuery(item, query) {
-  const q = String(query || '').trim().toLowerCase();
-  return !q || searchHaystack(item).includes(q);
-}
-
 // Embed the index in a JSON script tag. Replacing `<` with `\u003c` stops a
 // title like `</script>` from closing the tag and turning the rest into HTML
 // (XSS).
@@ -368,13 +373,14 @@ export function searchIndexScript(posts = []) {
 // Desktop nav, theme toggle, and the mobile <details> menu share one link
 // list so the three places cannot drift. aria-current marks the active page.
 
+const NAV_LINKS = [['Blog', '/'], ['Newsroom', '/newsroom'], ['Toolbox', '/tools']];
 export function navigation(active) {
-  const links = [['Blog', '/'], ['Newsroom', '/newsroom'], ['Toolbox', '/tools']].map(([name, href]) => `<a href="${href}"${active === name ? ' aria-current="page"' : ''}>${name}</a>`).join('');
-  return `<div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation">${links}</nav><button class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation">${links}</nav></details></div>`;
+  const links = NAV_LINKS.map(([name, href]) => `<a href="${href}"${active === name ? ' aria-current="page"' : ''}>${name}</a>`).join('');
+  return `<div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation">${links}</nav><button class="search-toggle" type="button" aria-label="Search the site" title="Search the site (Ctrl or Cmd + K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button><button class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation">${links}</nav></details></div>`;
 }
 
 function footerNav(active) {
-  return [['Blog', '/'], ['Newsroom', '/newsroom'], ['Toolbox', '/tools']].map(([name, href]) => `<a href="${href}"${active === name ? ' aria-current="page"' : ''}>${name}</a>`).join('');
+  return NAV_LINKS.map(([name, href]) => `<a href="${href}"${active === name ? ' aria-current="page"' : ''}>${name}</a>`).join('');
 }
 
 function footerBase(active) {
@@ -388,8 +394,8 @@ function siteFooter(active) {
 // Shared document used by every public HTML page: SEO head, search index,
 // skip link, brand, nav, main, footer.
 
-function layout(title, description, active, body, seo = {}) {
-  const documentTitle = `${title} — New Frontier Security`;
+export function layout(title, description, active, body, seo = {}) {
+  const documentTitle = active === 'Newsroom' ? 'New Frontier Security — Newsroom' : `${title} — New Frontier Security`;
   const head = seoHead({
     title: documentTitle,
     description,
@@ -400,7 +406,7 @@ function layout(title, description, active, body, seo = {}) {
     published: seo.published || null,
     robots: seo.robots || null
   });
-  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}<link rel="stylesheet" href="/assets/site.css"><script src="/assets/site.js"></script>${searchIndexScript(seo.posts || [])}</head><body class="publication"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="2010" height="529" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main">${body}</main></div>${siteFooter(active)}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}<link rel="stylesheet" href="/assets/site.css"><script src="/assets/theme.js"></script><script type="module" src="/assets/site.js"></script>${(seo.styles || []).map(path => `<link rel="stylesheet" href="${path}">`).join('')}${(seo.scripts || []).map(path => `<script type="module" src="${path}"></script>`).join('')}${searchIndexScript(seo.posts || [])}</head><body class="publication ${seo.bodyClass || ''}"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="2010" height="529" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main" tabindex="-1">${body}</main></div>${siteFooter(active)}</body></html>`;
 }
 
 // Format at noon UTC so the calendar day does not shift in US timezones
@@ -460,7 +466,15 @@ export function blogPage(posts, seo = {}) {
 // article and published is the post date so shares show as an article.
 
 export function postPage(post, seo = {}) {
-  return layout(post.title, post.description, 'Blog', `<article class="post-page"><a class="internal-button back-link" href="/">All field notes</a><header class="post-heading"><h1>${escapeHtml(post.title)}</h1><p class="post-deck">${escapeHtml(post.description)}</p>${metadata(post)}${tagChips(post)}<p class="byline">By ${escapeHtml(post.author)}</p></header>${post.image ? `<figure class="post-hero"><img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt)}" decoding="async"></figure>` : ''}${post.sample ? '<aside class="sample-note">This is a placeholder post to try out the blog. Replace it with your own field notes when you’re ready.</aside>' : ''}<div class="prose">${post.html}</div><a class="internal-button post-return" href="/">Back to the blog</a></article>`, { path: `/blog/${post.slug}`, origin: seo.origin || '', image: post.image || null, type: 'article', published: post.date, posts: seo.posts || [post] });
+  return layout(post.title, post.description, 'Blog', `<article class="post-page"><a class="internal-button back-link" href="/">All field notes</a><header class="post-heading"><h1>${escapeHtml(post.title)}</h1><p class="post-deck">${escapeHtml(post.description)}</p>${metadata(post)}${tagChips(post)}<p class="byline">By ${escapeHtml(post.author)}</p></header>${post.image ? `<figure class="post-hero"><img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt)}" decoding="async"></figure>` : ''}${post.sample ? '<aside class="sample-note">This is a placeholder post to try out the blog. Replace it with your own field notes when you’re ready.</aside>' : ''}${post.toc?.filter(item => item.level === 2).length > 2 ? `<nav class="post-contents" aria-label="On this page"><h2>On this page</h2><ol>${post.toc.filter(item => item.level === 2).map(item => `<li><a href="#${escapeHtml(item.id)}">${escapeHtml(item.title)}</a></li>`).join('')}</ol></nav>` : ''}<div class="prose">${post.html}</div>${relatedPosts(post, seo.posts || [])}<a class="internal-button post-return" href="/">Back to the blog</a></article>`, { path: `/blog/${post.slug}`, origin: seo.origin || '', image: post.image || null, type: 'article', published: post.date, posts: seo.posts || [post] });
+}
+
+function relatedPosts(post, posts) {
+  const tags = new Set(post.tags.map(tagSlug));
+  const related = posts.filter(candidate => candidate.slug !== post.slug)
+    .map(candidate => ({ post: candidate, score: candidate.tags.filter(tag => tags.has(tagSlug(tag))).length }))
+    .filter(candidate => candidate.score > 0).sort((a, b) => b.score - a.score || b.post.date.localeCompare(a.post.date)).slice(0, 2);
+  return related.length ? `<aside class="related-posts"><h2>Continue exploring</h2><div class="more-posts">${related.map(candidate => postTile(candidate.post)).join('')}</div></aside>` : '';
 }
 
 // Archive of posts that share a tag. The intro noun is singular when there

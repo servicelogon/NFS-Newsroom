@@ -1,5 +1,5 @@
 {
-  "name": "beacon-news",
+  "name": "nfs-newsroom",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,8 @@
     "test": "node --test test/*.test.js",
     "test:live": "node scripts/check-feeds.js",
     "check:categories": "node scripts/check-categories.js",
-    "test:ui": "node tests/ui.cjs && node tests/pages.cjs"
+    "test:ui": "node tests/ui.cjs && node tests/pages.cjs",
+    "check:content": "node scripts/check-content.js"
   },
   "dependencies": {
     "highlight.js": "^11.12.0",

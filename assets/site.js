@@ -1,8 +1,4 @@
-// Shared chrome for blog, tools, and newsroom: theme + mobile nav.
-// Apply the saved preference before the page paints, including on navigation.
-let theme = 'dark';
-try { theme = localStorage.getItem('nfs-theme') === 'light' ? 'light' : 'dark'; } catch {} // private mode / blocked storage is fine
-document.documentElement.dataset.theme = theme;
+import { itemMatchesQuery } from './search.js';
 
 function readSearchIndex() {
   const node = document.getElementById('nfs-search-index');
@@ -18,44 +14,12 @@ function readSearchIndex() {
   }
 }
 
-function haystack(item) {
-  return [item.title, item.description, item.source].filter(Boolean).join(' ').toLowerCase();
-}
-
-function matchesQuery(item, query) {
-  return !query || haystack(item).includes(query);
-}
-
-function newsFromPage() {
-  return Array.isArray(window.nfsNewsArticles) ? window.nfsNewsArticles : null;
-}
-
-let newsPromise = null;
-function loadNewsHeadlines() {
-  const cached = newsFromPage();
-  if (cached) return Promise.resolve(cached);
-  if (!newsPromise) {
-    newsPromise = fetch('/api/news', { signal: AbortSignal.timeout(15000) })
-      .then(response => {
-        if (!response.ok) throw new Error('News request failed');
-        return response.json();
-      })
-      .then(data => {
-        const articles = Array.isArray(data.articles) ? data.articles : [];
-        window.nfsNewsArticles = articles;
-        return articles;
-      })
-      .catch(() => newsFromPage() || []);
-  }
-  return newsPromise;
-}
-
 function collectResults(index, articles, query) {
   const q = String(query || '').trim().toLowerCase();
-  const posts = index.posts.filter(item => matchesQuery(item, q)).map(item => ({ ...item, kind: 'post', group: 'Posts' }));
-  const tools = index.tools.filter(item => matchesQuery(item, q)).map(item => ({ ...item, kind: 'tool', group: 'Tools' }));
+  const posts = index.posts.filter(item => itemMatchesQuery(item, q)).map(item => ({ ...item, kind: 'post', group: 'Posts' }));
+  const tools = index.tools.filter(item => itemMatchesQuery(item, q)).map(item => ({ ...item, kind: 'tool', group: 'Tools' }));
   const headlines = articles
-    .filter(item => item && typeof item.title === 'string' && typeof item.url === 'string' && matchesQuery({ title: item.title, description: item.summary, source: item.source }, q))
+    .filter(item => item && typeof item.title === 'string' && typeof item.url === 'string' && itemMatchesQuery({ title: item.title, description: item.summary, source: item.source }, q))
     .slice(0, q ? 20 : 8)
     .map(item => ({
       title: item.title,
@@ -294,7 +258,7 @@ function initFooterSky() {
 
 document.addEventListener('DOMContentLoaded', initFooterSky);
 
-document.addEventListener('DOMContentLoaded', () => {
+function initSite() {
   const toggle = document.querySelector('.theme-toggle');
   const updateToggle = () => {
     const isLight = document.documentElement.dataset.theme === 'light';
@@ -333,16 +297,21 @@ document.addEventListener('DOMContentLoaded', () => {
   root.innerHTML = `
     <div class="command-palette-backdrop" data-palette-dismiss="true"></div>
     <div class="command-palette-dialog" role="dialog" aria-modal="true" aria-labelledby="command-palette-title">
-      <p id="command-palette-title" class="command-palette-title">Search the site</p>
-      <input id="command-palette-input" type="search" role="combobox" aria-autocomplete="list" aria-controls="command-palette-results" aria-expanded="true" placeholder="Search posts, tools, and headlines" autocomplete="off" spellcheck="false">
-      <ul id="command-palette-results" class="command-palette-results" role="listbox"></ul>
+      <div class="command-palette-heading"><p id="command-palette-title" class="command-palette-title">Search the site</p><button type="button" class="command-palette-close" aria-label="Close search" data-palette-dismiss="true">×</button></div>
+      <input id="command-palette-input" type="search" maxlength="200" aria-label="Search posts, tools, and headlines" role="combobox" aria-autocomplete="list" aria-controls="command-palette-results" aria-expanded="true" placeholder="Search posts, tools, and headlines" autocomplete="off" spellcheck="false">
+      <ul id="command-palette-results" class="command-palette-results" role="listbox" tabindex="-1"></ul>
       <p class="command-palette-empty" hidden>No matching posts, tools, or headlines.</p>
-      <p class="command-palette-hint">↑↓ to move · Enter to open · Esc to close</p>
+      <p class="command-palette-status" role="status" aria-live="polite"></p><p class="command-palette-hint">↑↓ to move · Enter to open · Esc to close</p>
     </div>`;
   document.body.append(root);
   const input = root.querySelector('#command-palette-input');
   const list = root.querySelector('#command-palette-results');
   const empty = root.querySelector('.command-palette-empty');
+  const background = [...document.body.children].filter(element => element !== root);
+  let backgroundState = [];
+  let headlines = [];
+  let searchController = null;
+  let searchTimer;
   let items = [];
   let active = 0;
   let lastFocus = null;
@@ -397,7 +366,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function refresh() {
-    renderResults(collectResults(index, newsFromPage() || [], input.value));
+    renderResults(collectResults(index, headlines, input.value));
+  }
+  async function searchNews() {
+    searchController?.abort();
+    const controller = new AbortController();
+    searchController = controller;
+    try {
+      const response = await fetch('/api/search?query=' + encodeURIComponent(input.value.trim()), { cache: 'no-cache', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]) });
+      if (!response.ok) throw new Error('Headlines unavailable');
+      const data = await response.json();
+      if (controller.signal.aborted || root.hidden) return;
+      headlines = Array.isArray(data.articles) ? data.articles : [];
+      refresh();
+      root.querySelector('.command-palette-status').textContent = '';
+    } catch (error) {
+      if (!controller.signal.aborted && !root.hidden) root.querySelector('.command-palette-status').textContent = 'Newsroom search unavailable. Posts and tools are still searchable.';
+    }
   }
 
   function openPalette() {
@@ -408,19 +393,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     lastFocus = document.activeElement;
     menu && (menu.open = false);
+    backgroundState = background.map(element => [element, element.inert]);
+    background.forEach(element => { element.inert = true; });
     root.hidden = false;
     document.body.classList.add('command-palette-open');
     input.value = '';
     refresh();
     input.focus();
-    loadNewsHeadlines().then(() => {
-      if (!root.hidden) refresh();
-    });
+    searchNews();
   }
 
   function closePalette() {
     if (root.hidden) return;
     root.hidden = true;
+    searchController?.abort();
+    clearTimeout(searchTimer);
+    backgroundState.forEach(([element, inert]) => { element.inert = inert; });
     document.body.classList.remove('command-palette-open');
     input.value = '';
     items = [];
@@ -445,7 +433,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const option = event.target.closest('[role="option"]');
     if (option) openResult(items[Number(option.dataset.index)]);
   });
-  input.addEventListener('input', refresh);
+  document.querySelector('.search-toggle')?.addEventListener('click', openPalette);
+  input.addEventListener('input', () => {
+    // Cancel immediately: an earlier response cannot overwrite a newer query.
+    searchController?.abort();
+    headlines = [];
+    refresh();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(searchNews, 150);
+  });
+  root.addEventListener('keydown', event => {
+    if (event.key !== 'Tab') return;
+    const close = root.querySelector('.command-palette-close');
+    if (!event.shiftKey && document.activeElement === input) { event.preventDefault(); close.focus(); }
+    else if (event.shiftKey && document.activeElement === close) { event.preventDefault(); input.focus(); }
+  });
   input.addEventListener('keydown', event => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
@@ -456,12 +458,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (event.key === 'Enter') {
       event.preventDefault();
       openResult(items[active]);
-    } else if (event.key === 'Home') {
-      event.preventDefault();
-      setActive(0);
-    } else if (event.key === 'End') {
-      event.preventDefault();
-      setActive(items.length - 1);
     }
   });
 
@@ -478,4 +474,6 @@ document.addEventListener('DOMContentLoaded', () => {
       closePalette();
     }
   }, true);
-});
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSite, { once: true });
+else initSite();
