@@ -1,6 +1,6 @@
 <!-- Newsroom body, rendered inside the same shell as field notes and tools. -->
 <section class="masthead" aria-label="Newsroom">
-  <div class="masthead-title"><img class="newsroom-logo" src="/assets/newsroom-logo.png" width="2033" height="344" alt="NEWSROOM" fetchpriority="high"><p>Cloud and identity. The stories worth your attention.</p></div>
+  <div class="masthead-title"><img class="newsroom-logo" src="/assets/newsroom-logo.png" width="2033" height="344" alt="NEWSROOM" fetchpriority="high"></div>
   <div class="news-freshness">
     <p id="feed-status" role="status" aria-live="polite">Connecting to publisher feeds…</p>
     <button class="internal-button" id="refresh-news" type="button">Refresh news</button>
@@ -11,21 +11,23 @@
   <p class="source-explanation">Publication dates belong to publishers. Refresh times show when a feed was last collected. Cached stories are kept for up to seven days after a failed refresh.</p>
   <ul id="source-status"></ul>
 </details>
-<section id="coverage-pulse" class="coverage-pulse" aria-label="Coverage pulse" hidden>
-  <div class="coverage-pulse-heading"><h2 class="coverage-pulse-title">Coverage pulse <span>last 24 hours</span></h2><p id="coverage-pulse-lead" class="coverage-pulse-lead" hidden></p></div>
-  <div id="coverage-pulse-strip" class="coverage-pulse-strip"></div>
-  <p class="coverage-pulse-note">Article volume, not threat severity. Microsoft coverage overlaps other topics.</p>
-</section>
 <div class="workspace">
-  <aside class="sidebar" aria-label="Browse coverage">
+  <nav class="browse-controls" aria-label="Browse coverage">
     <button class="front-page-nav" id="front-page-link" type="button" aria-pressed="true"><span>Front Page</span></button>
-    <p class="eyebrow sidebar-label">Explore topics</p>
-    <nav class="categories" aria-label="News categories" id="categories"></nav>
-  </aside>
+    <label class="topic-picker"><span class="visually-hidden">Browse topics</span><select id="topic-select"><option value="front" disabled>Topics</option></select></label>
+    <details id="coverage-pulse" class="coverage-pulse" hidden>
+      <summary><span>Pulse</span><span class="pulse-period">24h</span></summary>
+      <div class="coverage-pulse-panel">
+        <h2 class="coverage-pulse-title">Coverage pulse <span>last 24 hours</span></h2>
+        <p id="coverage-pulse-lead" class="coverage-pulse-lead" hidden></p>
+        <div id="coverage-pulse-strip" class="coverage-pulse-strip"></div>
+        <p class="coverage-pulse-note">Article volume, not threat severity. Microsoft coverage overlaps other topics.</p>
+      </div>
+    </details>
+  </nav>
   <div class="content">
     <section class="front-page" id="front-page" aria-labelledby="front-page-title">
       <div class="front-page-heading"><div><span class="eyebrow">The daily perspective</span><h1 id="front-page-title">Front Page</h1></div><time class="front-page-date" id="front-page-date"></time></div>
-      <p class="front-page-deck">Cloud and identity security headlines shaping the brief.</p>
       <p class="visually-hidden" id="front-page-status" role="status" aria-live="polite"></p>
       <div class="front-page-feed" id="front-page-feed"></div>
       <div class="empty" id="front-page-empty" hidden>
