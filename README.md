@@ -69,10 +69,10 @@ All pages have a top-right menu with Blog, Newsroom, and Toolbox. It works with 
 
 ## What It Includes
 
-- A New Frontier Security newsroom UI with front-page cards, cloud/identity-first filtering, search, source health, and load-more browsing.
+- A New Frontier Security newsroom UI with front-page cards, cloud/identity-first filtering, search, and load-more browsing.
 - 21 reviewed public security feeds in `sources.js`, including six Microsoft-focused streams and a community Message Center RSS preview.
 - A paginated `/api/news` endpoint and compact `/api/search` headline search, with normalized metadata, source status, and cache timestamps.
-- Visible refresh times, publisher health, cached-story labels, and a throttled manual refresh.
+- Automatic feed loading, cached-story labels, and brief availability messages, with no manual refresh or retry controls. Publisher status and refresh timestamps remain available through the API.
 - Coverage pulse counts across the full catalog for the last 24 hours, including vulnerabilities. These are article volumes, not threat severity; Microsoft overlaps other topics.
 - Explicit documentation for unavailable, reference-only, and authentication-required sources in `SOURCE-COVERAGE.md`.
 - A Microsoft tab that combines Microsoft-source security coverage with community Message Center RSS preview items and can filter between Microsoft News and Message Center updates.

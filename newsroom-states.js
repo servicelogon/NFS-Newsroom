@@ -21,15 +21,15 @@ function sourceTroubleCopy(health) {
   const names = joinNames(troubled);
   if (health.error.length === health.total && health.total > 0 && !health.stale.length) {
     return names
-      ? `${names} did not return stories. Try again in a moment.`
-      : 'Publisher feeds did not return stories. Try again in a moment.';
+      ? `${names} did not return stories. Check back in a moment.`
+      : 'Publisher feeds did not return stories. Check back in a moment.';
   }
   if (troubled.length) {
     return names
-      ? `${names} reported a problem. Check back or retry the feeds.`
-      : 'Some publisher feeds reported a problem. Check back or retry the feeds.';
+      ? `${names} reported a problem. Check back in a moment.`
+      : 'Some publisher feeds reported a problem. Check back in a moment.';
   }
-  return 'Feeds reported no stories right now. Try again in a moment.';
+  return 'Feeds reported no stories right now. Check back in a moment.';
 }
 
 export function describeEmptyState({
@@ -52,8 +52,7 @@ export function describeEmptyState({
       kind: 'unavailable',
       eyebrow: 'Sources unavailable',
       title: 'The briefing could not be loaded.',
-      body: String(loadError),
-      retry: true,
+      body: 'Headlines are temporarily unavailable. Check back in a moment.',
       reset: false,
     };
   }
@@ -65,7 +64,6 @@ export function describeEmptyState({
       eyebrow: allDown ? 'Sources down' : 'Limited coverage',
       title: allDown ? 'News sources are not responding.' : 'No stories made it through.',
       body: sourceTroubleCopy(health),
-      retry: true,
       reset: false,
     };
   }
@@ -77,8 +75,7 @@ export function describeEmptyState({
       title: frontPage ? 'The front page is waiting for today’s briefing.' : 'No articles to show.',
       body: health.total
         ? 'Feeds are connected, but there are no stories right now.'
-        : 'Check the sources and try again.',
-      retry: true,
+        : 'Check back for more coverage.',
       reset: false,
     };
   }
@@ -88,7 +85,6 @@ export function describeEmptyState({
     eyebrow: 'No matching articles',
     title: 'No articles to show.',
     body: hasQuery ? 'Try another search or browse all coverage.' : 'Try another topic or browse all coverage.',
-    retry: false,
     reset: true,
   };
 }

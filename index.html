@@ -1,16 +1,7 @@
 <!-- Newsroom body, rendered inside the same shell as field notes and tools. -->
 <section class="masthead" aria-label="Newsroom">
-  <div class="masthead-title"><img class="newsroom-logo" src="/assets/newsroom-logo.png" width="2033" height="344" alt="NEWSROOM" fetchpriority="high"></div>
-  <div class="news-freshness">
-    <p id="feed-status" role="status" aria-live="polite">Connecting to publisher feeds…</p>
-    <button class="internal-button" id="refresh-news" type="button">Refresh news</button>
-  </div>
+  <img class="newsroom-logo" src="/assets/newsroom-logo.png" width="2033" height="344" alt="NEWSROOM" fetchpriority="high">
 </section>
-<details class="source-health" id="source-health">
-  <summary><span id="source-summary">Source health</span><span class="source-health-hint">View publishers</span></summary>
-  <p class="source-explanation">Publication dates belong to publishers. Refresh times show when a feed was last collected. Cached stories are kept for up to seven days after a failed refresh.</p>
-  <ul id="source-status"></ul>
-</details>
 <div class="workspace">
   <nav class="browse-controls" aria-label="Browse coverage">
     <button class="front-page-nav" id="front-page-link" type="button" aria-pressed="true"><span>Front Page</span></button>
@@ -25,6 +16,7 @@
       </div>
     </details>
   </nav>
+  <p class="news-error" id="news-error" role="status" hidden></p>
   <div class="content">
     <section class="front-page" id="front-page" aria-labelledby="front-page-title">
       <div class="front-page-heading"><div><span class="eyebrow">The daily perspective</span><h1 id="front-page-title">Front Page</h1></div><time class="front-page-date" id="front-page-date"></time></div>
@@ -32,7 +24,7 @@
       <div class="front-page-feed" id="front-page-feed"></div>
       <div class="empty" id="front-page-empty" hidden>
         <span class="eyebrow" data-empty-eyebrow></span><h2 data-empty-title></h2><p data-empty-copy></p>
-        <div class="empty-actions"><button class="internal-button" id="front-page-retry" type="button" data-empty-retry>Try again</button><button class="internal-button" type="button" data-empty-reset>Show all coverage</button></div>
+        <div class="empty-actions"><button class="internal-button" type="button" data-empty-reset>Show all coverage</button></div>
       </div>
     </section>
     <section id="briefing-view" aria-labelledby="section-title" hidden>
@@ -46,7 +38,7 @@
       <button class="internal-button" id="load-more" type="button" hidden>Load more articles</button>
       <div class="empty" id="empty" hidden>
         <span class="eyebrow" data-empty-eyebrow></span><h2 data-empty-title></h2><p data-empty-copy></p>
-        <div class="empty-actions"><button class="internal-button" id="empty-retry" type="button" data-empty-retry>Try again</button><button class="internal-button" id="reset" type="button" data-empty-reset>Show all coverage</button></div>
+        <div class="empty-actions"><button class="internal-button" id="reset" type="button" data-empty-reset>Show all coverage</button></div>
       </div>
     </section>
     <p class="feed-note">Headlines and excerpts from publisher feeds. Follow original links for full reporting.</p>
