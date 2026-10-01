@@ -1,5 +1,5 @@
 import { TOPICS, TOPIC_BY_ID } from './news-topics.js';
-import { describeCoveragePulse, shouldShowCoveragePulse, coverageIconSvg } from './coverage-pulse.js';
+import { describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
 import { describeEmptyState, summarizeSourceHealth } from '/assets/newsroom-states.js';
 import { createArticleCard } from './article-card.js';
 
@@ -12,7 +12,6 @@ const state = {
 let controller, searchTimer, refreshTimer;
 let requestId = 0;
 const dateLabel = value => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : 'not yet available';
-const bandLabels = { quiet: 'No stories', low: 'Low volume', active: 'Active coverage', high: 'High volume' };
 const viewKey = () => JSON.stringify([state.topic, state.microsoftFilter, state.query]);
 
 function renderHealth() {
@@ -60,6 +59,7 @@ function renderPulse() {
   const mode = shouldShowCoveragePulse({ loading: state.loading, articleCount: state.totalArticles });
   const root = $('#coverage-pulse');
   root.hidden = mode === 'hidden';
+  if (root.hidden) root.open = false;
   root.dataset.loading = String(mode === 'placeholder');
   root.setAttribute('aria-busy', String(mode === 'placeholder'));
   const strip = $('#coverage-pulse-strip');
@@ -80,19 +80,14 @@ function renderPulse() {
     button.className = 'coverage-pulse-chip';
     button.type = 'button';
     button.dataset.topic = topic.id;
-    button.dataset.band = topic.band;
     button.setAttribute('aria-pressed', String(!state.front && state.topic === topic.id));
-    button.setAttribute('aria-label', `${topic.name}, ${topic.count} stories in the last 24 hours, ${bandLabels[topic.band]}`);
-    button.title = bandLabels[topic.band];
-    const icon = document.createElement('span');
-    icon.className = 'coverage-pulse-chip-icon';
-    icon.innerHTML = coverageIconSvg(topic.band); // fixed local paths, never feed HTML
+    button.setAttribute('aria-label', `${topic.name}, ${topic.count} stories in the last 24 hours`);
     const label = document.createElement('span');
     label.textContent = topic.name;
     const count = document.createElement('span');
     count.className = 'coverage-pulse-chip-count';
     count.textContent = topic.count;
-    button.append(icon, label, count);
+    button.append(label, count);
     button.addEventListener('click', () => selectTopic(topic.id));
     return button;
   }));
@@ -135,9 +130,10 @@ function render() {
   $('#front-page').hidden = !state.front;
   $('#briefing-view').hidden = state.front;
   $('#front-page-link').setAttribute('aria-pressed', String(state.front));
-  document.querySelectorAll('.category').forEach(button => {
-    button.setAttribute('aria-pressed', String(!state.front && button.dataset.topic === state.topic));
-    button.querySelector('small').textContent = state.topicCounts[button.dataset.topic] ?? '';
+  $('#topic-select').value = state.front ? 'front' : state.topic;
+  document.querySelectorAll('#topic-select option[data-topic]').forEach(option => {
+    const count = state.topicCounts[option.dataset.topic];
+    option.textContent = `${TOPIC_BY_ID.get(option.dataset.topic).name}${count === undefined ? '' : ` (${count})`}`;
   });
   $('#microsoft-filter').hidden = state.topic !== 'microsoft';
   document.querySelectorAll('[data-microsoft-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.microsoftFilter === state.microsoftFilter)));
@@ -196,6 +192,8 @@ async function loadNews({ append = false, force = false } = {}) {
 }
 
 function selectTopic(topic) {
+  if ($('#coverage-pulse').contains(document.activeElement)) $('#topic-select').focus();
+  $('#coverage-pulse').open = false;
   state.front = false;
   state.topic = topic;
   if (topic !== 'microsoft') state.microsoftFilter = 'all';
@@ -210,22 +208,20 @@ function reset() {
   selectTopic('all');
 }
 TOPICS.forEach(topic => {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'category';
-  button.dataset.topic = topic.id;
-  button.style.setProperty('--topic-color', topic.color);
-  const label = document.createElement('span');
-  label.textContent = topic.name;
-  const count = document.createElement('small');
-  count.setAttribute('aria-hidden', 'true');
-  button.append(label, count);
-  button.addEventListener('click', () => selectTopic(topic.id));
-  $('#categories').append(button);
+  const option = document.createElement('option');
+  option.value = topic.id;
+  option.dataset.topic = topic.id;
+  option.textContent = topic.name;
+  $('#topic-select').append(option);
 });
+$('#topic-select').addEventListener('change', event => selectTopic(event.target.value));
 $('#front-page-link').addEventListener('click', () => {
-  if (state.front) reset();
-  else { state.front = true; render(); }
+  state.front = true;
+  $('#coverage-pulse').open = false;
+  render();
+});
+document.addEventListener('click', event => {
+  if (!$('#coverage-pulse').contains(event.target)) $('#coverage-pulse').open = false;
 });
 $('#refresh-news').addEventListener('click', () => loadNews({ force: true }));
 $('#load-more').addEventListener('click', () => loadNews({ append: true }));
@@ -250,6 +246,11 @@ $('#search').addEventListener('input', event => {
 });
 document.addEventListener('keydown', event => {
   if ($('#main').inert || $('.shell').inert || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.key === 'Escape' && $('#coverage-pulse').open) {
+    $('#coverage-pulse').open = false;
+    $('#coverage-pulse summary').focus();
+    return;
+  }
   if (event.key === '/' && !document.activeElement.matches('input,textarea,select,[contenteditable="true"]')) {
     event.preventDefault();
     if (state.front) reset();
