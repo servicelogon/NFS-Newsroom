@@ -14,13 +14,13 @@
 <div class="workspace">
   <nav class="browse-controls" aria-label="Browse coverage">
     <button class="front-page-nav" id="front-page-link" type="button" aria-pressed="true"><span>Front Page</span></button>
-    <label class="topic-picker"><span class="visually-hidden">Browse topics</span><select id="topic-select"><option value="front" disabled>Topics</option></select></label>
     <details id="coverage-pulse" class="coverage-pulse" hidden>
-      <summary><span>Pulse</span><span class="pulse-period">24h</span></summary>
+      <summary><svg class="pulse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Pulse</span><span class="pulse-period">24h</span></summary>
       <div class="coverage-pulse-panel">
         <h2 class="coverage-pulse-title">Coverage pulse <span>last 24 hours</span></h2>
         <p id="coverage-pulse-lead" class="coverage-pulse-lead" hidden></p>
         <div id="coverage-pulse-strip" class="coverage-pulse-strip"></div>
+        <button class="pulse-all-coverage" id="pulse-all-coverage" type="button">Browse all coverage →</button>
         <p class="coverage-pulse-note">Article volume, not threat severity. Microsoft coverage overlaps other topics.</p>
       </div>
     </details>

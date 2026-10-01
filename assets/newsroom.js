@@ -1,4 +1,4 @@
-import { TOPICS, TOPIC_BY_ID } from './news-topics.js';
+import { TOPIC_BY_ID } from './news-topics.js';
 import { describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
 import { describeEmptyState, summarizeSourceHealth } from '/assets/newsroom-states.js';
 import { createArticleCard } from './article-card.js';
@@ -130,11 +130,6 @@ function render() {
   $('#front-page').hidden = !state.front;
   $('#briefing-view').hidden = state.front;
   $('#front-page-link').setAttribute('aria-pressed', String(state.front));
-  $('#topic-select').value = state.front ? 'front' : state.topic;
-  document.querySelectorAll('#topic-select option[data-topic]').forEach(option => {
-    const count = state.topicCounts[option.dataset.topic];
-    option.textContent = `${TOPIC_BY_ID.get(option.dataset.topic).name}${count === undefined ? '' : ` (${count})`}`;
-  });
   $('#microsoft-filter').hidden = state.topic !== 'microsoft';
   document.querySelectorAll('[data-microsoft-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.microsoftFilter === state.microsoftFilter)));
   const topic = TOPIC_BY_ID.get(state.topic);
@@ -192,7 +187,7 @@ async function loadNews({ append = false, force = false } = {}) {
 }
 
 function selectTopic(topic) {
-  if ($('#coverage-pulse').contains(document.activeElement)) $('#topic-select').focus();
+  if ($('#coverage-pulse').contains(document.activeElement)) $('#coverage-pulse summary').focus();
   $('#coverage-pulse').open = false;
   state.front = false;
   state.topic = topic;
@@ -207,14 +202,7 @@ function reset() {
   $('#search').value = '';
   selectTopic('all');
 }
-TOPICS.forEach(topic => {
-  const option = document.createElement('option');
-  option.value = topic.id;
-  option.dataset.topic = topic.id;
-  option.textContent = topic.name;
-  $('#topic-select').append(option);
-});
-$('#topic-select').addEventListener('change', event => selectTopic(event.target.value));
+$('#pulse-all-coverage').addEventListener('click', reset);
 $('#front-page-link').addEventListener('click', () => {
   state.front = true;
   $('#coverage-pulse').open = false;

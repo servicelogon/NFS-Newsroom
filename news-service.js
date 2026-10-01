@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FEEDS } from './sources.js';
 import { classify, selectFrontPage } from './topic-classifier.js';
+import { externalNewsArticle } from './news-policy.js';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const parser = new Parser();
 
@@ -58,12 +59,12 @@ function article(item, source, forcedCategory) {
     source,
     forcedCategory,
   });
-  return { id: createHash('sha256').update(href).digest('hex').slice(0, 24), title, url: href, source,
+  return externalNewsArticle({ id: createHash('sha256').update(href).digest('hex').slice(0, 24), title, url: href, source,
     publishedAt: Number.isFinite(date) ? new Date(date).toISOString() : null, summary,
     ...(image ? { imageUrl: image } : {}),
     ...(classified.sourceCategory ? { sourceCategory: classified.sourceCategory } : {}),
     category: classified.category,
-    topicScore: classified.topicScore };
+    topicScore: classified.topicScore });
 }
 
 // Bounded RSS fetch: no redirects, hard timeout, stream capped at maxBytes.
@@ -166,9 +167,17 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
 // Flatten batches, drop duplicate URLs, newest first. Used by both TTL hits and fresh refreshes.
 function output(cache, minRefreshMs) {
   const unique = new Map();
+  const sources = [];
   for (const batch of cache.batches) {
-    for (const article of batch.articles) if (!unique.has(article.url)) unique.set(article.url, { ...article, stale: batch.source.status === 'stale' });
+    let articleCount = 0;
+    for (const cached of batch.articles) {
+      const article = externalNewsArticle(cached);
+      if (!article) continue;
+      articleCount++;
+      if (!unique.has(article.url)) unique.set(article.url, { ...article, stale: batch.source.status === 'stale' });
+    }
+    sources.push({ ...batch.source, articleCount });
   }
   const articles = [...unique.values()].sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0));
-  return { articles, sources: cache.batches.map(b => ({ ...b.source, articleCount: b.articles.length })), updatedAt: cache.updatedAt, checkedAt: new Date(cache.checkedAt).toISOString(), refreshAvailableAt: new Date(cache.checkedAt + minRefreshMs).toISOString(), frontPageIds: selectFrontPage(articles) };
+  return { articles, sources, updatedAt: cache.updatedAt, checkedAt: new Date(cache.checkedAt).toISOString(), refreshAvailableAt: new Date(cache.checkedAt + minRefreshMs).toISOString(), frontPageIds: selectFrontPage(articles) };
 }
