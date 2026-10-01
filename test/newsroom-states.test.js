@@ -20,7 +20,7 @@ test('describeEmptyState stays quiet while loading or when stories are visible',
   assert.equal(describeEmptyState({ visibleCount: 3, articleCount: 3 }), null);
 });
 
-test('describeEmptyState uses load errors and source-health data for retry copy', () => {
+test('describeEmptyState uses load errors and source-health data for availability copy', () => {
   const unavailable = describeEmptyState({
     articleCount: 0,
     visibleCount: 0,
@@ -28,8 +28,7 @@ test('describeEmptyState uses load errors and source-health data for retry copy'
     view: 'front-page',
   });
   assert.equal(unavailable.kind, 'unavailable');
-  assert.equal(unavailable.retry, true);
-  assert.match(unavailable.body, /503/);
+  assert.match(unavailable.body, /temporarily unavailable/);
 
   const down = describeEmptyState({
     articleCount: 0,
@@ -42,7 +41,6 @@ test('describeEmptyState uses load errors and source-health data for retry copy'
   });
   assert.equal(down.kind, 'down');
   assert.match(down.body, /Krebs and Bleeping/);
-  assert.equal(down.retry, true);
   assert.equal(down.reset, false);
 
   const limited = describeEmptyState({
@@ -66,7 +64,6 @@ test('describeEmptyState keeps filter empty separate from source outages', () =>
     view: 'briefing',
   });
   assert.equal(filtered.kind, 'filter');
-  assert.equal(filtered.retry, false);
   assert.equal(filtered.reset, true);
   assert.match(filtered.body, /search/);
 
@@ -78,5 +75,4 @@ test('describeEmptyState keeps filter empty separate from source outages', () =>
   });
   assert.equal(quiet.kind, 'empty');
   assert.match(quiet.body, /no stories/i);
-  assert.equal(quiet.retry, true);
 });

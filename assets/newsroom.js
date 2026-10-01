@@ -1,59 +1,17 @@
 import { TOPIC_BY_ID } from './news-topics.js';
 import { describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
-import { describeEmptyState, summarizeSourceHealth } from '/assets/newsroom-states.js';
+import { describeEmptyState } from '/assets/newsroom-states.js';
 import { createArticleCard } from './article-card.js';
 
 const $ = selector => document.querySelector(selector);
 const state = {
   front: true, topic: 'all', microsoftFilter: 'all', query: '', stories: [], frontPage: [],
-  sources: [], total: 0, totalArticles: 0, nextOffset: null, topicCounts: {}, pulseCounts: {},
-  updatedAt: null, checkedAt: null, refreshAvailableAt: null, loading: true, error: '',
+  sources: [], total: 0, totalArticles: 0, nextOffset: null, pulseCounts: {},
+  checkedAt: null, loading: true, error: '',
 };
-let controller, searchTimer, refreshTimer;
+let controller, searchTimer;
 let requestId = 0;
-const dateLabel = value => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : 'not yet available';
 const viewKey = () => JSON.stringify([state.topic, state.microsoftFilter, state.query]);
-
-function renderHealth() {
-  const health = summarizeSourceHealth(state.sources);
-  const trouble = health.error.length + health.stale.length;
-  const status = $('#feed-status');
-  status.dataset.warning = String(Boolean(trouble || state.error));
-  status.textContent = state.error || (state.updatedAt ? `Last refreshed ${dateLabel(state.updatedAt)}${trouble ? ' · limited coverage' : ''}` : state.loading ? 'Connecting to publisher feeds…' : 'No successful refresh yet');
-  $('#source-summary').textContent = health.total
-    ? `${state.error ? 'Last report · ' : ''}${health.ok.length} of ${health.total} sources live${health.stale.length ? ` · ${health.stale.length} cached` : ''}${health.error.length ? ` · ${health.error.length} unavailable` : ''}`
-    : 'Source health · awaiting feeds';
-  const items = state.sources.map(source => {
-    const item = document.createElement('li');
-    const title = document.createElement('div');
-    title.className = 'source-title';
-    const name = document.createElement('span');
-    name.textContent = source.name;
-    const status = document.createElement('span');
-    status.className = 'source-state';
-    status.dataset.status = source.status;
-    status.textContent = ({ ok: 'Live', stale: 'Cached', error: 'Unavailable' })[source.status] || 'Unknown';
-    title.append(name, status);
-    const date = document.createElement('p');
-    date.className = 'source-date';
-    date.textContent = `Last collected: ${dateLabel(source.lastSuccessAt)}`;
-    item.append(title, date);
-    if (source.error) {
-      const error = document.createElement('p');
-      error.className = 'source-error';
-      error.textContent = source.error;
-      item.append(error);
-    }
-    return item;
-  });
-  $('#source-status').replaceChildren(...items);
-  clearTimeout(refreshTimer);
-  const remaining = Math.max(0, Math.ceil((Date.parse(state.refreshAvailableAt) - Date.now()) / 1000)) || 0;
-  const button = $('#refresh-news');
-  button.disabled = state.loading || remaining > 0;
-  button.textContent = state.loading ? 'Refreshing…' : remaining ? `Refresh in ${remaining}s` : 'Refresh news';
-  if (remaining && !state.loading) refreshTimer = setTimeout(renderHealth, 1000);
-}
 
 function renderPulse() {
   const mode = shouldShowCoveragePulse({ loading: state.loading, articleCount: state.totalArticles });
@@ -105,7 +63,7 @@ function applyEmptyState(root, visibleCount, front = false) {
   root.querySelector('[data-empty-eyebrow]').textContent = empty.eyebrow;
   root.querySelector('[data-empty-title]').textContent = empty.title;
   root.querySelector('[data-empty-copy]').textContent = empty.body;
-  root.querySelectorAll('[data-empty-retry]').forEach(button => { button.hidden = !empty.retry; button.disabled = state.loading; });
+  root.querySelector('.empty-actions').hidden = !empty.reset;
   root.querySelectorAll('[data-empty-reset]').forEach(button => { button.hidden = !empty.reset; });
 }
 
@@ -148,11 +106,13 @@ function render() {
   more.hidden = state.nextOffset === null;
   more.disabled = state.loading;
   more.textContent = state.loading ? 'Loading…' : `Load more articles (${Math.max(0, state.total - state.stories.length)} remaining)`;
-  renderHealth();
+  const errorNotice = $('#news-error');
+  errorNotice.hidden = !state.error || !(state.front ? state.frontPage.length : state.stories.length);
+  errorNotice.textContent = errorNotice.hidden ? '' : 'The latest headlines could not be loaded. Showing the last loaded results.';
   renderPulse();
 }
 
-async function loadNews({ append = false, force = false } = {}) {
+async function loadNews({ append = false } = {}) {
   clearTimeout(searchTimer);
   controller?.abort();
   controller = new AbortController();
@@ -162,9 +122,8 @@ async function loadNews({ append = false, force = false } = {}) {
   state.loading = true;
   render();
   const params = new URLSearchParams({ topic: state.topic, microsoftFilter: state.microsoftFilter, query: state.query, limit: '40', offset: String(append ? state.nextOffset || 0 : 0) });
-  if (force) params.set('refresh', '1');
   try {
-    const response = await fetch('/api/news?' + params, { cache: force ? 'no-store' : 'no-cache', signal: AbortSignal.any([current.signal, AbortSignal.timeout(30000)]) });
+    const response = await fetch('/api/news?' + params, { cache: 'no-cache', signal: AbortSignal.any([current.signal, AbortSignal.timeout(30000)]) });
     if (!response.ok) throw new Error(`News service returned HTTP ${response.status}.`);
     const data = await response.json();
     if (!Array.isArray(data.articles) || !Array.isArray(data.sources) || !Array.isArray(data.frontPage)) throw new Error('Invalid response from news service.');
@@ -175,7 +134,7 @@ async function loadNews({ append = false, force = false } = {}) {
     }
     state.stories = append ? [...state.stories, ...data.articles] : data.articles;
     state.frontPage = data.frontPage;
-    for (const field of ['sources', 'total', 'totalArticles', 'nextOffset', 'topicCounts', 'pulseCounts', 'updatedAt', 'checkedAt', 'refreshAvailableAt']) state[field] = data[field];
+    for (const field of ['sources', 'total', 'totalArticles', 'nextOffset', 'pulseCounts', 'checkedAt']) state[field] = data[field];
     state.error = '';
   } catch (error) {
     if (!current.signal.aborted && id === requestId) {
@@ -211,9 +170,7 @@ $('#front-page-link').addEventListener('click', () => {
 document.addEventListener('click', event => {
   if (!$('#coverage-pulse').contains(event.target)) $('#coverage-pulse').open = false;
 });
-$('#refresh-news').addEventListener('click', () => loadNews({ force: true }));
 $('#load-more').addEventListener('click', () => loadNews({ append: true }));
-document.querySelectorAll('[data-empty-retry]').forEach(button => button.addEventListener('click', () => loadNews({ force: true })));
 document.querySelectorAll('[data-empty-reset], #clear').forEach(button => button.addEventListener('click', reset));
 document.querySelectorAll('[data-microsoft-filter]').forEach(button => button.addEventListener('click', () => {
   state.microsoftFilter = button.dataset.microsoftFilter;
@@ -252,6 +209,6 @@ document.addEventListener('keydown', event => {
     $('#search').blur();
   }
 });
-// Exposed only for manual retries and the existing browser test harness.
+// Exposed for the browser test harness.
 window.loadNews = loadNews;
 loadNews();
