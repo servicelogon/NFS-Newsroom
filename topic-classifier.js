@@ -1,6 +1,5 @@
-// Pure topic classifier for GET /api/news. No DOM, no LLM, no HTML fetch.
-// classify() is the scored production path; classifyLegacy() is the extracted
-// first-match regex used only to characterize today’s labels.
+// Scored topic classification and cloud/identity front-page selection.
+// The former first-match classifier lives only in test fixtures.
 
 const TITLE_WEIGHT = 1;
 const RSS_WEIGHT = 0.6;
@@ -254,23 +253,7 @@ export function classify({ title = '', summary = '', rssCategories = [], source,
   return result;
 }
 
-// Extracted first-match regex from server.js category() + Microsoft overlay.
-export function classifyLegacy({ title = '', summary = '', rssCategories = [], forcedCategory } = {}) {
-  const value = `${fieldText(title)} ${fieldText(summary)} ${fieldText(Array.isArray(rssCategories) ? rssCategories.join(' ') : rssCategories)}`;
-  let detectedCategory = 'operations';
-  if (/\b(identity|entra|okta|iam|sso|mfa|oauth|saml|passkey|token|session|credential|account access|phishing|voice call|social engineering)\b/i.test(value)) detectedCategory = 'identity';
-  else if (/\b(cloud|aws|amazon web services|azure|gcp|google cloud|kubernetes|k8s|container|saas|cloud posture|cloud asset|storage bucket|blob storage|ci\/cd|pipeline|supply chain)\b/i.test(value)) detectedCategory = 'cloud';
-  else if (/vulnerab|\bcve-|patch|zero.day|exploit/i.test(value)) detectedCategory = 'vulnerabilities';
-  else if (/breach|data leak|data theft|extortion|compromise|incident|outage/i.test(value)) detectedCategory = 'incidents';
-  else if (/malware|ransomware|trojan|botnet/i.test(value)) detectedCategory = 'malware';
-  const category = forcedCategory === 'microsoft' && ['identity', 'cloud', 'vulnerabilities'].includes(detectedCategory)
-    ? detectedCategory
-    : forcedCategory || detectedCategory;
-  const result = { category, topicScore: category === 'operations' ? 0 : 1 };
-  if (forcedCategory) result.sourceCategory = forcedCategory;
-  return result;
-}
-
+// Select a diverse set of high-confidence cloud/identity headlines.
 export function selectFrontPage(articles = [], { limit = FRONT_PAGE_LIMIT, minScore = FRONT_PAGE_MIN_SCORE, sourceCap = FRONT_PAGE_SOURCE_CAP } = {}) {
   const eligible = articles.filter(article => FRONT_PAGE_TOPICS.has(article?.category) && (Number(article.topicScore) || 0) >= minScore);
   const ordered = [...eligible].sort((a, b) => {

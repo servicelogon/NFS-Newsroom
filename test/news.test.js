@@ -26,7 +26,8 @@ test('disk TTL cache coalesces refreshes and preserves stale data with errors', 
   assert.equal(calls, backend.FEEDS.length);
   time += 101; offline = true;
   const stale = await restarted.getNews();
-  assert.deepEqual(stale.articles, first.articles);
+  assert.deepEqual(stale.articles.map(a => ({ ...a, stale: false })), first.articles);
+  assert.ok(stale.articles.every(a => a.stale));
   assert.equal(stale.updatedAt, first.updatedAt);
   assert.ok(stale.sources.every(s => s.status === 'stale' && /403/.test(s.error)));
 });
@@ -85,10 +86,10 @@ test('HTTP serves app and API only, rejects arbitrary files and user feed URLs',
   assert.equal(states.status, 200);
   assert.match(states.headers.get('content-type'), /javascript/);
   assert.match(await states.text(), /describeEmptyState/);
-  const weather = await fetch(`${base}/assets/threat-weather.js`);
+  const weather = await fetch(`${base}/assets/coverage-pulse.js`);
   assert.equal(weather.status, 200);
   assert.match(weather.headers.get('content-type'), /javascript/);
-  assert.match(await weather.text(), /describeThreatWeather/);
+  assert.match(await weather.text(), /describeCoveragePulse/);
   const api = await fetch(`${base}/api/news`);
   assert.equal(api.status, 200);
   assert.equal(api.headers.get('cache-control'), 'public, max-age=60, stale-while-revalidate=300');
@@ -111,7 +112,7 @@ test('catalog changes preserve cached batches by source name and refresh additio
   const result = await backend.createNewsService({feeds,cacheFile, fetchImpl:async()=>{calls++; throw new Error('offline');}}).getNews();
   assert.equal(calls, 2);
   assert.deepEqual(result.sources.map(s=>[s.name,s.status]), [['New','error'],['Old','stale']]);
-  assert.deepEqual(result.articles,[saved]);
+  assert.deepEqual(result.articles,[{ ...saved, stale: true }]);
 });
 test('large catalogs bound concurrency and stop queued work at total deadline', async t => {
   const feeds = Array.from({length:40}, (_,i)=>({name:`Feed ${i}`,url:`https://example.com/${i}`}));

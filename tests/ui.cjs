@@ -1,559 +1,172 @@
-// Playwright: newsroom UI (topics, Microsoft filter, front page) against fixture /api/news.
-const { chromium } = require("@playwright/test");
-const fs = require("node:fs");
-const assert = require("node:assert/strict");
+// Browser contracts against the real page shell and paginated HTTP routes.
+const { chromium, expect } = require('@playwright/test');
+const assert = require('node:assert/strict');
 (async () => {
-  const browser = await chromium.launch();
+  const { createAppServer, selectFrontPage } = await import('../server.js');
+  const now = Date.now();
+  const articles = Array.from({ length: 105 }, (_, i) => ({
+    id: String(i), title: i === 104 ? 'Rare searchable token report' : `Fixture ${i} ${i % 2 ? 'identity' : 'cloud'} headline`,
+    url: `https://example.com/${i}`, source: `Publisher ${i % 4}`, publishedAt: new Date(now - i * 3600000).toISOString(),
+    summary: 'A cloud and identity security excerpt.', category: i === 104 ? 'vulnerabilities' : i % 2 ? 'identity' : 'cloud', topicScore: 0.8,
+  }));
+  articles[2] = { ...articles[2], title: 'Fixture Entra update', source: 'Microsoft Entra Blog', category: 'identity' };
+  articles[3] = { ...articles[3], title: 'MC123456 — Fixture admin center update', source: 'MS Message Center', category: 'microsoft' };
+  articles[4] = { ...articles[4], title: 'CVE-2026-1234 advisory', source: 'Microsoft Entra Blog', category: 'vulnerabilities' };
+  articles[0].imageUrl = 'https://example.com/advisory.jpg';
+  articles[0].stale = true;
+  let snapshot = {
+    articles, frontPageIds: selectFrontPage(articles), updatedAt: new Date(now).toISOString(), checkedAt: new Date(now).toISOString(),
+    sources: [
+      { name: 'Publisher 0', status: 'stale', lastSuccessAt: new Date(now - 3600000).toISOString(), error: 'HTTP 503' },
+      { name: 'Microsoft Entra Blog', status: 'ok', lastSuccessAt: new Date(now).toISOString() },
+      { name: 'Offline Wire', status: 'error', error: '<script>never markup</script>' },
+    ],
+  };
+  let offline = false, release;
+  let gate = new Promise(resolve => { release = resolve; });
+  const server = createAppServer({ service: { getNews: async () => {
+    if (gate) await gate;
+    if (offline) throw new Error('Service offline');
+    return snapshot;
+  } } });
+  let browser;
   try {
-    const page = await browser.newPage();
-    let fail = false;
-    let stale = false;
-    let large = false;
-    let includeMicrosoftLeaks = false; // toggle these to change the mocked /api/news payload
-    let freshWeather = false;
-    let outage = false;
-    let holdNews = null;
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    browser = await chromium.launch();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
-    await page.route("https://example.com/advisory.jpg", r =>
-      r.fulfill({
-        contentType: "image/png",
-        body: fs.readFileSync("assets/newsroom-logo.png"),
-      }),
-    );
-    await page.route("http://beacon.test/**", async (r) => { // intercept the newsroom instead of starting Node
-      const assetPath = new URL(r.request().url()).pathname;
-      const rootScripts = {
-        "/assets/newsroom-states.js": "newsroom-states.js",
-        "/assets/threat-weather.js": "threat-weather.js",
-      };
-      if (["/assets/site.css", "/assets/site.js", ...Object.keys(rootScripts)].includes(assetPath))
-        return r.fulfill({
-          contentType: assetPath.endsWith(".css") ? "text/css" : "text/javascript",
-          body: fs.readFileSync(rootScripts[assetPath] || assetPath.slice(1)),
-        });
-      if (r.request().url().endsWith("/assets/new-frontier-security-logo.png"))
-        return r.fulfill({
-          contentType: "image/png",
-          body: fs.readFileSync("assets/new-frontier-security-logo.png"),
-        });
-      if (r.request().url().endsWith("/assets/newsroom-logo.png"))
-        return r.fulfill({
-          contentType: "image/png",
-          body: fs.readFileSync("assets/newsroom-logo.png"),
-        });
-      if (r.request().url().endsWith("/assets/nfs-footer-mark.png"))
-        return r.fulfill({
-          contentType: "image/png",
-          body: fs.readFileSync("assets/nfs-footer-mark.png"),
-        });
-      if (r.request().url().endsWith("/api/news")) {
-        if (holdNews) await holdNews;
-        if (fail) return r.fulfill({ status: 503, body: "unavailable" });
-        if (outage)
-          return r.fulfill({
-            json: {
-              articles: [],
-              sources: [
-                { name: "Krebs on Security", status: "error", error: "HTTP 503" },
-                { name: "BleepingComputer", status: "error", error: "timeout" },
-              ],
-              updatedAt: null,
-            },
-          });
-        if (freshWeather) {
-          const now = Date.now();
-          const ago = (hours) => new Date(now - hours * 60 * 60 * 1000).toISOString();
-          return r.fulfill({
-            json: {
-              articles: [
-                ...Array.from({ length: 6 }, (_, i) => ({
-                  title: "Identity storm " + i,
-                  summary: "OAuth session token phishing campaign",
-                  category: "identity",
-                  source: "Fixture identity",
-                  url: "https://example.com/identity-storm/" + i,
-                  publishedAt: ago(i * 0.5),
-                })),
-                {
-                  title: "Stale cloud note",
-                  summary: "Older than a day",
-                  category: "cloud",
-                  source: "Fixture cloud",
-                  url: "https://example.com/stale-cloud",
-                  publishedAt: ago(30),
-                },
-              ],
-              sources: [{ name: "Fixture publisher", status: "ok" }],
-              updatedAt: new Date(now).toISOString(),
-            },
-          });
-        }
-        return r.fulfill({
-          json: {
-            articles: [
-              ...(large
-                ? Array.from({ length: 100 }, (_, i) => ({
-                    title: "Bulk " + i,
-                    category: "microsoft",
-                    source: "Fixture",
-                    summary: "",
-                    url: "https://example.com/bulk/" + i,
-                  }))
-                : []),
-              ...(includeMicrosoftLeaks
-                ? [
-                    {
-                      title: "CVE-2026-1234 fixture advisory",
-                      summary: "MSRC security update guide entry",
-                      category: "vulnerabilities",
-                      sourceCategory: "microsoft",
-                      source: "MSRC Security Update Guide",
-                      url: "https://example.com/msrc-cve",
-                      publishedAt: "2026-09-01T10:00:00Z",
-                    },
-                    {
-                      title: "Fixture partner CVE writeup",
-                      summary: "A Microsoft-category item that should stay out of the Microsoft feed",
-                      category: "microsoft",
-                      source: "Fixture",
-                      url: "https://example.com/microsoft-cve",
-                      publishedAt: "2026-09-01T09:30:00Z",
-                    },
-                  ]
-                : []),
-              {
-                title: "Fixture operations note",
-                summary: "Detection and governance update",
-                category: "operations",
-                source: "Fixture operations",
-                url: "https://example.com/operations",
-                imageUrl: "https://example.com/advisory.jpg",
-                publishedAt: "2026-09-01T12:00:00Z",
-              },
-              {
-                title: "Fixture cloud posture issue",
-                summary: "Cloud asset exposure in Kubernetes",
-                category: "cloud",
-                source: "Fixture cloud",
-                url: "https://example.com/cloud",
-                publishedAt: "2026-09-01T11:30:00Z",
-              },
-              {
-                title: "Fixture identity token theft",
-                summary: "OAuth session token phishing campaign",
-                category: "identity",
-                source: "Fixture identity",
-                url: "https://example.com/identity",
-                publishedAt: "2026-09-01T11:15:00Z",
-              },
-              {
-                title: "Fixture Entra update",
-                summary: "Identity release notes",
-                category: "microsoft",
-                source: "Microsoft Entra Blog",
-                url: "https://techcommunity.microsoft.com/example",
-                publishedAt: "2026-09-01T11:00:00Z",
-              },
-              {
-                title: "MC123456: Fixture admin center update",
-                summary: "Microsoft 365 admin center rollout note",
-                category: "microsoft",
-                source: "MS Message Center",
-                url: "https://msmessagecenter.com/example/MC123456",
-                publishedAt: "2026-09-01T10:30:00Z",
-              },
-            ],
-            sources: [
-              {
-                name: "Fixture publisher",
-                status: stale ? "stale" : "ok",
-                ...(stale ? { error: "HTTP 503" } : {}),
-              },
-            ],
-            updatedAt: "2026-09-01T12:00:00Z",
-          },
-        });
-      }
-      return r.fulfill({
-        contentType: "text/html",
-        body: fs.readFileSync("index.html", "utf8").replace(
-          "</head>",
-          `<script type="application/json" id="nfs-search-index">${JSON.stringify({
-            posts: [{ title: "Fixture field note", href: "/blog/fixture-field-note", description: "Identity note" }],
-            tools: [{ title: "Passkey AAGUID Lookup", href: "/tools#passkey-aaguid-lookup", description: "Match an AAGUID" }],
-          })}</script></head>`,
-        ),
-      });
-    });
-    let releaseNews;
-    holdNews = new Promise((resolve) => {
-      releaseNews = resolve;
-    });
-    await page.goto("http://beacon.test/newsroom");
-    // Front page: cloud/identity lead, two columns, parallax CSS vars, then switch to briefing.
-    await page.waitForFunction(
-      () => document.querySelectorAll(".skeleton-story").length >= 4,
-      {},
-      { timeout: 3000 },
-    );
-    assert.equal(await page.locator(".skeleton-story").count(), 4);
-    assert.equal(await page.locator("#front-page-feed").getAttribute("aria-busy"), "true");
-    assert.equal(await page.locator("#front-page-empty").isVisible(), false);
-    assert.equal(await page.locator("#threat-weather").isVisible(), true);
-    assert.equal(await page.locator("#threat-weather").getAttribute("data-loading"), "true");
-    assert.equal(await page.locator("#threat-weather-lead").isVisible(), false);
-    assert.doesNotMatch(await page.locator("#threat-weather").textContent(), /Clear skies/);
-    assert.equal(await page.locator("#front-page-status").textContent(), "Loading headlines…");
-    releaseNews();
-    holdNews = null;
-    await page.waitForFunction(
-      () =>
-        document.querySelector(".front-page-story h2")?.textContent === "Fixture cloud posture issue",
-      {},
-      { timeout: 3000 },
-    );
-    assert.equal(await page.locator(".skeleton-story").count(), 0);
-    assert.equal(await page.locator("#front-page-feed").getAttribute("aria-busy"), "false");
-    assert.equal(await page.locator("#front-page-link span").textContent(), "Front Page");
-    assert.deepEqual(
-      await page.locator(".category span").allTextContents(),
-      [
-        "All coverage",
-        "Cloud security",
-        "Identity security",
-        "Vulnerabilities",
-        "Incidents",
-        "Malware & ransomware",
-        "Security operations",
-        "Microsoft",
-      ],
-    );
-    assert.equal(await page.locator("#front-page").isVisible(), true);
-    assert.equal(await page.locator("#briefing-view").isVisible(), false);
-    assert.equal(await page.locator('.category[aria-pressed="true"]').count(), 0);
-    assert.ok((await page.locator("#front-page-date").textContent()).trim());
-    assert.equal(await page.locator(".front-page-story img").count(), 1);
-    assert.match(
-      await page.locator("#front-page-title").evaluate((e) => getComputedStyle(e).fontFamily),
-      /Georgia/i,
-    );
-    assert.equal(await page.locator("#front-page-feed > .front-page-column").count(), 2);
-    assert.match(
-      await page.locator("#front-page-link span").evaluate((e) => getComputedStyle(e).fontFamily),
-      /Georgia/i,
-    );
-    assert.doesNotMatch(
-      await page.locator(".front-page-story h2").first().evaluate((e) => getComputedStyle(e).fontFamily),
-      /Georgia|Times New Roman/i,
-    );
-    assert.equal(
-      await page.locator(".front-page-story h2").first().textContent(),
-      "Fixture cloud posture issue",
-    );
-    assert.equal(await page.locator(".front-page-story").count(), 5);
-    assert.equal(await page.locator("#threat-weather").isVisible(), true);
-    assert.equal(await page.locator("#threat-weather").getAttribute("data-loading"), "false");
-    assert.equal(await page.locator("#threat-weather-lead").textContent(), "Clear skies across coverage.");
-    assert.equal((await page.locator(".threat-weather-title").textContent()).trim(), "24h Forecast");
-    assert.equal(await page.locator("#threat-weather [data-topic]").count(), 6);
-    assert.equal(await page.locator("#threat-weather .threat-weather-icon-svg").count(), 7);
-    await page.locator('#threat-weather [data-topic="identity"]').click();
-    await page.waitForFunction(
-      () => document.querySelector('.category[data-topic="identity"]')?.getAttribute("aria-pressed") === "true",
-    );
-    assert.equal(await page.locator("#front-page").isVisible(), false);
-    assert.equal(await page.locator("#briefing-view").isVisible(), true);
-    assert.equal(await page.locator("#feed .story").count(), 1);
-    assert.equal(await page.locator("#feed .story h2").textContent(), "Fixture identity token theft");
-    assert.equal(
-      await page.locator('#threat-weather [data-topic="identity"]').getAttribute("aria-pressed"),
-      "true",
-    );
-    await page.locator("#front-page-link").click();
-    await page.waitForFunction(() => document.querySelector("#front-page") && !document.querySelector("#front-page").hidden);
-    await page.evaluate(() => window.scrollTo(0, 500));
-    await page.waitForFunction(
-      () => document.querySelector("#front-page").style.getPropertyValue("--front-page-star-near-y") !== "0px",
-    );
-    assert.notEqual(
-      await page.locator("#front-page").evaluate((e) => e.style.getPropertyValue("--front-page-star-near-y")),
-      "0px",
-    );
-    assert.equal(
-      await page.locator("#front-page").evaluate((e) => e.style.getPropertyValue("--front-page-star-near-x")),
-      "",
-    );
-    assert.equal(
-      await page.locator("#front-page").evaluate((e) => e.style.getPropertyValue("--front-page-dust-near-x")),
-      "",
-    );
-    await page.locator("#front-page-link").click();
-    assert.equal(await page.locator("#front-page").isVisible(), false);
-    assert.equal(await page.locator("#briefing-view").isVisible(), true);
-    assert.equal(
-      await page.locator(".story a").first().getAttribute("href"),
-      "https://example.com/operations",
-    );
-    assert.equal(await page.locator(".category .count").count(), 0);
-    await page.locator('.category[data-topic="cloud"]').click();
-    await page.waitForFunction(() =>
-      document.querySelector('.category[data-topic="cloud"]')?.getAttribute("aria-pressed") === "true",
-    );
-    assert.equal(await page.locator("#feed .story").count(), 1);
-    assert.equal(await page.locator("#feed .story h2").textContent(), "Fixture cloud posture issue");
-    await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('.category[data-topic="cloud"]')).color === "rgb(245, 158, 11)",
-    );
-    assert.equal(
-      await page.locator('.category[data-topic="cloud"]').evaluate((e) => getComputedStyle(e).color),
-      "rgb(245, 158, 11)",
-    );
-    assert.match(
-      await page.locator(".story").first().evaluate((e) => getComputedStyle(e).getPropertyValue("--topic-color")),
-      /#f59e0b/i,
-    );
-    assert.equal(
-      await page.locator(".story p").first().evaluate((e) => getComputedStyle(e, "::selection").backgroundColor),
-      "rgb(245, 158, 11)",
-    );
-    const titleLink = page.locator(".story h2 a").first();
-    await titleLink.hover();
-    await page.waitForFunction(() => {
-      const link = document.querySelector(".story h2 a");
-      const topic = document.querySelector(".story .topic");
-      return link?.matches(":hover") &&
-        getComputedStyle(link).color === getComputedStyle(topic).color;
-    });
-    assert.equal(
-      await titleLink.evaluate((e) => getComputedStyle(e).color),
-      await page.locator(".story .topic").first().evaluate((e) => getComputedStyle(e).color),
-    );
-    await page.locator('.category[data-topic="identity"]').click();
-    await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('.category[data-topic="identity"]')).color === "rgb(192, 132, 252)",
-    );
-    assert.equal(await page.locator(".story h2").textContent(), "Fixture identity token theft");
-    await page.locator('.category[data-topic="all"]').click();
-    await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('.category[data-topic="all"]')).color === "rgb(88, 224, 141)",
-    );
-    assert.equal(
-      await page.locator('.category[data-topic="all"]').evaluate((e) => getComputedStyle(e).color),
-      "rgb(88, 224, 141)",
-    );
-    assert.equal(await page.locator('.category[data-topic="microsoft"]').count(), 1);
-    includeMicrosoftLeaks = true;
-    await page.evaluate(() => loadNews()); // CVE items must not appear in the Microsoft topic
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('https://example.com/advisory.jpg', route => route.fulfill({ path: 'assets/blog/entra-default-settings-header.jpg', contentType: 'image/jpeg' }));
+    await page.goto(base + '/newsroom');
+    await expect(page.locator('#front-page-feed .skeleton-story')).toHaveCount(4);
+    await expect(page.locator('#coverage-pulse')).toHaveAttribute('data-loading', 'true');
+    await expect(page.locator('#front-page-empty')).toBeHidden();
+    release(); gate = null;
+    await expect(page.locator('#front-page-feed .skeleton-story')).toHaveCount(0);
+    await expect(page.locator('.front-page-story')).toHaveCount(8);
+    await expect(page.locator('#source-summary')).toHaveText('1 of 3 sources live · 1 cached · 1 unavailable');
+    await expect(page.locator('#feed-status')).toContainText('Last refreshed');
+    await expect(page.locator('.front-page-story .stale-badge').first()).toHaveText('Cached story');
+    await expect(page.locator('#coverage-pulse [data-topic]')).toHaveCount(7);
+    await expect(page.locator('#coverage-pulse [data-topic="vulnerabilities"]')).toBeVisible();
+    await expect(page.locator('.coverage-pulse-note')).toContainText('not threat severity');
+    await page.locator('#source-health summary').click();
+    await expect(page.locator('#source-status')).toContainText('<script>never markup</script>');
+    assert.equal(await page.locator('#source-status script').count(), 0);
+    await page.locator('#source-health summary').click();
+
+    // A single DOM ordering is preserved at every breakpoint.
+    const desktopOrder = await page.locator('.front-page-story').evaluateAll(nodes => nodes.map(node => node.dataset.articleId));
+    assert.deepEqual(desktopOrder, snapshot.frontPageIds);
+    await page.setViewportSize({ width: 390, height: 900 });
+    assert.deepEqual(await page.locator('.front-page-story').evaluateAll(nodes => nodes.map(node => node.dataset.articleId)), desktopOrder);
+    const positions = await page.locator('.front-page-story').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
+    assert.ok(positions.every((top, i) => i === 0 || top > positions[i - 1]), 'mobile visual order follows the ranked DOM');
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator('#front-page-link').click();
+    await expect(page.locator('#feed > .story')).toHaveCount(40);
+    await page.locator('#load-more').click();
+    await expect(page.locator('#feed > .story')).toHaveCount(80);
+    await page.locator('#load-more').click();
+    await expect(page.locator('#feed > .story')).toHaveCount(105);
+    assert.deepEqual(await page.locator('#feed > .story').evaluateAll(nodes => nodes.map(node => node.dataset.articleId)), articles.map(a => a.id));
+    await expect(page.locator('#load-more')).toBeHidden();
+    await page.locator('#clear').click();
+    await expect(page.locator('#feed > .story')).toHaveCount(40);
+    snapshot = { ...snapshot, articles: articles.map((article, i) => i === 0 ? { ...article, title: 'Updated lead headline' } : article), checkedAt: new Date(now + 1000).toISOString() };
+    await page.locator('#load-more').click();
+    await expect(page.locator('#feed > .story')).toHaveCount(40);
+    await expect(page.locator('#load-more')).toBeEnabled();
+    await expect(page.locator('#feed .story h2').first()).toHaveText('Updated lead headline');
+    await page.locator('#search').fill('Rare searchable token');
+    await expect(page.locator('#feed > .story')).toHaveCount(1);
+    await expect(page.locator('#feed .story h2')).toHaveText('Rare searchable token report');
+    let delayedStarted = false, releaseDelayed, finishDelayed;
+    const delivered = new Promise(resolve => { finishDelayed = resolve; });
+    const delayed = new Promise(resolve => { releaseDelayed = resolve; });
+    const slowRoute = async route => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('query') !== 'delayed') return route.continue();
+      const response = await route.fetch();
+      delayedStarted = true;
+      await delayed;
+      await route.fulfill({ response }).catch(() => {}); // cancellation is expected
+      finishDelayed();
+    };
+    await page.route(base + '/api/news?**', slowRoute);
+    await page.locator('#search').fill('delayed');
+    await expect.poll(() => delayedStarted).toBe(true);
+    await page.locator('#search').fill('Rare searchable token');
+    await expect(page.locator('#feed .story h2')).toHaveText('Rare searchable token report');
+    releaseDelayed();
+    await delivered;
+    await page.unroute(base + '/api/news?**', slowRoute);
+    await expect(page.locator('#feed .story h2')).toHaveText('Rare searchable token report');
+    await page.locator('#search').fill('nothing-matches');
+    await expect(page.locator('#empty')).toBeVisible();
+    await expect(page.locator('#empty-retry')).toBeHidden();
+    await page.locator('#clear').click();
+    await expect(page.locator('#feed > .story')).toHaveCount(40);
     await page.locator('.category[data-topic="microsoft"]').click();
-    await page.waitForFunction(() =>
-      getComputedStyle(document.querySelector('.category[data-topic="microsoft"]')).color === "rgb(96, 165, 250)",
-    );
-    assert.equal(
-      await page.locator('.category[data-topic="microsoft"]').evaluate((e) => getComputedStyle(e).color),
-      "rgb(96, 165, 250)",
-    );
-    assert.equal(await page.locator(".story").count(), 2);
-    assert.deepEqual(await page.locator(".story h2").allTextContents(), [
-      "Fixture Entra update",
-      "Fixture admin center update",
-    ]);
-    assert.doesNotMatch(await page.locator("#feed").textContent(), /\bCVE\b|MSRC Security Update Guide/i);
-    assert.ok(
-      await page.evaluate(() => {
-        const lead = document.querySelector("#feed > .story");
-        const next = document.querySelector("#feed .feed-column .story");
-        if (!lead || !next) return false;
-        const leadRect = lead.getBoundingClientRect();
-        const nextRect = next.getBoundingClientRect();
-        return nextRect.top - leadRect.bottom >= 24;
-      }),
-    );
-    assert.equal(await page.locator("#message-center").count(), 0);
-    assert.equal(await page.locator("#message-center-link").count(), 0);
-    assert.equal(await page.locator("#microsoft-filter").isVisible(), true);
-    assert.equal(await page.locator(".message-center-story").count(), 1);
-    assert.equal(await page.locator(".message-center-badge").textContent(), "Message Center");
-    assert.match(
-      await page.locator(".message-center-story").evaluate((e) => getComputedStyle(e).backgroundImage),
-      /linear-gradient/,
-    );
+    await expect(page.locator('#feed > .story')).toHaveCount(2);
+    await expect(page.locator('#feed')).not.toContainText('CVE');
+    await expect(page.locator('.message-center-badge')).toHaveText('Message Center');
+    await expect(page.locator('.message-center-story h2')).toHaveText('Fixture admin center update');
     await page.locator('[data-microsoft-filter="news"]').click();
-    assert.equal(await page.locator(".story").count(), 1);
-    assert.equal(await page.locator(".story h2").textContent(), "Fixture Entra update");
+    await expect(page.locator('#feed > .story')).toHaveCount(1);
+    await expect(page.locator('#feed .story h2')).toHaveText('Fixture Entra update');
     await page.locator('[data-microsoft-filter="message-center"]').click();
-    assert.equal(await page.locator(".story").count(), 1);
-    assert.equal(await page.locator(".story h2").textContent(), "Fixture admin center update");
-    await page.locator('[data-microsoft-filter="all"]').click();
-    includeMicrosoftLeaks = false;
-    await page.evaluate(() => loadNews());
-    await page.locator('.category[data-topic="incidents"]').click();
-    assert.equal(await page.locator("#empty").isVisible(), true);
-    assert.equal(await page.locator("#empty-retry").isVisible(), false);
-    assert.equal(await page.locator("#reset").isVisible(), true);
-    assert.match(await page.locator("#empty [data-empty-copy]").textContent(), /topic|search/i);
-    await page.locator("#reset").click();
-    await page.locator("#search").fill("no-match-xyz");
-    assert.equal(await page.locator(".story").count(), 0);
-    await page.locator("#clear").click();
-    assert.equal(await page.locator(".story").count(), 5);
-    await page.keyboard.press("/");
-    assert.equal(
-      await page
-        .locator("#search")
-        .evaluate((e) => e === document.activeElement),
-      true,
-    );
-    await page.keyboard.press("Escape");
-    await page.keyboard.press("Control+k");
-    assert.ok(await page.locator(".command-palette").isVisible());
-    await page.locator("#command-palette-input").fill("cloud posture");
-    await page.waitForFunction(() =>
-      [...document.querySelectorAll('[role="option"]')].some((el) =>
-        el.textContent.includes("Fixture cloud posture issue"),
-      ),
-    );
-    assert.ok(await page.locator(".command-palette-group", { hasText: "Newsroom" }).isVisible());
-    assert.ok(await page.getByRole("option", { name: /Fixture cloud posture issue/ }).isVisible());
-    await page.locator("#command-palette-input").fill("passkey");
-    assert.ok(await page.getByRole("option", { name: /Passkey AAGUID Lookup/ }).isVisible());
-    await page.keyboard.press("Escape");
-    assert.equal(await page.locator(".command-palette").isVisible(), false);
-    for (const width of [1440, 768, 390, 320]) {
-      await page.setViewportSize({ width, height: 900 });
-      assert.equal(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
-        true,
-      );
-      assert.equal(await page.locator(".ascii-header").count(), 0);
-      assert.equal(
-        await page
-          .locator(".newsroom-logo")
-          .evaluate(
-            (e) =>
-              e.complete &&
-              e.naturalWidth > 0 &&
-              e.getBoundingClientRect().right <= innerWidth,
-          ),
-        true,
-      );
-      assert.equal(await page.title(), "New Frontier Security — Newsroom");
-      if (width > 700) {
-        assert.equal(await page.locator(".desktop-nav").isVisible(), true);
-        assert.equal(await page.locator(".desktop-nav a").count(), 3);
-        assert.equal(await page.locator(".desktop-nav [aria-current='page']").count(), 1);
-        assert.equal(await page.locator(".site-menu").isVisible(), false);
-      } else {
-        assert.equal(await page.locator(".desktop-nav").isVisible(), false);
-        assert.equal(await page.locator(".site-menu").isVisible(), true);
-        await page.locator(".site-menu summary").click();
-        assert.equal(
-          await page.getByRole("navigation", { name: "Mobile navigation" }).isVisible(),
-          true,
-        );
-        await page.keyboard.press("Escape");
-      }
-      assert.equal(
-        await page.evaluate(() => getComputedStyle(document.body).backgroundColor),
-        "rgb(21, 21, 21)",
-      );
-      assert.equal(
-        await page.locator(".brand-logo").evaluate((e) =>
-          e.complete &&
-          e.naturalWidth > 0 &&
-          e.getAttribute("alt") === "New Frontier Security",
-        ),
-        true,
-      );
-      assert.equal(await page.locator(".footer .social-placeholder").count(), 0);
-      assert.equal(await page.locator(".footer-name").textContent(), "New Frontier Security");
-      assert.equal(await page.locator(".footer-nav a").count(), 3);
-      assert.equal(await page.locator(".footer-nav [aria-current='page']").count(), 1);
-      assert.equal(await page.locator("footer").getByText("©").count(), 0);
-      assert.equal(await page.locator(".footer").getByText("RSS edition").count(), 0);
+    await expect(page.locator('#feed .story h2')).toHaveText('Fixture admin center update');
+    await page.locator('#coverage-pulse [data-topic="vulnerabilities"]').click();
+    await expect(page.locator('#feed > .story')).toHaveCount(2);
+
+    // Search is discoverable, queries the full collection, and contains focus.
+    await page.getByRole('button', { name: 'Search the site', exact: true }).click();
+    await expect(page.locator('.shell')).toHaveAttribute('inert', '');
+    for (const key of ['Tab', 'Shift+Tab', 'Tab']) {
+      await page.keyboard.press(key);
+      assert.ok(await page.locator('.command-palette-dialog').evaluate(dialog => dialog.contains(document.activeElement)));
     }
-    large = true;
-    await page.reload(); // 100 extra articles: front page caps at 8, briefing pages in 40s
-    await page.waitForFunction(
-      () => document.querySelectorAll(".front-page-story").length === 8,
-    );
-    await page.locator("#front-page-link").click();
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 40);
-    assert.equal(await page.locator(".story").count(), 40);
-    await page.locator("#load-more").click();
-    assert.equal(await page.locator(".story").count(), 80);
-    await page.locator("#load-more").click();
-    assert.equal(await page.locator(".story").count(), 105);
-    large = false;
+    await page.locator('#command-palette-input').fill('Rare searchable token');
+    await expect(page.getByRole('option', { name: /Rare searchable token report/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.command-palette')).toBeHidden();
+    assert.ok(await page.locator('.search-toggle').evaluate(button => button === document.activeElement));
+    assert.equal(await page.locator('.shell').getAttribute('inert'), null);
+    await page.keyboard.press('Control+k');
+    await page.locator('#command-palette-input').fill('passkey');
+    await expect(page.getByRole('option', { name: /Passkey AAGUID Lookup/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // Same-view failures retain results; failed new filters have a retry state.
+    offline = true;
+    await page.evaluate(() => window.loadNews({ force: true }));
+    await expect(page.locator('#feed > .story')).toHaveCount(2);
+    await expect(page.locator('#feed-status')).toContainText('Showing the last loaded results');
+    await page.locator('.category[data-topic="cloud"]').click();
+    await expect(page.locator('#empty-retry')).toBeVisible();
+    await expect(page.locator('#feed > .story')).toHaveCount(0);
+    offline = false;
+    await page.locator('#empty-retry').click();
+    await expect(page.locator('#feed > .story')).toHaveCount(40);
+    await page.locator('#refresh-news').click();
+    await expect(page.locator('#feed-status')).toContainText('Last refreshed');
+    snapshot = { ...snapshot, articles: [], frontPageIds: [], sources: [{ name: 'Offline Wire', status: 'error', error: 'HTTP 503' }] };
+    await page.evaluate(() => window.loadNews());
+    await expect(page.locator('#empty')).toBeVisible();
+    await expect(page.locator('#empty')).toContainText('Offline Wire');
+    await expect(page.locator('#coverage-pulse')).toBeHidden();
+    offline = true;
     await page.reload();
-    await page.waitForFunction(
-      () => document.querySelectorAll(".front-page-story").length === 5,
-    );
-    await page.locator("#front-page-link").click();
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
-    assert.equal(await page.locator("#source-status").count(), 0);
-    assert.equal(await page.locator("#feed-status").count(), 0);
-    assert.equal(await page.locator("#retry").count(), 0);
-    outage = true;
-    await page.evaluate(() => loadNews());
-    await page.waitForFunction(() => document.querySelector("#empty") && !document.querySelector("#empty").hidden);
-    assert.equal(await page.locator(".story").count(), 0);
-    assert.equal(await page.locator("#empty").isVisible(), true);
-    assert.equal(await page.locator("#threat-weather").isVisible(), false);
-    assert.equal(await page.locator("#empty-retry").isVisible(), true);
-    assert.equal(await page.locator("#reset").isVisible(), false);
-    assert.match(await page.locator("#empty [data-empty-copy]").textContent(), /Krebs on Security and BleepingComputer/);
-    outage = false;
-    await page.locator("#empty-retry").click();
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
-    assert.equal(await page.locator("#empty").isVisible(), false);
-    stale = true;
-    await page.evaluate(() => loadNews());
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
-    assert.equal(await page.locator(".story").count(), 5);
-    fail = true;
-    await page.evaluate(() => loadNews()); // keep last good stories; a later full reload with fail shows empty
-    await page.waitForFunction(() => document.querySelectorAll(".story").length === 5);
-    assert.equal(await page.locator(".story").count(), 5);
-    await page.reload();
-    await page.waitForFunction(
-      () => document.querySelector("#front-page-empty") && !document.querySelector("#front-page-empty").hidden,
-      {},
-      { timeout: 3000 },
-    );
-    assert.equal(await page.locator(".story").count(), 0);
-    assert.equal(await page.locator(".front-page-story").count(), 0);
-    assert.equal(await page.locator("#threat-weather").isVisible(), false);
-    assert.equal(await page.locator("#front-page-empty").isVisible(), true);
-    assert.equal(await page.locator("#front-page-retry").isVisible(), true);
-    assert.match(await page.locator("#front-page-empty").textContent(), /HTTP 503/);
-    fail = false;
-    await page.locator("#front-page-retry").click();
-    await page.waitForFunction(
-      () => document.querySelector(".front-page-story h2")?.textContent === "Fixture cloud posture issue",
-    );
-    assert.equal(await page.locator("#front-page-empty").isVisible(), false);
-    freshWeather = true;
-    await page.evaluate(() => loadNews());
-    await page.waitForFunction(
-      () => document.querySelector("#threat-weather-lead")?.textContent === "Stormy in identity, clear in cloud.",
-    );
-    assert.equal(
-      await page.locator("#threat-weather-lead").textContent(),
-      "Stormy in identity, clear in cloud.",
-    );
-    assert.equal(await page.locator('#threat-weather [data-topic="identity"]').getAttribute("data-band"), "stormy");
-    freshWeather = false;
+    await expect(page.locator('#front-page-empty')).toBeVisible();
+    await expect(page.locator('#front-page-empty')).toContainText('could not be loaded');
+    await expect(page.locator('.front-page-story')).toHaveCount(0);
     assert.deepEqual(errors, []);
-    console.log(
-      "PASS live rendering, source link, category counts, empty state, failure without invented stories",
-    );
+    console.log('Newsroom paging, full-catalog search, mobile order, source health, focus, Microsoft filters, and recovery checks passed.');
   } finally {
-    await browser.close();
+    release?.();
+    await browser?.close();
+    await new Promise(resolve => server.close(resolve));
   }
-})().catch((e) => {
-  console.error(e.message);
-  process.exit(1);
-});
+})().catch(error => { console.error(error); process.exitCode = 1; });

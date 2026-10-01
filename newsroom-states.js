@@ -47,11 +47,11 @@ export function describeEmptyState({
   const troubled = health.error.length + health.stale.length;
   const frontPage = view === 'front-page';
 
-  if (articleCount === 0 && loadError) {
+  if (loadError) {
     return {
       kind: 'unavailable',
       eyebrow: 'Sources unavailable',
-      title: frontPage ? 'The briefing could not be loaded.' : 'The briefing could not be loaded.',
+      title: 'The briefing could not be loaded.',
       body: String(loadError),
       retry: true,
       reset: false,

@@ -6,7 +6,7 @@ import { gunzipSync, brotliDecompressSync } from 'node:zlib';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { loadPosts, SITE_ORIGIN, searchIndexScript } from '../blog.js';
+import { loadPosts, parsePost, SITE_ORIGIN, searchIndexScript } from '../blog.js';
 import { createAppServer } from '../server.js';
 const source = (title, date = '2026-09-14', extra = '', body = '## Heading\n\n**Strong** and [safe](https://example.com).') => `---\ntitle: ${title}\ndescription: A test field note\ndate: ${date}\n${extra}---\n${body}`;
 async function directory(t) { // temp posts folder, deleted after the test
@@ -20,7 +20,7 @@ test('posts load newest first, support Markdown, and reflect folder edits withou
   await writeFile(join(dir, 'second.md'), source('Second'));
   let posts = await loadPosts(dir);
   assert.deepEqual(posts.map(p => p.slug), ['second', 'first']);
-  assert.match(posts[0].html, /<h2>Heading<\/h2>/);
+  assert.match(posts[0].html, /<h2 id="heading">Heading<\/h2>/);
   assert.match(posts[0].html, /<strong>Strong<\/strong>/);
   await writeFile(join(dir, 'second.md'), source('Edited'));
   posts = await loadPosts(dir);
@@ -195,7 +195,7 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   assert.equal(gzip.headers['content-encoding'], 'gzip');
   assert.match(gzip.headers.vary, /Accept-Encoding/);
   assert.match(gzip.headers['cache-control'], /immutable/);
-  assert.match(gunzipSync(gzip.body).toString('utf8'), /--pink/);
+  assert.match(gunzipSync(gzip.body).toString('utf8'), /--accent/);
   const brotli = await rawGet(base + '/', { 'Accept-Encoding': 'br' });
   assert.equal(brotli.headers['content-encoding'], 'br');
   assert.match(brotliDecompressSync(brotli.body).toString('utf8'), /Identity/);
@@ -214,4 +214,10 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   const failed = await fetch(`http://127.0.0.1:${failing.address().port}/api/news`);
   assert.equal(failed.status, 500);
   assert.equal(failed.headers.get('cache-control'), 'no-store');
+});
+
+test('contents anchors remain unique for repeated headings and overlapping slugs', () => {
+  const post = parsePost(source('Anchors', '2026-09-14', '', '## Identity\n\n## Identity\n\n## Identity-2'), 'anchors');
+  assert.equal(new Set(post.toc.map(item => item.id)).size, 3);
+  for (const item of post.toc) assert.ok(post.html.includes(`id="${item.id}"`));
 });

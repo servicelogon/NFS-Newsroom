@@ -44,9 +44,11 @@ Write your post here with **bold**, *italics*, headings, links, lists, tables,
 images, blockquotes, and fenced code blocks.
 ```
 
-The filename becomes the URL: `/blog/my-first-field-note`. The home page lists published posts newest first and features the latest entry. Files are read on every request, so adding, editing, or removing a post takes effect on refresh without restarting the server or building the site. Copy files into this folder on the machine running the server; this is a folder workflow, not a browser upload form.
+The filename becomes the URL: `/blog/my-first-field-note`. The home page lists published posts newest first and features the latest entry. File metadata is checked on every request, so adding, editing, or removing a post takes effect on refresh. Unchanged Markdown and syntax highlighting are reused from memory. Copy files into this folder on the machine running the server; this is a folder workflow, not a browser upload form.
 
-`title`, `description`, and a valid `date` (`YYYY-MM-DD`) are required. `author` defaults to Nathan Hess; `tags`, `image`, `imageAlt`, `draft`, and `sample` are optional. Tags show up as chips on the blog home and the post page, and each tag has a page at `/blog/tag/<slug>` (`Conditional Access` becomes `conditional-access`). Set `image` to an HTTPS URL or an explicitly mapped `/assets/blog/...jpg` or `.webp` file to show a preview image on the blog home, a header image on the post page, and that same image in the post’s social preview. Set `draft: true` to hide a post from the list, its direct URL, tag pages, and the sitemap. Add `sample: true` to display a sample-post notice. Invalid posts are skipped with a server log explaining the problem. Uppercase filenames, nested directories, and files other than `.md` are ignored. Dates control sorting, not scheduled publication; use `draft: true` for unpublished work.
+`title`, `description`, and a valid `date` (`YYYY-MM-DD`) are required. `author` defaults to Nathan Hess; `tags`, `image`, `imageAlt`, `draft`, and `sample` are optional. Tags show up as chips on the blog home and the post page, and each tag has a page at `/blog/tag/<slug>` (`Conditional Access` becomes `conditional-access`). Set `image` to an HTTPS URL or a lowercase, hyphenated `.jpg`, `.jpeg`, or `.webp` file in `assets/blog` to show a preview image on the blog home, a header image on the post page, and that same image in the post’s social preview. Set `draft: true` to hide a post from the list, its direct URL, tag pages, and the sitemap. Add `sample: true` to display a sample-post notice. Invalid posts are skipped with a server log explaining the problem. Uppercase filenames, nested directories, and files other than `.md` are ignored. Dates control sorting, not scheduled publication; use `draft: true` for unpublished work.
+
+Blog images are registered at startup; restart the server after adding a new image. Run `npm run check:content` to catch missing assets and invalid metadata before publishing. Long posts include anchored contents, and related field notes appear when tags overlap.
 
 Raw HTML is displayed as text, and unsafe Markdown link protocols are rejected. For images, use an HTTPS image URL or an explicitly mapped local asset; arbitrary files in the repository are never served.
 
@@ -63,19 +65,22 @@ The first post is `content/posts/entra-default-settings-that-you-should-change.m
 
 Blog home, tag pages, posts, the newsroom, and tools include canonical URLs plus Open Graph and Twitter card tags. A post’s hero image is the Open Graph image when the post has one.
 
-All pages have a top-right menu with Blog, Newsroom, and Toolbox. It works with keyboard and touch; Escape closes it and returns focus to its button. Cmd+K or Ctrl+K opens a site-wide search palette for field notes, tools, and newsroom headlines.
+All pages have a top-right menu with Blog, Newsroom, and Toolbox. It works with keyboard and touch; Escape closes it and returns focus to its button. The visible search button, Cmd+K, or Ctrl+K opens a site-wide search palette for field notes, tools, and newsroom headlines. Keyboard focus stays inside the palette until it closes; focus then returns to the trigger.
 
 ## What It Includes
 
 - A New Frontier Security newsroom UI with front-page cards, cloud/identity-first filtering, search, source health, and load-more browsing.
 - 21 reviewed public security feeds in `sources.js`, including six Microsoft-focused streams and a community Message Center RSS preview.
-- A local `/api/news` endpoint with normalized article metadata, source status, stale fallback, and cache timestamps.
+- A paginated `/api/news` endpoint and compact `/api/search` headline search, with normalized metadata, source status, and cache timestamps.
+- Visible refresh times, publisher health, cached-story labels, and a throttled manual refresh.
+- Coverage pulse counts across the full catalog for the last 24 hours, including vulnerabilities. These are article volumes, not threat severity; Microsoft overlaps other topics.
 - Explicit documentation for unavailable, reference-only, and authentication-required sources in `SOURCE-COVERAGE.md`.
 - A Microsoft tab that combines Microsoft-source security coverage with community Message Center RSS preview items and can filter between Microsoft News and Message Center updates.
 
 ## Verify
 
 ```sh
+npm run check:content
 npm test
 npx playwright install chromium
 npm run test:ui
@@ -84,37 +89,58 @@ npm run test:live
 
 `npm test` runs deterministic backend tests with inline RSS fixtures and no external network. `npm run test:ui` runs fixture-driven browser tests. `npm run test:live` checks actual upstream feeds through a temporary HTTP server, prints source statuses/counts, exits nonzero if any feed fails, and closes its server.
 
-Backend tests cover normalization, unsafe links, URL deduplication, cloud/identity categorization, disk cache reuse, concurrent request coalescing, TTL expiry, stale fallback, HTTP errors, malformed XML, byte limits, timeout, redirect refusal, Microsoft category behavior, and static/API routing.
+PR and branch CI runs content validation, deterministic backend tests, and fixture-driven browser checks. Publisher availability runs in a separate scheduled/manual job, so external outages do not block code changes.
+
+Backend tests cover pagination, query bounds, full-catalog search, refresh throttling, stale-data expiry, compressed module caching, normalization, unsafe links, URL deduplication, cloud/identity categorization, disk cache reuse, concurrent request coalescing, TTL expiry, stale fallback, HTTP errors, malformed XML, byte limits, timeout, redirect refusal, Microsoft category behavior, and static/API routing.
 
 ## API
 
-`GET /api/news` accepts no query parameters and returns:
+`GET /api/news` returns **40 articles by default**, plus up to eight selected front-page articles and metadata for the **entire** catalog. It supports only these bounded parameters:
+
+| Parameter | Values / default |
+|---|---|
+| `topic` | `all` (default), `cloud`, `identity`, `vulnerabilities`, `incidents`, `malware`, `operations`, `microsoft` |
+| `query` | Case-insensitive title, excerpt, and publisher search; at most 200 characters |
+| `offset` | Integer 0–100000; default 0 |
+| `limit` | Integer 1–100; default 40 |
+| `microsoftFilter` | `all` (default), `news`, `message-center`; used with the Microsoft topic |
+| `refresh` | `1` requests a publisher refresh; shared requests coalesce and refreshes are limited to once every 30 seconds |
+
+Unknown, repeated, or invalid parameters return HTTP 400. Callers cannot supply feed URLs. Filtered paging preserves access to the full catalog without downloading thousands of advisory records on initial load.
 
 ```ts
 {
-  articles: Array<{
-    id: string;                  // stable 24-character SHA-256 URL digest prefix
-    title: string;
-    url: string;                 // http(s), no embedded credentials
-    source: string;
-    publishedAt: string | null;  // upstream date normalized to ISO; null if absent/invalid
-    summary: string;             // plain-text excerpt, up to 600 characters
-    imageUrl?: string;           // reviewed http(s) image URL when present in the feed item
-    sourceCategory?: 'microsoft'; // present for articles from Microsoft-focused feeds
-    category: 'cloud' | 'identity' | 'vulnerabilities' | 'incidents' | 'malware' | 'operations' | 'microsoft';
-  }>;
+  articles: Article[];
+  frontPage: Article[];             // independent of the current topic/search/page
+  frontPageIds: string[];
   sources: Array<{
     name: string;
     status: 'ok' | 'stale' | 'error';
     error?: string;
+    lastSuccessAt: string | null;   // feed collection time, not publication date
+    checkedAt: string;
+    articleCount: number;
   }>;
-  updatedAt: string | null;
+  updatedAt: string | null;         // latest refresh with at least one successful feed
+  checkedAt: string | null;         // latest attempt, including failures
+  refreshAvailableAt: string | null;
+  topicCounts: Record<string, number>;
+  pulseCounts: Record<string, number>; // full-catalog publisher dates in the last 24h
+  total: number;                   // matches for current filters
+  totalArticles: number;           // full normalized catalog size
+  offset: number;
+  limit: number;
+  nextOffset: number | null;
 }
 ```
 
-`ok` means the most recent refresh succeeded, possibly from a fresh local cache. `stale` means a fetch failed and previously fetched articles remain available. `error` means the source failed with no saved articles. Partial or total upstream failures still return HTTP 200 with explicit statuses; the service does not fabricate news.
+`Article` includes `id`, `title`, `url`, `source`, `publishedAt`, `summary`, `category`, `topicScore`, and `stale`; `imageUrl` and `sourceCategory` are optional. IDs are 24-character SHA-256 URL digest prefixes. Titles/excerpts are plain text; URLs are http(s) without embedded credentials. `publishedAt` is the publisher's ISO date or `null`; excerpts are limited to 600 characters.
 
-Articles are sorted newest-first, canonicalized by removing fragments and common tracking query parameters, and deduplicated by URL. The first source/item wins duplicate URLs. Publisher dates are preserved as supplied, including future-dated entries. The Front Page prioritizes cloud and identity stories when they are available, but all normalized security stories remain accessible through All coverage, topic filters, and search.
+`GET /api/search?query=...` returns `{ articles: [{ title, url, source, stale }] }`, with at most 20 matches (eight recent headlines for an empty query). It searches the whole cached collection, including articles beyond the initial page. The palette merges these compact results with the rendered post/tool index and cancels superseded searches.
+
+`ok` means the latest feed collection succeeded. `stale` means a failed collection retained previous articles; `error` means no usable saved articles remain. Partial or total feed failures still return HTTP 200 with explicit statuses. Unrecoverable service errors return HTTP 500. No news is fabricated.
+
+Articles are sorted newest-first, stripped of fragments and common tracking parameters, and deduplicated by URL; the first source/item wins. Publisher dates are preserved, including future dates, but future/invalid dates do not enter the coverage pulse. The front page selects cloud/identity stories with source diversity. An empty front page offers All coverage. Load-more starts again if the server snapshot changes, preserving a consistent order rather than mixing pages from two refreshes.
 
 ## Microsoft Coverage
 
@@ -137,17 +163,32 @@ Do not expose tenant messages through the public RSS API or cache.
 - Feeds are fetched with at most eight concurrent requests, an eight-second per-feed timeout, a 24-second refresh deadline, and a 3,000,000-byte decompressed body limit.
 - Redirects are rejected rather than followed to unreviewed destinations.
 - `.cache/news.json` persists successful source articles and failures with a five-minute TTL, including error results to avoid hammering blocked publishers.
-- Failed refreshes preserve source-specific stale data indefinitely and visibly mark the source stale.
+- Failed refreshes keep source-specific articles for seven days from the last successful collection; the next refresh drops expired data. Cached stories and unavailable publishers are visibly labeled.
 - Cache writes are atomic; absent or invalid cache JSON causes a cold start.
 - HTML pages use `Cache-Control: no-cache`, so a refresh shows new and edited posts. Missing pages and other errors use `no-store`.
 - Stylesheets, scripts, and images are served with a content hash in the query string (`/assets/site.css?v=<hash>`). A matching hash uses `public, max-age=31536000, immutable`. The same file without that hash uses `public, max-age=300`, so an unversioned URL cannot stay cached for a year.
-- `GET /api/news` success responses use `public, max-age=60, stale-while-revalidate=300`. The JSON is the same for every caller. Query errors, `/health`, and `405`/`500` responses use `no-store` and are not stored as a public representation.
-- Text responses (HTML, CSS, JavaScript, JSON, XML, and plain text) are compressed with Brotli or gzip when the request `Accept-Encoding` allows it.
+- `GET /api/news` and `/api/search` success responses use `public, max-age=60, stale-while-revalidate=300`. Each bounded query has its own URL. `refresh=1` responses use `no-store`; browser news/search requests revalidate cached query responses so a manual refresh cannot be followed by an older cached filter page. Query errors, `/health`, and `405`/`500` responses use `no-store` and are not stored as a public representation.
+- Static assets are read, hashed, and precompressed once at startup. Module imports include dependency hashes, so browsers do not mix versions after a deploy. Dynamic text responses use asynchronous Brotli/gzip with a bounded compression cache and ETags.
 - `sitemap.xml` and `robots.txt` use `no-cache` so new posts and tags show up without waiting out a long cache.
-- Only the documented page routes, `/api/news`, `/health`, `/sitemap.xml`, `/robots.txt`, and explicitly mapped stylesheet, script, and image assets are served. No arbitrary directories, cache files, source files, tests, backup HTML, or repository internals are public.
+- Only the documented page routes, `/api/news`, `/api/search`, `/health`, `/sitemap.xml`, `/robots.txt`, and explicitly mapped stylesheet, script, and image assets are served. No arbitrary directories, cache files, source files, tests, backup HTML, or repository internals are public.
 - Feed strings are plain text, not trusted markup. Frontend consumers should render them with text APIs, not `innerHTML`.
 
-This project is intended for a single local process or private preview, not a hardened public deployment. No CSP is added that would block the current inline frontend scripts/styles.
+This project is intended for a single local process or private preview, not a hardened public deployment. The newsroom interactions and styles are external modules/assets; the shell embeds a non-executable JSON search index.
+
+## Code map
+
+| File | Responsibility |
+|---|---|
+| `server.js` | HTTP route allowlist and app lifecycle |
+| `news-service.js` | Bounded RSS ingestion, coalescing, disk cache, freshness and retention |
+| `news-api.js` | Query validation, paging, full-catalog counts, compact search |
+| `http-response.js` / `static-assets.js` | Async response caching, asset registration, dependency versions and precompression |
+| `blog.js` | Markdown parsing/cache, shared shell, field-note and toolbox pages |
+| `index.html` | Newsroom body fragment inside the shared shell |
+| `assets/newsroom.js` / `assets/article-card.js` | Request/state handling and shared article rendering |
+| `assets/news-topics.js` / `assets/search.js` / `assets/coverage-pulse.js` | Shared server/browser contracts |
+| `assets/site.js` / `assets/theme.js` | Search, navigation, footer animation, early theme preference |
+| `assets/site.css` / `assets/newsroom.css` | Shared design tokens and newsroom composition |
 
 ## Sources
 
