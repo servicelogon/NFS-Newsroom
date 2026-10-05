@@ -119,6 +119,8 @@ const path = require('node:path');
     assert.equal(await page.getByRole('link', {name:'Read the story'}).count(), 0);
     assert.equal(await page.locator('.site-footer .social-placeholder').count(), 0);
     assert.ok(await page.getByRole('heading', {name:/Notes from the frontier/i}).isVisible());
+    assert.ok(await page.getByText('Field notes and news from the new frontier of Identity and Cloud security.').isVisible());
+    assert.equal(await page.getByText('Identity, cloud, and the questions worth exploring.').count(), 0);
     assert.ok(await page.locator('.blog-wordmark img').evaluate(img => img.complete && img.naturalWidth > 0));
     assert.match(await page.locator('.feature-image img').getAttribute('src'), /^\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}$/);
     assert.ok(await page.locator('.feature-image img').evaluate(img => img.complete && img.naturalWidth > 0));
