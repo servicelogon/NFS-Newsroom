@@ -68,6 +68,8 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   const home = await (await fetch(base)).text();
   assert.match(home, /href="\/blog\/published"/);
   assert.match(home, /notes-from-the-frontier\.png/);
+  assert.match(home, /Field notes and news from the new frontier of Identity and Cloud security\./);
+  assert.doesNotMatch(home, /Identity, cloud, and the questions worth exploring/);
   assert.match(home, /id="nfs-search-index"/);
   assert.match(home, /"href":"\/blog\/published"/);
   assert.doesNotMatch(home, /\/blog\/draft/);

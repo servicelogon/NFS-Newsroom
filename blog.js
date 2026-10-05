@@ -456,7 +456,7 @@ const postTile = (post, { latest = false } = {}) => `<article class="featured-po
 export function blogPage(posts, seo = {}) {
   const [featured, ...rest] = posts;
   return layout('Blog', 'Notes, ideas, and field guides on identity and cloud security by Nathan Hess.', 'Blog', `
-    <section class="page-intro blog-intro"><h1 class="blog-wordmark"><img src="/assets/notes-from-the-frontier.png" width="1849" height="453" alt="Notes from the Frontier"></h1><div class="intro-bottom"><p>Identity, cloud, and the questions worth exploring.</p></div></section>
+    <section class="page-intro blog-intro"><h1 class="blog-wordmark"><img src="/assets/notes-from-the-frontier.png" width="1849" height="453" alt="Notes from the Frontier"></h1><div class="intro-bottom"><p>Field notes and news from the new frontier of Identity and Cloud security.</p></div></section>
     ${featured ? postTile(featured, { latest: true }) : '<section class="empty-state"><h2>A new chapter is on the way.</h2><p>Check back soon for the first field note.</p></section>'}
     ${rest.length ? `<section class="more-posts" aria-label="More field notes">${rest.map(post => postTile(post)).join('')}</section>` : ''}
     <aside class="explore-strip"><p>Keep exploring.</p><a class="internal-button" href="/newsroom">Read the Newsroom</a><a class="internal-button" href="/tools">Open the toolbox</a></aside>`, { path: '/', origin: seo.origin || '', image: featured?.image || null, posts });
