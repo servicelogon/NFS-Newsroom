@@ -65,7 +65,7 @@ const assert = require('node:assert/strict');
     const desktopOrder = await page.locator('.front-page-story').evaluateAll(nodes => nodes.map(node => node.dataset.articleId));
     assert.deepEqual(desktopOrder, snapshot.frontPageIds);
     await page.setViewportSize({ width: 390, height: 900 });
-    assert.doesNotMatch(await page.locator('main').innerText(), /The stories worth your attention|headlines shaping the brief/);
+    assert.doesNotMatch(await page.locator('main').innerText(), /The stories worth your attention|headlines shaping the brief|Go beyond the headline/);
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 900 });
       assert.ok((await page.locator('.browse-controls').boundingBox()).height <= 70, 'collapsed controls fit in one compact row');

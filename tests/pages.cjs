@@ -40,6 +40,10 @@ const path = require('node:path');
         for (const route of ['/', '/blog/entra-default-settings-that-you-should-change', '/blog/tag/conditional-access', '/tools', '/newsroom']) {
         await page.goto(base + route);
         assert.equal(await page.getByText(/built by Nathan Hess/i).count(), 0, `${route} still shows the header credit`);
+        if (route === '/newsroom') {
+          assert.equal(await page.getByText(/go beyond the headline/i).count(), 0, 'newsroom still shows the headline line');
+          assert.ok(await page.getByRole('link', { name: 'Read the field notes' }).isVisible());
+        }
         assert.equal(await page.locator('.topbar').getByText(/Nathan Hess/i).count(), 0, `${route} topbar credit`);
         assert.equal(await page.locator('main').count(), 1);
         assert.equal(await page.locator('.footer-logo').count(), 1);
