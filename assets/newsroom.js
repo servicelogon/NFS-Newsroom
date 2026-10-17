@@ -40,7 +40,10 @@ function renderPulse() {
     button.dataset.topic = topic.id;
     button.setAttribute('aria-pressed', String(!state.front && state.topic === topic.id));
     button.setAttribute('aria-label', `${topic.name}, ${topic.count} stories in the last 24 hours`);
+    const palette = TOPIC_BY_ID.get(topic.id);
+    if (palette?.color) button.style.setProperty('--topic-color', palette.color);
     const label = document.createElement('span');
+    label.className = 'topic coverage-pulse-chip-label';
     label.textContent = topic.name;
     const count = document.createElement('span');
     count.className = 'coverage-pulse-chip-count';
