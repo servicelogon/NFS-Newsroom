@@ -79,7 +79,7 @@ const assert = require('node:assert/strict');
       cloud: '#f59e0b',
       identity: '#c084fc',
       vulnerabilities: '#ff6b6b',
-      incidents: '#c084fc',
+      incidents: '#f7ff00',
       malware: '#fb7185',
       operations: '#2dd4bf',
       microsoft: '#60a5fa',

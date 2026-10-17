@@ -4,7 +4,7 @@ export const TOPICS = [
   { id: 'cloud', name: 'Cloud security', description: 'Cloud platforms, SaaS, containers, and supply chain exposure.', color: '#f59e0b' },
   { id: 'identity', name: 'Identity security', description: 'Access, authentication, tokens, and account compromise.', color: '#c084fc' },
   { id: 'vulnerabilities', name: 'Vulnerabilities', description: 'Exploitation, advisories, and the decisions behind a patch.', color: '#ff6b6b' },
-  { id: 'incidents', name: 'Incidents', description: 'Incidents and the lessons that follow.', color: '#c084fc' },
+  { id: 'incidents', name: 'Incidents', description: 'Incidents and the lessons that follow.', color: '#f7ff00' },
   { id: 'malware', name: 'Malware & ransomware', description: 'Evolving tactics and defensive context.', color: '#fb7185' },
   { id: 'operations', name: 'Security operations', description: 'Detection, governance, and resilient systems.', color: '#2dd4bf' },
   { id: 'microsoft', name: 'Microsoft', description: 'Microsoft News and community Message Center updates, excluding CVE advisories.', color: '#60a5fa' },
