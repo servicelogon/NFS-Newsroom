@@ -57,6 +57,40 @@ const assert = require('node:assert/strict');
     await page.locator('#coverage-pulse summary').click();
     await expect(page.locator('#coverage-pulse [data-topic="vulnerabilities"]')).toBeVisible();
     await expect(page.locator('.coverage-pulse-note')).toContainText('not threat severity');
+    const pulseStyle = await page.evaluate(() => {
+      const hexToRgb = {};
+      const labels = {};
+      for (const chip of document.querySelectorAll('#coverage-pulse-strip [data-topic]')) {
+        const label = chip.querySelector('.coverage-pulse-chip-label');
+        const style = getComputedStyle(label);
+        labels[chip.dataset.topic] = {
+          hex: getComputedStyle(chip).getPropertyValue('--topic-color').trim().toLowerCase(),
+          color: style.color,
+          weight: Number(style.fontWeight),
+        };
+      }
+      for (const tag of document.querySelectorAll('.front-page-story .topic, .story .topic')) {
+        const hex = getComputedStyle(tag.closest('article')).getPropertyValue('--topic-color').trim().toLowerCase();
+        hexToRgb[hex] = getComputedStyle(tag).color;
+      }
+      return { labels, hexToRgb };
+    });
+    const expectedPulseColors = {
+      cloud: '#f59e0b',
+      identity: '#c084fc',
+      vulnerabilities: '#ff6b6b',
+      incidents: '#f7ff00',
+      malware: '#fb7185',
+      operations: '#2dd4bf',
+      microsoft: '#60a5fa',
+    };
+    for (const [id, hex] of Object.entries(expectedPulseColors)) {
+      assert.equal(pulseStyle.labels[id]?.hex, hex, `${id} uses the feed tag palette`);
+      assert.ok(pulseStyle.labels[id]?.weight >= 700, `${id} pulse label is bold`);
+      if (pulseStyle.hexToRgb[hex]) {
+        assert.equal(pulseStyle.labels[id].color, pulseStyle.hexToRgb[hex], `${id} matches feed tag color`);
+      }
+    }
     await page.keyboard.press('Escape');
     await expect(page.locator('#coverage-pulse-strip')).toBeHidden();
     assert.ok(await page.locator('#coverage-pulse summary').evaluate(el => el === document.activeElement));
