@@ -86,7 +86,10 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.match(tools, /https:\/\/servicelogon.github.io\/PasskeyLookup\//);
   assert.doesNotMatch(tools, /BUILT BY NATHAN HESS/);
   assert.doesNotMatch(home, /BUILT BY NATHAN HESS/);
-  assert.doesNotMatch(await (await fetch(base + '/newsroom')).text(), /BUILT BY NATHAN HESS/);
+  const newsroom = await (await fetch(base + '/newsroom')).text();
+  assert.doesNotMatch(newsroom, /BUILT BY NATHAN HESS/);
+  assert.doesNotMatch(newsroom, /Go beyond the headline/);
+  assert.match(newsroom, /Read the field notes/);
   for (const path of ['/blog/draft', '/blog/missing', '/blog/%2e%2e%2fserver', '/content/posts/published.md', '/blog.js', '/assets/../package.json']) {
     assert.equal((await fetch(base + path)).status, 404, path);
   }
