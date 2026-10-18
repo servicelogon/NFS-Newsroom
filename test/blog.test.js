@@ -6,7 +6,7 @@ import { gunzipSync, brotliDecompressSync } from 'node:zlib';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { loadPosts, parsePost, SITE_ORIGIN, searchIndexScript } from '../blog.js';
+import { loadPosts, parsePost, postPage, SITE_ORIGIN, searchIndexScript } from '../blog.js';
 import { createAppServer } from '../server.js';
 const source = (title, date = '2026-09-14', extra = '', body = '## Heading\n\n**Strong** and [safe](https://example.com).') => `---\ntitle: ${title}\ndescription: A test field note\ndate: ${date}\n${extra}---\n${body}`;
 async function directory(t) { // temp posts folder, deleted after the test
@@ -20,7 +20,7 @@ test('posts load newest first, support Markdown, and reflect folder edits withou
   await writeFile(join(dir, 'second.md'), source('Second'));
   let posts = await loadPosts(dir);
   assert.deepEqual(posts.map(p => p.slug), ['second', 'first']);
-  assert.match(posts[0].html, /<h2 id="heading">Heading<\/h2>/);
+  assert.match(posts[0].html, /<h2 id="heading">Heading<a class="heading-anchor" href="#heading" aria-label="Link to Heading"><span aria-hidden="true">#<\/span><\/a><\/h2>/);
   assert.match(posts[0].html, /<strong>Strong<\/strong>/);
   await writeFile(join(dir, 'second.md'), source('Edited'));
   posts = await loadPosts(dir);
@@ -84,12 +84,18 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.match(tools, /id="copilot-security-trail"/);
   assert.match(tools, /https:\/\/servicelogon.github.io\/copilot-security-trail\//);
   assert.match(tools, /https:\/\/servicelogon.github.io\/PasskeyLookup\//);
+  assert.match(tools, /aria-label="Hit the trail \(opens in a new tab\)"/);
+  assert.match(tools, /aria-label="Meet your passkey \(opens in a new tab\)"/);
+  assert.match(tools, /aria-label="Source on GitHub \(opens in a new tab\)"/);
+  assert.doesNotMatch(tools, /rel="alternate"/);
   assert.doesNotMatch(tools, /BUILT BY NATHAN HESS/);
   assert.doesNotMatch(home, /BUILT BY NATHAN HESS/);
   const newsroom = await (await fetch(base + '/newsroom')).text();
   assert.doesNotMatch(newsroom, /BUILT BY NATHAN HESS/);
   assert.doesNotMatch(newsroom, /Go beyond the headline/);
   assert.match(newsroom, /Read the field notes/);
+  assert.doesNotMatch(newsroom, /rel="alternate"/);
+  assert.match(home, /rel="alternate" type="application\/rss\+xml" title="Notes from the Frontier" href="\/blog\/feed\.xml"/);
   for (const path of ['/blog/draft', '/blog/missing', '/blog/%2e%2e%2fserver', '/content/posts/published.md', '/blog.js', '/assets/../package.json']) {
     assert.equal((await fetch(base + path)).status, 404, path);
   }
@@ -138,6 +144,8 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   assert.match(post, /property="og:type" content="article"/);
   assert.match(post, /property="og:image" content="https:\/\/nfs\.example\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}"/);
   assert.match(post, /rel="canonical" href="https:\/\/nfs\.example\/blog\/published"/);
+  assert.match(post, /rel="alternate" type="application\/rss\+xml" title="Notes from the Frontier" href="https:\/\/nfs\.example\/blog\/feed\.xml"/);
+  assert.match(post, /<time datetime="2026-09-14">September 14, 2026<\/time>/);
   const notes = await (await fetch(base + '/blog/notes')).text();
   assert.match(notes, /name="twitter:card" content="summary"/);
   assert.doesNotMatch(notes, /property="og:image"/);
@@ -185,6 +193,17 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   const robots = await fetch(base + '/robots.txt');
   assert.equal(robots.status, 200);
   assert.match(await robots.text(), /User-agent: \*\nAllow: \/\n\nSitemap: https:\/\/nfs\.example\/sitemap\.xml\n/);
+  const feed = await fetch(base + '/blog/feed.xml');
+  assert.equal(feed.status, 200);
+  assert.match(feed.headers.get('content-type'), /rss\+xml/);
+  assert.equal(feed.headers.get('cache-control'), 'no-cache');
+  const rss = await feed.text();
+  assert.match(rss, /<rss version="2.0">/);
+  assert.match(rss, /<title>Published<\/title>/);
+  assert.match(rss, /<link>https:\/\/nfs\.example\/blog\/published<\/link>/);
+  assert.match(rss, /<pubDate>[^<]*14 Sep 2026/);
+  assert.doesNotMatch(rss, /Draft|Secret/);
+  assert.doesNotMatch(await (await fetch(base + '/newsroom')).text(), /\/blog\/feed\.xml/);
   const cssHref = home.match(/\/assets\/site\.css\?v=([a-f0-9]{12})/);
   assert.ok(cssHref);
   const versioned = await fetch(base + cssHref[0]);
@@ -201,6 +220,7 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   assert.match(gzip.headers.vary, /Accept-Encoding/);
   assert.match(gzip.headers['cache-control'], /immutable/);
   assert.match(gunzipSync(gzip.body).toString('utf8'), /--accent/);
+  assert.match(gunzipSync(gzip.body).toString('utf8'), /\.command-palette-option:focus-visible \{ background:var\(--hover\); \}/);
   const brotli = await rawGet(base + '/', { 'Accept-Encoding': 'br' });
   assert.equal(brotli.headers['content-encoding'], 'br');
   assert.match(brotliDecompressSync(brotli.body).toString('utf8'), /Identity/);
@@ -224,5 +244,33 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
 test('contents anchors remain unique for repeated headings and overlapping slugs', () => {
   const post = parsePost(source('Anchors', '2026-09-14', '', '## Identity\n\n## Identity\n\n## Identity-2'), 'anchors');
   assert.equal(new Set(post.toc.map(item => item.id)).size, 3);
-  for (const item of post.toc) assert.ok(post.html.includes(`id="${item.id}"`));
+  for (const item of post.toc) {
+    assert.ok(post.html.includes(`id="${item.id}"`));
+    assert.match(post.html, new RegExp(`href="#${item.id}" class="heading-anchor"|class="heading-anchor" href="#${item.id}"`));
+  }
+});
+
+test('inline figures wait and the hero image stays eager', () => {
+  const post = parsePost(source('Images', '2026-09-14', 'image: /assets/blog/entra-default-settings-header.jpg\nimageAlt: Header\n', '![Diagram](/assets/blog/entra-block-legacy-authentication.jpg)\n'), 'images');
+  assert.match(post.html, /<img src="\/assets\/blog\/entra-block-legacy-authentication\.jpg" alt="Diagram" loading="lazy" decoding="async">/);
+  const html = postPage(post, { posts: [post] });
+  assert.match(html, /class="post-hero"><img src="\/assets\/blog\/entra-default-settings-header\.jpg" alt="Header" loading="eager" decoding="async">/);
+  assert.match(html, /<time datetime="2026-09-14">September 14, 2026<\/time>/);
+});
+
+test('related notes fall back to the two newest other posts when tags do not overlap', () => {
+  const current = parsePost(source('Current', '2026-09-14', 'tags: [Unique]\n'), 'current');
+  const older = parsePost(source('Older', '2026-09-01', 'tags: [Other]\n'), 'older');
+  const newer = parsePost(source('Newer', '2026-09-20', 'tags: [Else]\n'), 'newer');
+  const newest = parsePost(source('Newest', '2026-09-21', 'tags: [Else]\n'), 'newest');
+  const fallback = postPage(current, { posts: [newest, newer, current, older] });
+  assert.match(fallback, /Continue exploring/);
+  assert.match(fallback, /href="\/blog\/newest"/);
+  assert.match(fallback, /href="\/blog\/newer"/);
+  assert.doesNotMatch(fallback, /href="\/blog\/older"/);
+  const shared = parsePost(source('Shared', '2026-08-01', 'tags: [Unique]\n'), 'shared');
+  const tagged = postPage(current, { posts: [newest, current, shared] });
+  assert.match(tagged, /href="\/blog\/shared"/);
+  assert.doesNotMatch(tagged, /href="\/blog\/newest"/);
+  assert.doesNotMatch(postPage(current, { posts: [current] }), /Continue exploring/);
 });

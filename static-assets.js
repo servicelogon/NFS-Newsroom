@@ -18,7 +18,7 @@ const files = new Map([
   ['/assets/favicon-32.png', ['assets/favicon-32.png', 'image/png']],
   ['/assets/apple-touch-icon.png', ['assets/apple-touch-icon.png', 'image/png']],
 ]);
-for (const name of ['theme.js', 'search.js', 'news-topics.js', 'coverage-pulse.js', 'article-card.js', 'newsroom.js']) files.set(`/assets/${name}`, [`assets/${name}`, 'text/javascript; charset=utf-8']);
+for (const name of ['theme.js', 'search.js', 'news-topics.js', 'coverage-pulse.js', 'dates.js', 'article-card.js', 'newsroom-filters.js', 'newsroom.js']) files.set(`/assets/${name}`, [`assets/${name}`, 'text/javascript; charset=utf-8']);
 files.set('/assets/newsroom.css', ['assets/newsroom.css', 'text/css; charset=utf-8']);
 for (const file of await readdir(join(ROOT, 'assets/blog'), { withFileTypes: true })) {
   if (file.isFile() && /^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:jpe?g|webp)$/.test(file.name)) {

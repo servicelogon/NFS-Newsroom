@@ -13,6 +13,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import hljs from 'highlight.js/lib/common';
 import MarkdownIt from 'markdown-it';
+import { formatCalendarDate } from './assets/dates.js';
 export { searchHaystack, itemMatchesQuery } from './assets/search.js';
 
 // ---------------------------------------------------------------------------
@@ -139,6 +140,17 @@ export function seoHead({
     `<meta name="twitter:description" content="${escapeHtml(description)}">`,
     imageUrl ? `<meta name="twitter:image" content="${escapeHtml(imageUrl)}">` : '',
   ].filter(Boolean).join('');
+}
+
+// Field notes only. The newsroom keeps its own pages and does not get a feed.
+
+export function feedXml(posts, origin = '') {
+  const items = posts.map(post => {
+    const link = absoluteUrl(origin, `/blog/${post.slug}`);
+    const pubDate = new Date(`${post.date}T12:00:00Z`).toUTCString();
+    return `    <item><title>${xmlEscape(post.title)}</title><link>${xmlEscape(link)}</link><guid isPermaLink="true">${xmlEscape(link)}</guid><pubDate>${xmlEscape(pubDate)}</pubDate><description>${xmlEscape(post.description)}</description></item>`;
+  }).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n  <channel>\n    <title>Notes from the Frontier</title>\n    <link>${xmlEscape(absoluteUrl(origin, '/'))}</link>\n    <description>Notes, ideas, and field guides on identity and cloud security by Nathan Hess.</description>\n    <language>en-us</language>\n${items}\n  </channel>\n</rss>\n`;
 }
 
 // Home, newsroom, tools, each post, and each tag archive. lastmod is omitted
@@ -276,6 +288,23 @@ markdown.renderer.rules.heading_open = (tokens, index, options, env, renderer) =
   return renderer.renderToken(tokens, index, options);
 };
 
+markdown.renderer.rules.heading_close = (tokens, index) => {
+  const close = tokens[index];
+  const open = tokens[index - 2];
+  const id = open?.attrGet?.('id');
+  if (!id || !['h2', 'h3'].includes(close.tag)) return `</${close.tag}>\n`;
+  const title = tokens[index - 1]?.content || 'this section';
+  return `<a class="heading-anchor" href="#${escapeHtml(id)}" aria-label="Link to ${escapeHtml(title)}"><span aria-hidden="true">#</span></a></${close.tag}>\n`;
+};
+
+const renderImage = markdown.renderer.rules.image;
+markdown.renderer.rules.image = (tokens, index, options, env, self) => {
+  const token = tokens[index];
+  token.attrSet('loading', 'lazy');
+  token.attrSet('decoding', 'async');
+  return renderImage(tokens, index, options, env, self);
+};
+
 export function parsePost(source, slug, { includeDrafts = false } = {}) {
   source = source.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
   const frontmatter = source.match(/^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/);
@@ -406,18 +435,16 @@ export function layout(title, description, active, body, seo = {}) {
     published: seo.published || null,
     robots: seo.robots || null
   });
-  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}<link rel="stylesheet" href="/assets/site.css"><script src="/assets/theme.js"></script><script type="module" src="/assets/site.js"></script>${(seo.styles || []).map(path => `<link rel="stylesheet" href="${path}">`).join('')}${(seo.scripts || []).map(path => `<script type="module" src="${path}"></script>`).join('')}${searchIndexScript(seo.posts || [])}</head><body class="publication ${seo.bodyClass || ''}"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="2010" height="529" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main" tabindex="-1">${body}</main></div>${siteFooter(active)}</body></html>`;
+  const feed = active === 'Blog'
+    ? `<link rel="alternate" type="application/rss+xml" title="Notes from the Frontier" href="${escapeHtml(absoluteUrl(seo.origin || '', '/blog/feed.xml'))}">`
+    : '';
+  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}${feed}<link rel="stylesheet" href="/assets/site.css"><script src="/assets/theme.js"></script><script type="module" src="/assets/site.js"></script>${(seo.styles || []).map(path => `<link rel="stylesheet" href="${path}">`).join('')}${(seo.scripts || []).map(path => `<script type="module" src="${path}"></script>`).join('')}${searchIndexScript(seo.posts || [])}</head><body class="publication ${seo.bodyClass || ''}"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="2010" height="529" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main" tabindex="-1">${body}</main></div>${siteFooter(active)}</body></html>`;
 }
 
-// Format at noon UTC so the calendar day does not shift in US timezones
-// (midnight UTC is still the previous evening in America).
+// Same UTC calendar day as the newsroom. Noon UTC keeps a YYYY-MM-DD value
+// from slipping to the previous evening in US timezones.
 
-const dateLabel = date => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
-  month: 'long',
-  day: 'numeric',
-  year: 'numeric',
-  timeZone: 'UTC'
-});
+const dateLabel = date => formatCalendarDate(date);
 
 const metadata = post => `<div class="post-meta"><time datetime="${post.date}">${dateLabel(post.date)}</time><span>${post.minutes} min read</span>${post.sample ? '<span class="sample-label">Sample post</span>' : ''}</div>`;
 
@@ -466,15 +493,22 @@ export function blogPage(posts, seo = {}) {
 // article and published is the post date so shares show as an article.
 
 export function postPage(post, seo = {}) {
-  return layout(post.title, post.description, 'Blog', `<article class="post-page"><a class="internal-button back-link" href="/">All field notes</a><header class="post-heading"><h1>${escapeHtml(post.title)}</h1><p class="post-deck">${escapeHtml(post.description)}</p>${metadata(post)}${tagChips(post)}<p class="byline">By ${escapeHtml(post.author)}</p></header>${post.image ? `<figure class="post-hero"><img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt)}" decoding="async"></figure>` : ''}${post.sample ? '<aside class="sample-note">This is a placeholder post to try out the blog. Replace it with your own field notes when you’re ready.</aside>' : ''}${post.toc?.filter(item => item.level === 2).length > 2 ? `<nav class="post-contents" aria-label="On this page"><h2>On this page</h2><ol>${post.toc.filter(item => item.level === 2).map(item => `<li><a href="#${escapeHtml(item.id)}">${escapeHtml(item.title)}</a></li>`).join('')}</ol></nav>` : ''}<div class="prose">${post.html}</div>${relatedPosts(post, seo.posts || [])}<a class="internal-button post-return" href="/">Back to the blog</a></article>`, { path: `/blog/${post.slug}`, origin: seo.origin || '', image: post.image || null, type: 'article', published: post.date, posts: seo.posts || [post] });
+  return layout(post.title, post.description, 'Blog', `<article class="post-page"><a class="internal-button back-link" href="/">All field notes</a><header class="post-heading"><h1>${escapeHtml(post.title)}</h1><p class="post-deck">${escapeHtml(post.description)}</p>${metadata(post)}${tagChips(post)}<p class="byline">By ${escapeHtml(post.author)}</p></header>${post.image ? `<figure class="post-hero"><img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt)}" loading="eager" decoding="async"></figure>` : ''}${post.sample ? '<aside class="sample-note">This is a placeholder post to try out the blog. Replace it with your own field notes when you’re ready.</aside>' : ''}${post.toc?.filter(item => item.level === 2).length > 2 ? `<nav class="post-contents" aria-label="On this page"><h2>On this page</h2><ol>${post.toc.filter(item => item.level === 2).map(item => `<li><a href="#${escapeHtml(item.id)}">${escapeHtml(item.title)}</a></li>`).join('')}</ol></nav>` : ''}<div class="prose">${post.html}</div>${relatedPosts(post, seo.posts || [])}<a class="internal-button post-return" href="/">Back to the blog</a></article>`, { path: `/blog/${post.slug}`, origin: seo.origin || '', image: post.image || null, type: 'article', published: post.date, posts: seo.posts || [post] });
 }
 
 function relatedPosts(post, posts) {
-  const tags = new Set(post.tags.map(tagSlug));
-  const related = posts.filter(candidate => candidate.slug !== post.slug)
-    .map(candidate => ({ post: candidate, score: candidate.tags.filter(tag => tags.has(tagSlug(tag))).length }))
-    .filter(candidate => candidate.score > 0).sort((a, b) => b.score - a.score || b.post.date.localeCompare(a.post.date)).slice(0, 2);
-  return related.length ? `<aside class="related-posts"><h2>Continue exploring</h2><div class="more-posts">${related.map(candidate => postTile(candidate.post)).join('')}</div></aside>` : '';
+  const tags = new Set((post.tags || []).map(tagSlug));
+  const others = posts.filter(candidate => candidate.slug !== post.slug);
+  const matched = others
+    .map(candidate => ({ post: candidate, score: (candidate.tags || []).filter(tag => tags.has(tagSlug(tag))).length }))
+    .filter(candidate => candidate.score > 0)
+    .sort((a, b) => b.score - a.score || b.post.date.localeCompare(a.post.date) || a.post.slug.localeCompare(b.post.slug))
+    .slice(0, 2)
+    .map(candidate => candidate.post);
+  const picks = matched.length
+    ? matched
+    : [...others].sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug)).slice(0, 2);
+  return picks.length ? `<aside class="related-posts"><h2>Continue exploring</h2><div class="more-posts">${picks.map(item => postTile(item)).join('')}</div></aside>` : '';
 }
 
 // Archive of posts that share a tag. The intro noun is singular when there
@@ -506,7 +540,7 @@ export function toolsPage(seo = {}) {
   return layout('Toolbox', 'Explore Copilot Security Trail and Passkey AAGUID Lookup, tools by Nathan Hess.', 'Toolbox', `
     <section class="page-intro tools-intro"><h1 class="toolbox-wordmark"><img src="/assets/toolbox-wordmark.png" width="1753" height="457" alt="Toolbox"></h1><div class="intro-bottom"><p>A few useful things for the identity-curious. Pick one. Dig in.</p><span class="issue-label">02 TOOLS / READY TO EXPLORE</span></div></section>
     <section class="tool-grid" aria-label="Identity and security tools">
-      <article class="tool-card trail-card" id="copilot-security-trail"><div class="tool-top"><span class="kicker">01 / EXPLORE</span><span class="tool-pill">INTERACTIVE GUIDE</span></div><div class="tool-visual trail-stops" aria-label="Five trail stations"><span>01<small>Data</small></span><i></i><span>02<small>Protection</small></span><i></i><span>03<small>Readiness</small></span><i></i><span>04<small>Agents</small></span><i></i><span>05<small>Zero Trust</small></span></div><div class="tool-copy"><p class="kicker">TAKE THE SCENIC ROUTE</p><h2>Copilot<br>Security Trail</h2><p>Five stops. A clearer view of Copilot security. Explore data protection, agent governance, and Zero Trust at your own pace.</p><div class="tags"><span class="tag">Copilot</span><span class="tag">Zero Trust</span><span class="tag">5 stations</span></div></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/copilot-security-trail/" target="_blank" rel="noopener noreferrer">Hit the trail <span class="arrow-icon" aria-hidden="true"></span></a><a class="source-link" href="https://github.com/servicelogon/copilot-security-trail" target="_blank" rel="noopener noreferrer">Source on GitHub <span class="arrow-icon" aria-hidden="true"></span></a></div></article>
-      <article class="tool-card passkey-card" id="passkey-aaguid-lookup"><div class="tool-top"><span class="kicker">02 / IDENTIFY</span><span class="tool-pill">LOOKUP UTILITY</span></div><div class="tool-visual lookup-visual" aria-hidden="true"><span class="lookup-prompt">AAGUID → PROVIDER</span><div class="lookup-code">xxxxxxxx-xxxx-xxxx<br>-xxxx-xxxxxxxxxxxx</div><span class="lookup-answer">A little less mystery.</span></div><div class="tool-copy"><p class="kicker">PUT A NAME TO THAT PASSKEY</p><h2>Passkey<br>AAGUID Lookup</h2><p>A long identifier, a quick answer. Match an AAGUID to its passkey provider, or browse the directory to see who’s who.</p><div class="tags"><span class="tag">Passkeys</span><span class="tag">Identity</span><span class="tag">AAGUID</span></div></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/PasskeyLookup/" target="_blank" rel="noopener noreferrer">Meet your passkey <span class="arrow-icon" aria-hidden="true"></span></a><a class="source-link" href="https://github.com/servicelogon/PasskeyLookup" target="_blank" rel="noopener noreferrer">Source on GitHub <span class="arrow-icon" aria-hidden="true"></span></a></div><p class="tool-note">Provider labels use community data; they aren’t a basis for security decisions.</p></article>
+      <article class="tool-card trail-card" id="copilot-security-trail"><div class="tool-top"><span class="kicker">01 / EXPLORE</span><span class="tool-pill">INTERACTIVE GUIDE</span></div><div class="tool-visual trail-stops" aria-label="Five trail stations"><span>01<small>Data</small></span><i></i><span>02<small>Protection</small></span><i></i><span>03<small>Readiness</small></span><i></i><span>04<small>Agents</small></span><i></i><span>05<small>Zero Trust</small></span></div><div class="tool-copy"><p class="kicker">TAKE THE SCENIC ROUTE</p><h2>Copilot<br>Security Trail</h2><p>Five stops. A clearer view of Copilot security. Explore data protection, agent governance, and Zero Trust at your own pace.</p><div class="tags"><span class="tag">Copilot</span><span class="tag">Zero Trust</span><span class="tag">5 stations</span></div></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/copilot-security-trail/" target="_blank" rel="noopener noreferrer" aria-label="Hit the trail (opens in a new tab)">Hit the trail <span class="arrow-icon" aria-hidden="true"></span></a><a class="source-link" href="https://github.com/servicelogon/copilot-security-trail" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source on GitHub <span class="arrow-icon" aria-hidden="true"></span></a></div></article>
+      <article class="tool-card passkey-card" id="passkey-aaguid-lookup"><div class="tool-top"><span class="kicker">02 / IDENTIFY</span><span class="tool-pill">LOOKUP UTILITY</span></div><div class="tool-visual lookup-visual" aria-hidden="true"><span class="lookup-prompt">AAGUID → PROVIDER</span><div class="lookup-code">xxxxxxxx-xxxx-xxxx<br>-xxxx-xxxxxxxxxxxx</div><span class="lookup-answer">A little less mystery.</span></div><div class="tool-copy"><p class="kicker">PUT A NAME TO THAT PASSKEY</p><h2>Passkey<br>AAGUID Lookup</h2><p>A long identifier, a quick answer. Match an AAGUID to its passkey provider, or browse the directory to see who’s who.</p><div class="tags"><span class="tag">Passkeys</span><span class="tag">Identity</span><span class="tag">AAGUID</span></div></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/PasskeyLookup/" target="_blank" rel="noopener noreferrer" aria-label="Meet your passkey (opens in a new tab)">Meet your passkey <span class="arrow-icon" aria-hidden="true"></span></a><a class="source-link" href="https://github.com/servicelogon/PasskeyLookup" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source on GitHub <span class="arrow-icon" aria-hidden="true"></span></a></div><p class="tool-note">Provider labels use community data; they aren’t a basis for security decisions.</p></article>
     </section><aside class="explore-strip"><a class="internal-button" href="/">Back to the field notes</a></aside>`, { path: '/tools', origin: seo.origin || '', posts: seo.posts || [] });
 }

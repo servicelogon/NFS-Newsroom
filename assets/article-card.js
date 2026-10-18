@@ -1,4 +1,5 @@
 import { TOPIC_BY_ID, isMessageCenterStory } from './news-topics.js';
+import { formatTimestamp } from './dates.js';
 
 const safeUrl = value => {
   try {
@@ -10,6 +11,7 @@ export function createArticleCard(story, { frontPage = false, lead = false, sour
   const href = safeUrl(story.url);
   if (!href || typeof story.title !== 'string') return null;
   const topic = TOPIC_BY_ID.get(story.category || story.topic) || TOPIC_BY_ID.get('operations');
+  const title = isMessageCenterStory(story) ? story.title.replace(/^MC\d+\s*[–—:-]\s*/i, '') : story.title;
   const article = document.createElement('article');
   article.className = frontPage ? 'front-page-story' : 'story';
   article.dataset.articleId = story.id;
@@ -21,7 +23,7 @@ export function createArticleCard(story, { frontPage = false, lead = false, sour
     media.className = 'story-media';
     const image = document.createElement('img');
     image.src = imageUrl;
-    image.alt = '';
+    image.alt = title;
     image.loading = lead ? 'eager' : 'lazy';
     image.decoding = 'async';
     if (lead) image.fetchPriority = 'high';
@@ -38,7 +40,7 @@ export function createArticleCard(story, { frontPage = false, lead = false, sour
   const date = document.createElement('time');
   if (Number.isFinite(Date.parse(story.publishedAt))) {
     date.dateTime = story.publishedAt;
-    date.textContent = new Date(story.publishedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    date.textContent = formatTimestamp(story.publishedAt);
     date.title = 'Publisher publication date';
   } else date.textContent = 'Publication date unavailable';
   meta.append(tag, date);
@@ -53,10 +55,9 @@ export function createArticleCard(story, { frontPage = false, lead = false, sour
     const badge = document.createElement('span');
     badge.className = 'stale-badge';
     badge.textContent = 'Cached story';
-    badge.title = source.lastSuccessAt ? `Feed last collected ${new Date(source.lastSuccessAt).toLocaleString()}` : 'This publisher could not be refreshed';
+    badge.title = source.lastSuccessAt ? `Feed last collected ${formatTimestamp(source.lastSuccessAt)}` : 'This publisher could not be refreshed';
     meta.append(badge);
   }
-  const title = isMessageCenterStory(story) ? story.title.replace(/^MC\d+\s*[–—:-]\s*/i, '') : story.title;
   const heading = document.createElement('h2');
   const link = document.createElement('a');
   link.href = href;
