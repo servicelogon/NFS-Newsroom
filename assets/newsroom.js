@@ -2,6 +2,8 @@ import { TOPIC_BY_ID } from './news-topics.js';
 import { describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
 import { describeEmptyState } from '/assets/newsroom-states.js';
 import { createArticleCard } from './article-card.js';
+import { formatCalendarDate } from './dates.js';
+import { filtersFromSearch, searchFromFilters } from './newsroom-filters.js';
 
 const $ = selector => document.querySelector(selector);
 const state = {
@@ -98,7 +100,8 @@ function render() {
   $('#description').textContent = topic.description;
   const today = new Date();
   $('#front-page-date').dateTime = today.toISOString().slice(0, 10);
-  $('#front-page-date').textContent = today.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  $('#front-page-date').textContent = formatCalendarDate(today, { weekday: true });
+  writeFilters();
   $('#front-page-status').textContent = state.loading ? 'Loading headlines…' : `${state.frontPage.length} headlines loaded.`;
   $('#briefing-status').textContent = state.loading ? 'Loading coverage…' : `${state.stories.length} of ${state.total} matching articles`;
   if (state.front) renderCards($('#front-page-feed'), state.frontPage, true);
@@ -212,6 +215,22 @@ document.addEventListener('keydown', event => {
     $('#search').blur();
   }
 });
+function applyUrlFilters() {
+  const filters = filtersFromSearch(location.search);
+  state.front = filters.front;
+  state.topic = filters.topic;
+  state.microsoftFilter = filters.microsoftFilter;
+  state.query = filters.query;
+  $('#search').value = state.query;
+}
+
+function writeFilters() {
+  const query = searchFromFilters(state);
+  const next = `${location.pathname}${query ? `?${query}` : ''}${location.hash}`;
+  if (`${location.pathname}${location.search}${location.hash}` !== next) history.replaceState(null, '', next);
+}
+
+applyUrlFilters();
 // Exposed for the browser test harness.
 window.loadNews = loadNews;
 loadNews();

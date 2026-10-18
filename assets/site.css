@@ -179,7 +179,7 @@
 .command-palette-results { margin:0; padding:8px; overflow:auto; list-style:none; }
 .command-palette-group { padding:10px 10px 4px; font:11px/1.4 var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
 .command-palette-option { display:flex; flex-direction:column; gap:2px; padding:10px; border-radius:8px; cursor:pointer; }
-.command-palette-option.is-active,.command-palette-option:hover { background:var(--hover); }
+.command-palette-option.is-active,.command-palette-option:hover,.command-palette-option:focus-visible { background:var(--hover); }
 .command-palette-option-title { color:var(--ink); font:15px/1.35 var(--sans); }
 .command-palette-option-meta { color:var(--muted); font:12px/1.4 var(--sans); }
 .command-palette-empty { margin:0; padding:18px 16px; color:var(--muted); }
@@ -229,6 +229,8 @@
 .post-contents ol { margin:0; padding-left:20px; columns:2; column-gap:28px; }
 .post-contents li { break-inside:avoid; padding:4px 0; font-size:14px; }
 .prose :is(h2,h3) { scroll-margin-top:24px; }
+.prose .heading-anchor { margin-left:.35em; color:var(--muted); font-weight:650; text-decoration:none; opacity:0; }
+.prose :is(h2,h3):hover > .heading-anchor,.prose .heading-anchor:focus,.prose .heading-anchor:focus-visible { opacity:1; }
 .related-posts { margin-top:48px; padding-top:24px; border-top:1px solid var(--line); }
 .related-posts>h2 { font:28px var(--serif); }
 @media(max-width:700px) { .more-posts { grid-template-columns:1fr; } .post-contents ol { columns:1; } }

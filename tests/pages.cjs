@@ -134,8 +134,14 @@ const path = require('node:path');
     assert.doesNotMatch(await page.locator('.post-heading h1').evaluate(el => getComputedStyle(el).fontFamily), /Georgia|Times New Roman/i);
     assert.doesNotMatch(await page.locator('.prose h2').first().evaluate(el => getComputedStyle(el).fontFamily), /Georgia|Times New Roman/i);
     assert.match(await page.locator('.post-hero img').getAttribute('src'), /^\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}$/);
+    assert.equal(await page.locator('.post-hero img').getAttribute('loading'), 'eager');
     assert.ok(await page.locator('.post-hero img').evaluate(img => img.complete && img.naturalWidth > 0));
     assert.equal(await page.locator('.prose img').count(), 3);
+    assert.deepEqual(await page.locator('.prose img').evaluateAll(images => images.map(img => [img.getAttribute('loading'), img.getAttribute('decoding')])), [['lazy', 'async'], ['lazy', 'async'], ['lazy', 'async']]);
+    const headingAnchor = page.locator('.prose h2 .heading-anchor').first();
+    assert.equal(await headingAnchor.evaluate(el => getComputedStyle(el).opacity), '0');
+    await page.locator('.prose h2').first().hover();
+    assert.equal(await headingAnchor.evaluate(el => getComputedStyle(el).opacity), '1');
     assert.equal(await page.locator('.prose table').count(), 1);
     assert.ok(await page.getByRole('heading', {name:/Security Defaults vs\. Conditional Access/}).isVisible());
     await page.getByRole('link', {name:'All field notes'}).click();
@@ -156,6 +162,8 @@ const path = require('node:path');
     for (const anchor of await page.locator('.tool-actions a').all()) {
       assert.match(await anchor.getAttribute('href'), /^https:\/\//);
       assert.match(await anchor.getAttribute('rel'), /noopener/);
+      assert.equal(await anchor.getAttribute('target'), '_blank');
+      assert.match(await anchor.getAttribute('aria-label'), /opens in a new tab/);
     }
     await fs.writeFile(path.join(postsDirectory, 'another-post.md'), sample.replace('Entra Default Settings That You Should Change', 'A second field note').replace('2026-09-14', '2026-09-15')); // drop-in file should appear without restarting the server
     await page.goto(base);

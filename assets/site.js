@@ -352,6 +352,7 @@ function initSite() {
       option.id = `command-palette-option-${index}`;
       option.className = 'command-palette-option';
       option.setAttribute('role', 'option');
+      option.tabIndex = -1;
       option.dataset.index = String(index);
       const title = document.createElement('span');
       title.className = 'command-palette-option-title';

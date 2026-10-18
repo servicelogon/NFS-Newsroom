@@ -10,7 +10,7 @@ import { createNewsService } from './news-service.js';
 import { newsQuery, newsPage, headlineSearch } from './news-api.js';
 import { STATIC, versionedHtml } from './static-assets.js';
 import { CACHE, createResponseSender } from './http-response.js';
-import { loadPosts, blogPage, postPage, tagPage, tagNotFoundPage, toolsPage, notFoundPage, layout, sitemapXml, robotsTxt, tagSlug, SITE_ORIGIN, normalizeOrigin } from './blog.js';
+import { loadPosts, blogPage, postPage, tagPage, tagNotFoundPage, toolsPage, notFoundPage, layout, sitemapXml, feedXml, robotsTxt, tagSlug, SITE_ORIGIN, normalizeOrigin } from './blog.js';
 export { FEEDS, classify, selectFrontPage, createNewsService };
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const newsroomBody = await readFile(join(ROOT, 'index.html'), 'utf8');
@@ -33,6 +33,7 @@ export function createAppServer({ service = createNewsService(), postsDirectory 
       }
       if (url.pathname === '/robots.txt') return await send(200, robotsTxt(origin), 'text/plain; charset=utf-8', CACHE.meta);
       if (url.pathname === '/sitemap.xml') return await send(200, sitemapXml(await loadPosts(postsDirectory), origin), 'application/xml; charset=utf-8', CACHE.meta);
+      if (url.pathname === '/blog/feed.xml') return await send(200, feedXml(await loadPosts(postsDirectory), origin), 'application/rss+xml; charset=utf-8', CACHE.meta);
       if (url.pathname === '/api/news' || url.pathname === '/api/search') {
         let options;
         const search = url.pathname === '/api/search';
