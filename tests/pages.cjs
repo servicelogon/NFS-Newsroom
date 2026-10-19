@@ -74,10 +74,16 @@ const path = require('node:path');
         await page.reload();
         assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} light mode overflows at ${width}`);
+        if (route === '/') {
+          assert.equal(await page.locator('.feature-image').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)', `light feature-image at ${width}`);
+        }
         if (process.env.SCREENSHOTS && width === 390 && route === '/') {
           await page.screenshot({path:'/private/tmp/nfs-blog-light-390.png',fullPage:true});
         }
         await page.getByRole('button', {name:'Switch to dark mode'}).click();
+        if (route === '/') {
+          assert.equal(await page.locator('.feature-image').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)', `dark feature-image at ${width}`);
+        }
         if (process.env.SCREENSHOTS && width !== 320 && route !== '/newsroom') {
           await page.locator('.feature-image img, .post-hero img').evaluateAll(images => Promise.all(images.map(img => img.decode())));
           const name = route === '/' ? 'blog' : route === '/tools' ? 'tools' : 'post';
