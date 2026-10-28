@@ -376,7 +376,7 @@ export async function loadPosts(directory) {
 export const SITE_TOOLS = [
   { title: 'Copilot Security Trail', href: '/tools#copilot-security-trail', description: 'Five stops through Copilot security, data protection, and Zero Trust.' },
   { title: 'Passkey AAGUID Lookup', href: '/tools#passkey-aaguid-lookup', description: 'Match an AAGUID to its passkey provider, or browse the directory.' },
-  { title: 'CAP Evaluator', href: '/tools#cap-evaluator', description: 'Find coverage gaps in Entra Conditional Access. Runs locally in the browser.' },
+  { title: 'CAP Evaluator', href: '/tools#cap-evaluator', description: 'CA Gap Evaluator: find coverage gaps in Entra Conditional Access. Runs locally in the browser.' },
 ];
 
 // Published posts plus SITE_TOOLS. The client reads this JSON; news headlines
