@@ -60,7 +60,7 @@ The first post is `content/posts/entra-default-settings-that-you-should-change.m
 - `/blog/<filename-without-extension>`: a complete blog post.
 - `/blog/tag/<tag>`: field notes that use that tag. Unknown tags return a 404 empty state, in the same style as a missing post.
 - `/newsroom`: the existing news dashboard.
-- `/tools`: Copilot Security Trail and Passkey AAGUID Lookup, with live-app and GitHub links.
+- `/tools`: Copilot Security Trail, Passkey AAGUID Lookup, and CAP Evaluator, with live-app and GitHub links.
 - `/sitemap.xml` and `/robots.txt`: public page index and crawler rules.
 
 Blog home, tag pages, posts, the newsroom, and tools include canonical URLs plus Open Graph and Twitter card tags. A post’s hero image is the Open Graph image when the post has one.

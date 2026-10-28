@@ -12,7 +12,8 @@ test('search index lists published posts and the toolbox entries', () => {
     { title: 'Second note', href: '/blog/second-note', description: 'Cloud field note' },
   ]);
   assert.deepEqual(catalog.tools, SITE_TOOLS);
-  assert.equal(catalog.tools.length, 2);
+  assert.equal(catalog.tools.length, 3);
+  assert.equal(SITE_TOOLS.some(tool => tool.title === 'CAP Evaluator' && tool.href === '/tools#cap-evaluator'), true);
 });
 
 test('query matching is case-insensitive across title, description, and source', () => {

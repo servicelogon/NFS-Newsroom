@@ -226,6 +226,8 @@ const assert = require('node:assert/strict');
     await page.keyboard.press('Control+k');
     await page.locator('#command-palette-input').fill('passkey');
     await expect(page.getByRole('option', { name: /Passkey AAGUID Lookup/ })).toBeVisible();
+    await page.locator('#command-palette-input').fill('conditional access');
+    await expect(page.getByRole('option', { name: /CAP Evaluator/ })).toBeVisible();
     await page.locator('#command-palette-input').fill('');
     await expect(page.locator('.command-palette-option').nth(1)).toBeVisible();
     const paletteOption = page.locator('.command-palette-option').nth(1);

@@ -82,10 +82,14 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.match(tools, />Toolbox<\/a>/);
   assert.doesNotMatch(tools, /Serious security/);
   assert.match(tools, /id="copilot-security-trail"/);
+  assert.match(tools, /id="cap-evaluator"/);
   assert.match(tools, /https:\/\/servicelogon.github.io\/copilot-security-trail\//);
   assert.match(tools, /https:\/\/servicelogon.github.io\/PasskeyLookup\//);
+  assert.match(tools, /https:\/\/servicelogon.github.io\/CAP-Evaluator\//);
+  assert.match(tools, /https:\/\/github.com\/servicelogon\/CAP-Evaluator/);
   assert.match(tools, /aria-label="Hit the trail \(opens in a new tab\)"/);
   assert.match(tools, /aria-label="Meet your passkey \(opens in a new tab\)"/);
+  assert.match(tools, /aria-label="Check the gaps \(opens in a new tab\)"/);
   assert.match(tools, /aria-label="Source on GitHub \(opens in a new tab\)"/);
   assert.doesNotMatch(tools, /rel="alternate"/);
   assert.doesNotMatch(tools, /BUILT BY NATHAN HESS/);
