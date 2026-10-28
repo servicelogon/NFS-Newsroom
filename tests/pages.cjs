@@ -165,6 +165,8 @@ const path = require('node:path');
     assert.ok(await page.locator('.lookup-code').isVisible());
     assert.ok(await page.locator('#cap-evaluator').isVisible());
     assert.ok(await page.locator('.cap-visual').isVisible());
+    assert.deepEqual(await page.locator('.tool-card').evaluateAll(cards => cards.map(card => card.id)), ['cap-evaluator', 'copilot-security-trail', 'passkey-aaguid-lookup']);
+    assert.deepEqual(await page.locator('.tool-top .kicker').allTextContents(), ['01 / EVALUATE', '02 / EXPLORE', '03 / IDENTIFY']);
     const trailBg = await page.locator('.trail-card').evaluate(el => getComputedStyle(el).backgroundColor);
     const passkeyBg = await page.locator('.passkey-card').evaluate(el => getComputedStyle(el).backgroundColor);
     const capBg = await page.locator('.cap-card').evaluate(el => getComputedStyle(el).backgroundColor);

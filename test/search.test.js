@@ -13,6 +13,7 @@ test('search index lists published posts and the toolbox entries', () => {
   ]);
   assert.deepEqual(catalog.tools, SITE_TOOLS);
   assert.equal(catalog.tools.length, 3);
+  assert.equal(SITE_TOOLS[0].title, 'CAP Evaluator');
   assert.equal(SITE_TOOLS.some(tool => tool.title === 'CAP Evaluator' && tool.href === '/tools#cap-evaluator'), true);
 });
 
