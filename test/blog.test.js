@@ -6,7 +6,7 @@ import { gunzipSync, brotliDecompressSync } from 'node:zlib';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { loadPosts, parsePost, postPage, SITE_ORIGIN, searchIndexScript } from '../blog.js';
+import { loadPosts, parsePost, postPage, SITE_ORIGIN, SITE_TOOLS, searchIndexScript } from '../blog.js';
 import { createAppServer } from '../server.js';
 const source = (title, date = '2026-09-14', extra = '', body = '## Heading\n\n**Strong** and [safe](https://example.com).') => `---\ntitle: ${title}\ndescription: A test field note\ndate: ${date}\n${extra}---\n${body}`;
 async function directory(t) { // temp posts folder, deleted after the test
@@ -82,10 +82,17 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.match(tools, />Toolbox<\/a>/);
   assert.doesNotMatch(tools, /Serious security/);
   assert.match(tools, /id="copilot-security-trail"/);
+  assert.match(tools, /id="cap-evaluator"/);
+  assert.match(tools, new RegExp(`${String(SITE_TOOLS.length).padStart(2, '0')} TOOLS / READY TO EXPLORE`));
+  assert.match(tools, /id="cap-evaluator"[\s\S]*id="copilot-security-trail"[\s\S]*id="passkey-aaguid-lookup"/);
+  assert.match(tools, /01 \/ EVALUATE[\s\S]*02 \/ EXPLORE[\s\S]*03 \/ IDENTIFY/);
   assert.match(tools, /https:\/\/servicelogon.github.io\/copilot-security-trail\//);
   assert.match(tools, /https:\/\/servicelogon.github.io\/PasskeyLookup\//);
+  assert.match(tools, /https:\/\/servicelogon.github.io\/CAP-Evaluator\//);
+  assert.match(tools, /https:\/\/github.com\/servicelogon\/CAP-Evaluator/);
   assert.match(tools, /aria-label="Hit the trail \(opens in a new tab\)"/);
   assert.match(tools, /aria-label="Meet your passkey \(opens in a new tab\)"/);
+  assert.match(tools, /aria-label="Check the gaps \(opens in a new tab\)"/);
   assert.match(tools, /aria-label="Source on GitHub \(opens in a new tab\)"/);
   assert.doesNotMatch(tools, /rel="alternate"/);
   assert.doesNotMatch(tools, /BUILT BY NATHAN HESS/);
