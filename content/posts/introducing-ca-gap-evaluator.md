@@ -61,6 +61,8 @@ Nothing is sent to a server. Analysis stays on your machine. The app is a Vite +
 
 If you don't trust that (I don't blame you, who is this guy anyways?, and isn't this vibe coded?), you can download from the source and run it offline in a sandboxed environment. It works the same.
 
+![CA Gap Evaluator coverage heat map for All users, with green Covered, amber Partial, and red Gap cells across resource surfaces](/assets/blog/ca-gap-evaluator-heatmap.webp)
+
 ## Reading the heat map
 
 | Color | Meaning |
