@@ -229,6 +229,7 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   assert.match(gzip.headers['cache-control'], /immutable/);
   assert.match(gunzipSync(gzip.body).toString('utf8'), /--accent/);
   assert.match(gunzipSync(gzip.body).toString('utf8'), /\.command-palette-option:focus-visible \{ background:var\(--hover\); \}/);
+  assert.match(gunzipSync(gzip.body).toString('utf8'), /\.prose table \{ display:block; max-width:760px; overflow-x:auto; border-collapse:collapse; font-size:16px; margin:28px auto; \}/);
   const brotli = await rawGet(base + '/', { 'Accept-Encoding': 'br' });
   assert.equal(brotli.headers['content-encoding'], 'br');
   assert.match(brotliDecompressSync(brotli.body).toString('utf8'), /Identity/);

@@ -84,6 +84,14 @@ const path = require('node:path');
         if (route === '/') {
           assert.equal(await page.locator('.feature-image').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)', `dark feature-image at ${width}`);
         }
+        if (route === '/blog/entra-default-settings-that-you-should-change' && width === 1440) {
+          const lefts = await page.evaluate(() => {
+            const paragraph = document.querySelector('.prose > p');
+            const table = document.querySelector('.prose table');
+            return { paragraph: paragraph.getBoundingClientRect().left, table: table.getBoundingClientRect().left };
+          });
+          assert.ok(Math.abs(lefts.paragraph - lefts.table) < 2, `table left ${lefts.table} vs paragraph ${lefts.paragraph}`);
+        }
         if (process.env.SCREENSHOTS && width !== 320 && route !== '/newsroom') {
           await page.locator('.feature-image img, .post-hero img').evaluateAll(images => Promise.all(images.map(img => img.decode())));
           const name = route === '/' ? 'blog' : route === '/tools' ? 'tools' : 'post';
