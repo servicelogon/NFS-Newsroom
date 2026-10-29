@@ -130,7 +130,7 @@
 .prose .hljs-string,.prose .hljs-attr,.prose .hljs-attribute { color:#b8d994; }
 .prose .hljs-number,.prose .hljs-literal,.prose .hljs-built_in,.prose .hljs-variable { color:#f2b37f; }
 .prose .hljs-meta,.prose .hljs-symbol,.prose .hljs-bullet { color:#86b7e7; }
-.prose table { display:block; max-width:100%; overflow-x:auto; border-collapse:collapse; font-size:16px; margin:28px 0; }
+.prose table { display:block; max-width:760px; overflow-x:auto; border-collapse:collapse; font-size:16px; margin:28px auto; }
 .prose th,.prose td { text-align:left; padding:10px 15px; border:1px solid var(--line); }
 .prose th { color:var(--ink); background:var(--panel); }
 .prose img { display:block; max-width:100%; height:auto; margin:28px auto; border:1px solid var(--line); border-radius:5px; }
