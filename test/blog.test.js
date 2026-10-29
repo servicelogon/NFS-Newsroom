@@ -62,7 +62,7 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/favicon.ico', '/assets/favicon.ico', '/assets/favicon-32.png', '/assets/apple-touch-icon.png', '/assets/site.css', '/assets/site.js', '/assets/notes-from-the-frontier.png', '/assets/toolbox-wordmark.png', '/assets/new-frontier-security-logo.png', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp', '/assets/blog/introducing-ca-gap-evaluator-header.webp']) {
+  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/favicon.ico', '/assets/favicon.ico', '/assets/favicon-32.png', '/assets/apple-touch-icon.png', '/assets/site.css', '/assets/site.js', '/assets/notes-from-the-frontier.png', '/assets/toolbox-wordmark.png', '/assets/new-frontier-security-logo.png', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp', '/assets/blog/introducing-ca-gap-evaluator-header.webp', '/assets/blog/ca-gap-evaluator-heatmap.webp']) {
     const response = await fetch(base + path);
     assert.equal(response.status, 200, path);
   }
@@ -290,6 +290,8 @@ test('published posts include the CA Gap Evaluator note in the blog and search i
   assert.equal(post.draft, false);
   assert.equal(post.title, 'Introducing CA Gap Evaluator');
   assert.equal(post.image, '/assets/blog/introducing-ca-gap-evaluator-header.webp');
+  assert.match(post.html, /src="\/assets\/blog\/ca-gap-evaluator-heatmap\.webp"/);
+  assert.match(post.html, /loading="lazy" decoding="async"/);
   assert.match(post.html, /https:\/\/servicelogon\.github\.io\/CAP-Evaluator\//);
   assert.match(post.html, /https:\/\/github\.com\/servicelogon\/CAP-Evaluator/);
   assert.doesNotMatch(post.html, /<h1/);
