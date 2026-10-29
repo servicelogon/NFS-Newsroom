@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
 import { gunzipSync, brotliDecompressSync } from 'node:zlib';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { loadPosts, parsePost, postPage, SITE_ORIGIN, SITE_TOOLS, searchIndexScript } from '../blog.js';
+import { loadPosts, parsePost, postPage, SITE_ORIGIN, SITE_TOOLS, searchIndex, searchIndexScript } from '../blog.js';
 import { createAppServer } from '../server.js';
 const source = (title, date = '2026-09-14', extra = '', body = '## Heading\n\n**Strong** and [safe](https://example.com).') => `---\ntitle: ${title}\ndescription: A test field note\ndate: ${date}\n${extra}---\n${body}`;
 async function directory(t) { // temp posts folder, deleted after the test
@@ -61,7 +62,7 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/favicon.ico', '/assets/favicon.ico', '/assets/favicon-32.png', '/assets/apple-touch-icon.png', '/assets/site.css', '/assets/site.js', '/assets/notes-from-the-frontier.png', '/assets/toolbox-wordmark.png', '/assets/new-frontier-security-logo.png', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp']) {
+  for (const path of ['/', '/index.html', '/blog', '/blog/', '/blog/published', '/blog/published/', '/tools', '/tools/', '/newsroom', '/newsroom/', '/favicon.ico', '/assets/favicon.ico', '/assets/favicon-32.png', '/assets/apple-touch-icon.png', '/assets/site.css', '/assets/site.js', '/assets/notes-from-the-frontier.png', '/assets/toolbox-wordmark.png', '/assets/new-frontier-security-logo.png', '/assets/blog/entra-default-settings-header.jpg', '/assets/blog/entra-block-legacy-authentication.jpg', '/assets/blog/entra-user-default-permissions.jpg', '/assets/blog/entra-user-consent-settings.jpg', '/assets/blog/evilginx-quickstart-header.webp', '/assets/blog/entra-conditional-access-baselines-header.webp', '/assets/blog/entra-conditional-access-policy-list.webp', '/assets/blog/introducing-ca-gap-evaluator-header.webp']) {
     const response = await fetch(base + path);
     assert.equal(response.status, 200, path);
   }
@@ -280,4 +281,17 @@ test('related notes fall back to the two newest other posts when tags do not ove
   assert.match(tagged, /href="\/blog\/shared"/);
   assert.doesNotMatch(tagged, /href="\/blog\/newest"/);
   assert.doesNotMatch(postPage(current, { posts: [current] }), /Continue exploring/);
+});
+
+test('published posts include the CA Gap Evaluator note in the blog and search index', async () => {
+  const posts = await loadPosts(join(dirname(fileURLToPath(import.meta.url)), '../content/posts'));
+  const post = posts.find(item => item.slug === 'introducing-ca-gap-evaluator');
+  assert.ok(post);
+  assert.equal(post.draft, false);
+  assert.equal(post.title, 'Introducing CA Gap Evaluator');
+  assert.equal(post.image, '/assets/blog/introducing-ca-gap-evaluator-header.webp');
+  assert.match(post.html, /https:\/\/servicelogon\.github\.io\/CAP-Evaluator\//);
+  assert.match(post.html, /https:\/\/github\.com\/servicelogon\/CAP-Evaluator/);
+  assert.doesNotMatch(post.html, /<h1/);
+  assert.ok(searchIndex(posts).posts.some(item => item.href === '/blog/introducing-ca-gap-evaluator'));
 });
