@@ -12,9 +12,11 @@ test('search index lists published posts and the toolbox entries', () => {
     { title: 'Second note', href: '/blog/second-note', description: 'Cloud field note' },
   ]);
   assert.deepEqual(catalog.tools, SITE_TOOLS);
-  assert.equal(catalog.tools.length, 3);
+  assert.deepEqual(SITE_TOOLS.map(tool => tool.title), ['CAP Evaluator', 'Copilot Security Trail', 'Passkey AAGUID Lookup', 'Entra Token Lab']);
+  assert.equal(catalog.tools.length, SITE_TOOLS.length);
   assert.equal(SITE_TOOLS[0].title, 'CAP Evaluator');
   assert.equal(SITE_TOOLS.some(tool => tool.title === 'CAP Evaluator' && tool.href === '/tools#cap-evaluator'), true);
+  assert.equal(SITE_TOOLS.some(tool => tool.title === 'Entra Token Lab' && tool.href === '/tools#entra-token-lab'), true);
 });
 
 test('query matching is case-insensitive across title, description, and source', () => {
