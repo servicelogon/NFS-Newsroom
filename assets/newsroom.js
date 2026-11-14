@@ -11,7 +11,7 @@ const state = {
   sources: [], total: 0, totalArticles: 0, nextOffset: null, pulseCounts: {},
   checkedAt: null, loading: true, error: '',
 };
-let controller, searchTimer;
+let controller, switchMotion = false;
 let requestId = 0;
 const viewKey = () => JSON.stringify([state.topic, state.microsoftFilter, state.query]);
 
@@ -19,7 +19,6 @@ function renderPulse() {
   const mode = shouldShowCoveragePulse({ loading: state.loading, articleCount: state.totalArticles });
   const root = $('#coverage-pulse');
   root.hidden = mode === 'hidden';
-  if (root.hidden) root.open = false;
   root.dataset.loading = String(mode === 'placeholder');
   root.setAttribute('aria-busy', String(mode === 'placeholder'));
   const strip = $('#coverage-pulse-strip');
@@ -50,12 +49,11 @@ function renderPulse() {
     const count = document.createElement('span');
     count.className = 'coverage-pulse-chip-count';
     count.textContent = topic.count;
-    button.append(label, count);
+    button.append(count, label);
     button.addEventListener('click', () => selectTopic(topic.id));
     return button;
   }));
-  const partial = state.sources.some(source => source.status !== 'ok') || Boolean(state.error);
-  $('.coverage-pulse-note').textContent = `Article volume, not threat severity. Microsoft coverage overlaps other topics.${partial ? ' Some feeds are unavailable; counts may be incomplete.' : ''}`;
+  $('.coverage-pulse-note').textContent = 'Article volume, not threat severity. Microsoft coverage overlaps other topics.';
 }
 
 function applyEmptyState(root, visibleCount, front = false) {
@@ -92,7 +90,16 @@ function renderCards(container, articles, front = false) {
 function render() {
   $('#front-page').hidden = !state.front;
   $('#briefing-view').hidden = state.front;
+  $('#briefing-bar').hidden = state.front;
   $('#front-page-link').setAttribute('aria-pressed', String(state.front));
+  $('#pulse-all-coverage').setAttribute('aria-pressed', String(!state.front));
+  if (switchMotion && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const view = $('.content');
+    view.classList.remove('is-entering');
+    void view.offsetWidth;
+    view.classList.add('is-entering');
+  }
+  switchMotion = false;
   $('#microsoft-filter').hidden = state.topic !== 'microsoft';
   document.querySelectorAll('[data-microsoft-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.microsoftFilter === state.microsoftFilter)));
   const topic = TOPIC_BY_ID.get(state.topic);
@@ -103,7 +110,9 @@ function render() {
   $('#front-page-date').textContent = formatCalendarDate(today, { weekday: true });
   writeFilters();
   $('#front-page-status').textContent = state.loading ? 'Loading headlines…' : `${state.frontPage.length} headlines loaded.`;
-  $('#briefing-status').textContent = state.loading ? 'Loading coverage…' : `${state.stories.length} of ${state.total} matching articles`;
+  const matchCount = state.loading ? 'Loading coverage…' : `${state.stories.length} of ${state.total} matching articles`;
+  $('#briefing-status').textContent = state.loading ? 'Loading…' : `${state.stories.length} of ${state.total}`;
+  $('#briefing-status').setAttribute('aria-label', matchCount);
   if (state.front) renderCards($('#front-page-feed'), state.frontPage, true);
   else renderCards($('#feed'), state.stories);
   applyEmptyState($('#front-page-empty'), state.frontPage.length, true);
@@ -119,7 +128,6 @@ function render() {
 }
 
 async function loadNews({ append = false } = {}) {
-  clearTimeout(searchTimer);
   controller?.abort();
   controller = new AbortController();
   const current = controller;
@@ -152,8 +160,6 @@ async function loadNews({ append = false } = {}) {
 }
 
 function selectTopic(topic) {
-  if ($('#coverage-pulse').contains(document.activeElement)) $('#coverage-pulse summary').focus();
-  $('#coverage-pulse').open = false;
   state.front = false;
   state.topic = topic;
   if (topic !== 'microsoft') state.microsoftFilter = 'all';
@@ -164,64 +170,33 @@ function selectTopic(topic) {
 function reset() {
   state.query = '';
   state.microsoftFilter = 'all';
-  $('#search').value = '';
   selectTopic('all');
 }
-$('#pulse-all-coverage').addEventListener('click', reset);
+$('#pulse-all-coverage').addEventListener('click', () => {
+  if (!state.front && state.topic === 'all' && state.microsoftFilter === 'all' && !state.query) return;
+  switchMotion = true;
+  reset();
+});
 $('#front-page-link').addEventListener('click', () => {
+  if (state.front) return;
+  switchMotion = true;
   state.front = true;
-  $('#coverage-pulse').open = false;
   render();
 });
-document.addEventListener('click', event => {
-  if (!$('#coverage-pulse').contains(event.target)) $('#coverage-pulse').open = false;
-});
 $('#load-more').addEventListener('click', () => loadNews({ append: true }));
-document.querySelectorAll('[data-empty-reset], #clear').forEach(button => button.addEventListener('click', reset));
+document.querySelectorAll('[data-empty-reset]').forEach(button => button.addEventListener('click', reset));
 document.querySelectorAll('[data-microsoft-filter]').forEach(button => button.addEventListener('click', () => {
   state.microsoftFilter = button.dataset.microsoftFilter;
   state.stories = [];
   state.nextOffset = null;
   loadNews();
 }));
-$('#search').addEventListener('input', event => {
-  controller?.abort();
-  ++requestId;
-  clearTimeout(searchTimer);
-  state.query = event.target.value.trim();
-  state.stories = [];
-  state.nextOffset = null;
-  state.loading = true;
-  render();
-  searchTimer = setTimeout(loadNews, 150);
-});
-document.addEventListener('keydown', event => {
-  if ($('#main').inert || $('.shell').inert || event.metaKey || event.ctrlKey || event.altKey) return;
-  if (event.key === 'Escape' && $('#coverage-pulse').open) {
-    $('#coverage-pulse').open = false;
-    $('#coverage-pulse summary').focus();
-    return;
-  }
-  if (event.key === '/' && !document.activeElement.matches('input,textarea,select,[contenteditable="true"]')) {
-    event.preventDefault();
-    if (state.front) reset();
-    $('#search').focus();
-  }
-  if (event.key === 'Escape' && document.activeElement === $('#search')) {
-    state.query = '';
-    $('#search').value = '';
-    state.stories = [];
-    loadNews();
-    $('#search').blur();
-  }
-});
 function applyUrlFilters() {
   const filters = filtersFromSearch(location.search);
   state.front = filters.front;
   state.topic = filters.topic;
   state.microsoftFilter = filters.microsoftFilter;
-  state.query = filters.query;
-  $('#search').value = state.query;
+  state.query = '';
 }
 
 function writeFilters() {
@@ -234,3 +209,103 @@ applyUrlFilters();
 // Exposed for the browser test harness.
 window.loadNews = loadNews;
 loadNews();
+
+// Quiet wireframe beside the category counts. One still frame when motion is reduced.
+function initNewsroomGlobe() {
+  const canvas = document.querySelector('.newsroom-globe');
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  let frame = 0;
+  let running = false;
+  const tilt = 0.42;
+
+  function size() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = canvas.clientWidth || 156;
+    canvas.width = Math.max(1, Math.round(width * dpr));
+    canvas.height = canvas.width;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function point(lat, lon, rotation) {
+    const x = Math.cos(lat) * Math.sin(lon + rotation);
+    const y = Math.sin(lat);
+    const z = Math.cos(lat) * Math.cos(lon + rotation);
+    return { x, y: y * Math.cos(tilt) - z * Math.sin(tilt), z: y * Math.sin(tilt) + z * Math.cos(tilt) };
+  }
+
+  function stroke(samples, rotation, front) {
+    const width = canvas.clientWidth || 156;
+    const radius = width * 0.42;
+    const cx = width / 2;
+    const cy = width / 2;
+    ctx.beginPath();
+    let drawing = false;
+    for (const [lat, lon] of samples) {
+      const p = point(lat, lon, rotation);
+      if ((front && p.z < 0) || (!front && p.z >= 0)) { drawing = false; continue; }
+      const x = cx + p.x * radius;
+      const y = cy - p.y * radius;
+      if (!drawing) { ctx.moveTo(x, y); drawing = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function draw(rotation) {
+    const width = canvas.clientWidth || 156;
+    ctx.clearRect(0, 0, width, width);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = getComputedStyle(canvas).color;
+    ctx.beginPath();
+    ctx.arc(width / 2, width / 2, width * 0.42, 0, Math.PI * 2);
+    ctx.stroke();
+    const rings = [];
+    for (let i = 1; i <= 3; i++) {
+      const lat = -Math.PI / 2 + (i * Math.PI) / 4;
+      const samples = [];
+      for (let step = 0; step <= 64; step++) samples.push([lat, (step / 64) * Math.PI * 2]);
+      rings.push(samples);
+    }
+    for (let i = 0; i < 6; i++) {
+      const lon = (i / 6) * Math.PI;
+      const samples = [];
+      for (let step = 0; step <= 48; step++) samples.push([-Math.PI / 2 + (step / 48) * Math.PI, lon]);
+      rings.push(samples);
+    }
+    ctx.globalAlpha = 0.28;
+    for (const samples of rings) stroke(samples, rotation, false);
+    ctx.globalAlpha = 0.9;
+    for (const samples of rings) stroke(samples, rotation, true);
+    ctx.globalAlpha = 1;
+  }
+
+  function tick(now) {
+    draw((now || 0) * 0.00022);
+    frame = requestAnimationFrame(tick);
+  }
+
+  function start() {
+    if (running || reduce.matches) return;
+    running = true;
+    frame = requestAnimationFrame(tick);
+  }
+
+  function stop(still = 0.8) {
+    running = false;
+    cancelAnimationFrame(frame);
+    draw(still);
+  }
+
+  size();
+  reduce.matches ? stop() : start();
+  reduce.addEventListener('change', () => (reduce.matches ? stop() : start()));
+  new ResizeObserver(() => { size(); if (!running) draw(0.8); }).observe(canvas);
+  new IntersectionObserver(([entry]) => {
+    if (reduce.matches) return;
+    entry.isIntersecting ? start() : stop();
+  }).observe(canvas);
+}
+
+initNewsroomGlobe();

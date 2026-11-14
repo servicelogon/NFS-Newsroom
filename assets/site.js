@@ -32,252 +32,14 @@ function collectResults(index, articles, query) {
   return [...posts, ...tools, ...headlines];
 }
 
-// Footer sky: stars stream right-to-left past the mark (it faces right), with
-// shooting stars and a warp boost while the logo is hovered. The canvas backing
-// store is sized to whole device pixels and drawing snaps to that grid so stars
-// stay sharp. Only animates on screen; reduced motion gets a single still frame.
-function initFooterSky() {
-  const mark = document.querySelector('.footer-mark');
-  const canvas = mark?.querySelector('.footer-starfield');
-  const ctx = canvas?.getContext('2d');
-  if (!ctx) return;
-  const logo = mark.querySelector('.footer-logo');
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  const TAU = Math.PI * 2;
-  const palette = ['#ffffff', '#ffffff', '#ffffff', '#eef3ff', '#d7e4ff', '#b9d3ff', '#ffeccc'];
-  const pick = list => list[Math.floor(Math.random() * list.length)];
-  let dpr = 1;
-  let width = 0;
-  let height = 0;
-  let stars = [];
-  let beacons = [];
-  let meteors = [];
-  let frame = 0;
-  let last = 0;
-  let clock = 0;
-  let nextMeteor = 1.2;
-  let warp = 0;
-  let warpTarget = 0;
-  let visible = false;
-  const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
-  const snap = value => Math.round(value * dpr) / dpr;
-  const hairline = () => 1 / dpr;
-
-  function makeStar(x) {
-    const z = Math.random() ** 1.7;
-    return { x, y: Math.random() * height, z, size: z > 0.75 ? 2 : z > 0.35 ? 1.5 : 1, color: pick(palette), phase: Math.random() * TAU, rate: 0.5 + Math.random() * 2.2 };
-  }
-
-  function seed() {
-    const count = Math.round(Math.min(460, (width * height) / 2200));
-    stars = Array.from({ length: count }, () => makeStar(Math.random() * width));
-    beacons = Array.from({ length: Math.max(3, Math.round(width / 280)) }, () => ({
-      ...makeStar(Math.random() * width),
-      y: height * (0.3 + Math.random() * 0.55),
-      z: 0.6 + Math.random() * 0.4,
-      color: pick(['#ffffff', '#e3ecff', '#fff6d8']),
-    }));
-    meteors = [];
-  }
-
-  function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const box = mark.getBoundingClientRect();
-    canvas.width = Math.max(1, Math.round(box.width * dpr));
-    canvas.height = Math.max(1, Math.round(box.height * dpr));
-    width = canvas.width / dpr;
-    height = canvas.height / dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    seed();
-    draw();
-  }
-
-  function spawnMeteor() {
-    const angle = (6 + Math.random() * 18) * (Math.PI / 180);
-    const speed = 700 + Math.random() * 600;
-    meteors.push({
-      x: width * (Math.random() * 0.75 - 0.1),
-      y: height * (0.3 + Math.random() * 0.4),
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      length: 120 + Math.random() * 160,
-      age: 0,
-      life: 0.8 + Math.random() * 0.6,
-      tint: Math.random() < 0.3 ? '247, 255, 0' : '200, 220, 255',
-    });
-  }
-
-  function update(dt) {
-    clock += dt;
-    warp += (warpTarget - warp) * Math.min(1, dt * (warpTarget ? 2.2 : 1.4));
-    pointer.x += (pointer.tx - pointer.x) * Math.min(1, dt * 2.5);
-    pointer.y += (pointer.ty - pointer.y) * Math.min(1, dt * 2.5);
-    mark.style.setProperty('--sky-x', pointer.x.toFixed(3));
-    mark.style.setProperty('--sky-y', pointer.y.toFixed(3));
-    const boost = 1 + warp * 22;
-    for (const list of [stars, beacons]) {
-      for (const star of list) {
-        star.x -= (3 + star.z * 24) * boost * dt;
-        if (star.x < -60) {
-          star.x = width + 60;
-          if (list === stars) star.y = Math.random() * height;
-        }
-      }
-    }
-    nextMeteor -= dt * (1 + warp * 3);
-    if (nextMeteor <= 0) {
-      spawnMeteor();
-      nextMeteor = 2.2 + Math.random() * 4.5;
-    }
-    meteors = meteors.filter(meteor => {
-      meteor.age += dt;
-      meteor.x += meteor.vx * dt;
-      meteor.y += meteor.vy * dt;
-      return meteor.age < meteor.life;
-    });
-  }
-
-  function spike(x, y, dx, dy, color, alpha) {
-    const line = ctx.createLinearGradient(x - dx, y - dy, x + dx, y + dy);
-    line.addColorStop(0, 'rgba(255, 255, 255, 0)');
-    line.addColorStop(0.5, color);
-    line.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.globalAlpha = alpha;
-    ctx.strokeStyle = line;
-    ctx.beginPath();
-    ctx.moveTo(x - dx, y - dy);
-    ctx.lineTo(x + dx, y + dy);
-    ctx.stroke();
-  }
-
-  function draw() {
-    ctx.clearRect(0, 0, width, height);
-    ctx.lineCap = 'butt';
-    const streak = warp * 70;
-    for (const star of stars) {
-      const size = Math.max(hairline(), snap(star.size));
-      const x = snap(star.x + pointer.x * star.z * 26 - size / 2);
-      const y = snap(star.y + pointer.y * star.z * 16 - size / 2);
-      ctx.globalAlpha = (0.6 + 0.4 * star.z) * (0.74 + 0.26 * Math.sin(clock * star.rate + star.phase));
-      ctx.fillStyle = star.color;
-      const length = streak * star.z * star.z * 2;
-      if (length > 1 || star.size === 1) {
-        ctx.fillRect(x, y, length > 1 ? snap(length) : size, size);
-      } else {
-        ctx.beginPath();
-        ctx.arc(x + size / 2, y + size / 2, star.size / 2, 0, TAU);
-        ctx.fill();
-      }
-    }
-    ctx.lineWidth = hairline();
-    for (const beacon of beacons) {
-      const x = snap(beacon.x + pointer.x * beacon.z * 26) + hairline() / 2;
-      const y = snap(beacon.y + pointer.y * beacon.z * 16) + hairline() / 2;
-      const pulse = 0.5 + 0.5 * Math.sin(clock * beacon.rate * 0.6 + beacon.phase);
-      const reach = 8 + pulse * 6 + warp * 30;
-      spike(x, y, reach * (1 + warp * 2), 0, beacon.color, 0.55 + pulse * 0.35);
-      spike(x, y, 0, reach * 0.75, beacon.color, 0.45 + pulse * 0.35);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = beacon.color;
-      ctx.beginPath();
-      ctx.arc(x, y, 1.4, 0, TAU);
-      ctx.fill();
-    }
-    ctx.lineWidth = Math.max(hairline(), snap(1.25));
-    for (const meteor of meteors) {
-      const fade = Math.sin(Math.PI * (meteor.age / meteor.life));
-      const speed = Math.hypot(meteor.vx, meteor.vy);
-      const tailX = meteor.x - (meteor.vx / speed) * meteor.length * fade;
-      const tailY = meteor.y - (meteor.vy / speed) * meteor.length * fade;
-      const tail = ctx.createLinearGradient(meteor.x, meteor.y, tailX, tailY);
-      tail.addColorStop(0, `rgba(255, 255, 255, ${fade})`);
-      tail.addColorStop(0.3, `rgba(${meteor.tint}, ${0.5 * fade})`);
-      tail.addColorStop(1, `rgba(${meteor.tint}, 0)`);
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = tail;
-      ctx.beginPath();
-      ctx.moveTo(meteor.x, meteor.y);
-      ctx.lineTo(tailX, tailY);
-      ctx.stroke();
-      ctx.fillStyle = `rgba(255, 255, 255, ${fade})`;
-      ctx.beginPath();
-      ctx.arc(meteor.x, meteor.y, 1.2, 0, TAU);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  function tick(now) {
-    frame = requestAnimationFrame(tick);
-    const dt = Math.min((now - last) / 1000, 0.05);
-    last = now;
-    update(dt);
-    draw();
-  }
-
-  function start() {
-    if (frame || !visible || document.hidden || reduceMotion.matches) return;
-    last = performance.now();
-    frame = requestAnimationFrame(tick);
-  }
-
-  function stop() {
-    cancelAnimationFrame(frame);
-    frame = 0;
-  }
-
-  mark.addEventListener('pointermove', event => {
-    const box = mark.getBoundingClientRect();
-    pointer.tx = ((event.clientX - box.left) / box.width) * 2 - 1;
-    pointer.ty = ((event.clientY - box.top) / box.height) * 2 - 1;
-  });
-  mark.addEventListener('pointerleave', () => {
-    pointer.tx = 0;
-    pointer.ty = 0;
-  });
-  logo?.addEventListener('pointerenter', () => { warpTarget = 1; });
-  logo?.addEventListener('pointerleave', () => { warpTarget = 0; });
-  new ResizeObserver(resize).observe(mark);
-  new IntersectionObserver(([entry]) => {
-    visible = entry.isIntersecting;
-    visible ? start() : stop();
-  }).observe(mark);
-  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
-  reduceMotion.addEventListener('change', () => {
-    if (reduceMotion.matches) {
-      stop();
-      draw();
-    } else {
-      start();
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', initFooterSky);
 
 function initSite() {
-  const toggle = document.querySelector('.theme-toggle');
-  const updateToggle = () => {
-    const isLight = document.documentElement.dataset.theme === 'light';
-    toggle?.setAttribute('aria-pressed', String(isLight));
-    toggle?.setAttribute('aria-label', `Switch to ${isLight ? 'dark' : 'light'} mode`);
-    toggle?.setAttribute('title', `Switch to ${isLight ? 'dark' : 'light'} mode`);
-  };
-  updateToggle();
-  toggle?.addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('nfs-theme', next); } catch {}
-    updateToggle();
-  });
   // Newsroom uses this file too; skip menu wiring if the page has no hamburger.
   const menu = document.querySelector('.site-menu');
   if (menu) {
     menu.addEventListener('toggle', () => {
       menu.querySelector('summary').setAttribute('aria-label', menu.open ? 'Close navigation menu' : 'Open navigation menu');
+      document.documentElement.classList.toggle('nav-open', menu.open);
     });
     document.addEventListener('click', event => {
       if (!menu.contains(event.target)) menu.open = false; // click outside closes the menu
@@ -476,5 +238,88 @@ function initSite() {
     }
   }, true);
 }
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSite, { once: true });
-else initSite();
+function startSite() {
+  initSite();
+  initFooterWire();
+}
+
+// One hairline wireframe above the footer name. A single slow turn; a still frame when motion is reduced.
+function initFooterWire() {
+  const canvas = document.querySelector('.footer-wire');
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+  const phi = (1 + Math.sqrt(5)) / 2;
+  const verts = [[-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0], [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi], [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1]]
+    .map(([x, y, z]) => { const length = Math.hypot(x, y, z); return [x / length, y / length, z / length]; });
+  const edges = [[0, 1], [0, 5], [0, 7], [0, 10], [0, 11], [1, 5], [1, 7], [1, 8], [1, 9], [2, 3], [2, 4], [2, 6], [2, 10], [2, 11], [3, 4], [3, 6], [3, 8], [3, 9], [4, 5], [4, 9], [4, 11], [5, 9], [5, 11], [6, 7], [6, 8], [6, 10], [7, 8], [7, 10], [8, 9], [10, 11]];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const tilt = 0.62;
+  let frame = 0;
+  let running = false;
+
+  function size() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = canvas.clientWidth || 168;
+    canvas.width = Math.max(1, Math.round(width * dpr));
+    canvas.height = canvas.width;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function project(vertex, yaw) {
+    const [x, y, z] = vertex;
+    const x1 = x * Math.cos(yaw) + z * Math.sin(yaw);
+    const z1 = -x * Math.sin(yaw) + z * Math.cos(yaw);
+    return { x: x1, y: y * Math.cos(tilt) - z1 * Math.sin(tilt), z: y * Math.sin(tilt) + z1 * Math.cos(tilt) };
+  }
+
+  function draw(yaw) {
+    const width = canvas.clientWidth || 168;
+    const radius = width * 0.36;
+    const cx = width / 2;
+    const cy = width / 2;
+    ctx.clearRect(0, 0, width, width);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = getComputedStyle(canvas).color;
+    const lines = edges.map(([a, b]) => {
+      const start = project(verts[a], yaw);
+      const end = project(verts[b], yaw);
+      return { start, end, depth: (start.z + end.z) / 2 };
+    }).sort((a, b) => a.depth - b.depth);
+    for (const line of lines) {
+      ctx.globalAlpha = line.depth < 0 ? 0.28 : 0.9;
+      ctx.beginPath();
+      ctx.moveTo(cx + line.start.x * radius, cy - line.start.y * radius);
+      ctx.lineTo(cx + line.end.x * radius, cy - line.end.y * radius);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function tick(now) {
+    draw((now || 0) * 0.00018);
+    frame = requestAnimationFrame(tick);
+  }
+
+  function start() {
+    if (running || reduce.matches) return;
+    running = true;
+    frame = requestAnimationFrame(tick);
+  }
+
+  function stop(still = 0.4) {
+    running = false;
+    cancelAnimationFrame(frame);
+    draw(still);
+  }
+
+  size();
+  reduce.matches ? stop() : start();
+  reduce.addEventListener('change', () => (reduce.matches ? stop() : start()));
+  new ResizeObserver(() => { size(); if (!running) draw(0.4); }).observe(canvas);
+  new IntersectionObserver(([entry]) => {
+    if (reduce.matches) return;
+    entry.isIntersecting ? start() : stop();
+  }).observe(canvas);
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startSite, { once: true });
+else startSite();

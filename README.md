@@ -189,7 +189,7 @@ This project is intended for a single local process or private preview, not a ha
 | `index.html` | Newsroom body fragment inside the shared shell |
 | `assets/newsroom.js` / `assets/article-card.js` | Request/state handling and shared article rendering |
 | `assets/news-topics.js` / `assets/search.js` / `assets/coverage-pulse.js` | Shared server/browser contracts |
-| `assets/site.js` / `assets/theme.js` | Search, navigation, footer animation, early theme preference |
+| `assets/site.js` | Search, navigation, and the footer animation |
 | `assets/site.css` / `assets/newsroom.css` | Shared design tokens and newsroom composition |
 
 ## Sources
