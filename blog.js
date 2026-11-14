@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import hljs from 'highlight.js/lib/common';
 import MarkdownIt from 'markdown-it';
 import { formatCalendarDate } from './assets/dates.js';
+import { categoryColor } from './assets/news-topics.js';
 export { searchHaystack, itemMatchesQuery } from './assets/search.js';
 
 // ---------------------------------------------------------------------------
@@ -401,13 +402,13 @@ export function searchIndexScript(posts = []) {
 // ---------------------------------------------------------------------------
 // Document shell
 // ---------------------------------------------------------------------------
-// Desktop nav, theme toggle, and the mobile <details> menu share one link
-// list so the three places cannot drift. aria-current marks the active page.
+// Desktop nav and the mobile <details> menu share one link
+// list so the two places cannot drift. aria-current marks the active page.
 
 const NAV_LINKS = [['Blog', '/'], ['Newsroom', '/newsroom'], ['Toolbox', '/tools']];
 export function navigation(active) {
   const links = NAV_LINKS.map(([name, href]) => `<a href="${href}"${active === name ? ' aria-current="page"' : ''}>${name}</a>`).join('');
-  return `<div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation">${links}</nav><button class="search-toggle" type="button" aria-label="Search the site" title="Search the site (Ctrl or Cmd + K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button><button class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation">${links}</nav></details></div>`;
+  return `<div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation">${links}</nav><button class="search-toggle" type="button" aria-label="Search the site" title="Search the site (Ctrl or Cmd + K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation">${links}</nav></details></div>`;
 }
 
 function footerNav(active) {
@@ -419,7 +420,7 @@ function footerBase(active) {
 }
 
 function siteFooter(active) {
-  return `<footer class="site-footer"><div class="footer-mark"><div class="footer-sky" aria-hidden="true"><div class="footer-nebula"></div><canvas class="footer-starfield"></canvas></div><img class="footer-logo" src="/assets/nfs-footer-mark.png" width="640" height="640" alt="New Frontier Security"></div>${footerBase(active)}</footer>`;
+  return `<footer class="site-footer"><div class="footer-mark"><canvas class="footer-wire" width="180" height="180" aria-hidden="true"></canvas></div>${footerBase(active)}</footer>`;
 }
 
 // Shared document used by every public HTML page: SEO head, search index,
@@ -440,7 +441,7 @@ export function layout(title, description, active, body, seo = {}) {
   const feed = active === 'Blog'
     ? `<link rel="alternate" type="application/rss+xml" title="Notes from the Frontier" href="${escapeHtml(absoluteUrl(seo.origin || '', '/blog/feed.xml'))}">`
     : '';
-  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}${feed}<link rel="stylesheet" href="/assets/site.css"><script src="/assets/theme.js"></script><script type="module" src="/assets/site.js"></script>${(seo.styles || []).map(path => `<link rel="stylesheet" href="${path}">`).join('')}${(seo.scripts || []).map(path => `<script type="module" src="${path}"></script>`).join('')}${searchIndexScript(seo.posts || [])}</head><body class="publication ${seo.bodyClass || ''}"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="2010" height="529" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main" tabindex="-1">${body}</main></div>${siteFooter(active)}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="description" content="${escapeHtml(description)}"><title>${escapeHtml(documentTitle)}</title>${head}${feed}<link rel="stylesheet" href="/assets/site.css"><script type="module" src="/assets/site.js"></script>${(seo.styles || []).map(path => `<link rel="stylesheet" href="${path}">`).join('')}${(seo.scripts || []).map(path => `<script type="module" src="${path}"></script>`).join('')}${searchIndexScript(seo.posts || [])}</head><body class="publication ${seo.bodyClass || ''}"><a class="skip" href="#main">Skip to content</a><div class="shell"><header class="topbar"><a class="brand" href="/" aria-label="New Frontier Security home"><img class="brand-logo" src="/assets/new-frontier-security-logo.png" width="1594" height="233" alt="New Frontier Security"></a>${navigation(active)}</header><main id="main" tabindex="-1">${body}</main></div>${siteFooter(active)}</body></html>`;
 }
 
 // Same UTC calendar day as the newsroom. Noon UTC keeps a YYYY-MM-DD value
@@ -461,34 +462,30 @@ function tagChips(post) {
     const slug = tagSlug(label);
     if (!slug || seen.has(slug)) continue;
     seen.add(slug);
-    items.push(`<li><a class="tag" href="/blog/tag/${slug}">${escapeHtml(label)}</a></li>`);
+    items.push(`<li><a class="tag" style="--tag-color:${categoryColor(label)}" href="/blog/tag/${slug}">${escapeHtml(label)}</a></li>`);
   }
   return items.length ? `<ul class="post-tags">${items.join('')}</ul>` : '';
 }
 
-const postImage = (post, className, loading = 'lazy') => post.image
-  ? `<a class="${className}" href="/blog/${post.slug}" aria-label="Read ${escapeHtml(post.title)}"><img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt)}" loading="${loading}" decoding="async"></a>`
+const noteMedia = post => post.image
+  ? `<a class="note-media" href="/blog/${post.slug}" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(post.image)}" alt=""></a>`
   : '';
 
-// Featured (newest) tile uses eager image load and a LATEST ENTRY kicker so
-// the home page's first image is not lazy-loaded below the fold by mistake.
-
-const postTile = (post, { latest = false } = {}) => `<article class="featured-post post-tile"${latest ? ' aria-labelledby="featured-title"' : ''}>${postImage(post, 'feature-image', latest ? 'eager' : 'lazy')}<div class="feature-content"><span class="kicker">${latest ? 'LATEST ENTRY' : 'FIELD NOTE'}</span>${metadata(post)}${tagChips(post)}<h2${latest ? ' id="featured-title"' : ''}><a href="/blog/${post.slug}">${escapeHtml(post.title)}</a></h2><p>${escapeHtml(post.description)}</p></div></article>`;
+// Newest note is a featured image and deck. The rest are dated rows with a thumbnail.
+const noteRow = (post, { latest = false } = {}) => {
+  const color = post.tags?.[0] ? categoryColor(post.tags[0]) : '';
+  return `<article class="note-row post-tile${latest ? ' is-lead' : ''}"${color ? ` style="--topic-color:${color}"` : ''}>${noteMedia(post)}<div class="note-copy"><time datetime="${post.date}">${dateLabel(post.date)}</time><h2${latest ? ' id="featured-title"' : ''}><a href="/blog/${post.slug}">${escapeHtml(post.title)}</a></h2>${latest ? `<p class="note-deck">${escapeHtml(post.description)}</p>` : ''}${tagChips(post)}</div></article>`;
+};
 
 // ---------------------------------------------------------------------------
 // Pages
 // ---------------------------------------------------------------------------
-// Home: newest post as the featured tile, the rest as field-note tiles, plus
-// links into the newsroom and tools. An empty posts list shows a placeholder
-// instead of a broken featured section.
+// Home: one opening line, then every note as a hairline row.
 
 export function blogPage(posts, seo = {}) {
-  const [featured, ...rest] = posts;
   return layout('Blog', 'Notes, ideas, and field guides on identity and cloud security by Nathan Hess.', 'Blog', `
-    <section class="page-intro blog-intro"><h1 class="blog-wordmark"><img src="/assets/notes-from-the-frontier.png" width="1849" height="453" alt="Notes from the Frontier"></h1><div class="intro-bottom"><p>Field notes and news from the new frontier of Identity and Cloud security.</p></div></section>
-    ${featured ? postTile(featured, { latest: true }) : '<section class="empty-state"><h2>A new chapter is on the way.</h2><p>Check back soon for the first field note.</p></section>'}
-    ${rest.length ? `<section class="more-posts" aria-label="More field notes">${rest.map(post => postTile(post)).join('')}</section>` : ''}
-    <aside class="explore-strip"><p>Keep exploring.</p><a class="internal-button" href="/newsroom">Read the Newsroom</a><a class="internal-button" href="/tools">Open the toolbox</a></aside>`, { path: '/', origin: seo.origin || '', image: featured?.image || null, posts });
+    <section class="page-intro blog-intro"><h1>Blog</h1><p class="opening-line">Field notes and news from the new frontier of Identity and Cloud security.</p></section>
+    ${posts.length ? `<section class="note-index" aria-label="Field notes">${posts.map((post, index) => noteRow(post, { latest: index === 0 })).join('')}</section>` : '<section class="empty-state"><h2>A new chapter is on the way.</h2><p>Check back soon for the first field note.</p></section>'}`, { path: '/', origin: seo.origin || '', image: posts[0]?.image || null, posts });
 }
 
 // Single post: heading, optional hero, rendered Markdown. Open Graph type is
@@ -510,7 +507,7 @@ function relatedPosts(post, posts) {
   const picks = matched.length
     ? matched
     : [...others].sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug)).slice(0, 2);
-  return picks.length ? `<aside class="related-posts"><h2>Continue exploring</h2><div class="more-posts">${picks.map(item => postTile(item)).join('')}</div></aside>` : '';
+  return picks.length ? `<aside class="related-posts"><h2>Continue exploring</h2><div class="note-index">${picks.map(item => noteRow(item)).join('')}</div></aside>` : '';
 }
 
 // Archive of posts that share a tag. The intro noun is singular when there
@@ -520,9 +517,9 @@ export function tagPage(label, posts, seo = {}) {
   const count = posts.length;
   const noun = count === 1 ? 'field note' : 'field notes';
   return layout(label, `Field notes tagged ${label}.`, 'Blog', `
-    <section class="page-intro tag-intro"><p class="kicker">TAG</p><h1>${escapeHtml(label)}</h1><div class="intro-bottom"><p>${count} ${noun} with this tag.</p></div></section>
-    <section class="more-posts" aria-label="Field notes tagged ${escapeHtml(label)}">${posts.map(post => postTile(post)).join('')}</section>
-    <aside class="explore-strip"><p>Keep exploring.</p><a class="internal-button" href="/">All field notes</a></aside>`, { path: `/blog/tag/${tagSlug(label)}`, origin: seo.origin || '', image: posts.find(post => post.image)?.image || null, posts: seo.posts || posts });
+    <section class="page-intro tag-intro"><p class="kicker">Tag</p><h1>${escapeHtml(label)}</h1><p class="opening-line">${count} ${noun} with this tag.</p></section>
+    <section class="note-index" aria-label="Field notes tagged ${escapeHtml(label)}">${posts.map(post => noteRow(post)).join('')}</section>
+    <p class="text-link-row"><a href="/">All field notes</a></p>`, { path: `/blog/tag/${tagSlug(label)}`, origin: seo.origin || '', image: posts.find(post => post.image)?.image || null, posts: seo.posts || posts });
 }
 
 // 404 pages send noindex so missing tag/post URLs are not indexed.
@@ -536,15 +533,15 @@ export function notFoundPage(seo = {}) {
 }
 
 // Static toolbox page. The tools live on GitHub Pages; this server only
-// renders the cards and outbound links.
+// renders the list and outbound links. Diagrams stay inside each row.
 
 export function toolsPage(seo = {}) {
   return layout('Toolbox', 'Explore CAP Evaluator, Copilot Security Trail, Passkey AAGUID Lookup, and Entra Token Lab, tools by Nathan Hess.', 'Toolbox', `
-    <section class="page-intro tools-intro"><h1 class="toolbox-wordmark"><img src="/assets/toolbox-wordmark.png" width="1753" height="457" alt="Toolbox"></h1><div class="intro-bottom"><p>A few useful things for the identity-curious. Pick one. Dig in.</p><span class="issue-label">${String(SITE_TOOLS.length).padStart(2, '0')} TOOLS / READY TO EXPLORE</span></div></section>
-    <section class="tool-grid" aria-label="Identity and security tools">
-      <article class="tool-card cap-card" id="cap-evaluator"><div class="tool-top"><span class="kicker">01 / EVALUATE</span><span class="tool-pill">GAP ANALYZER</span></div><div class="tool-visual cap-visual" aria-hidden="true"><span class="cap-prompt">POLICIES → GAPS</span><div class="cap-map"><span class="cap-col">MFA</span><span class="cap-col">Device</span><span class="cap-col">Location</span><span class="cap-col">Session</span><span class="cap-cell is-on"></span><span class="cap-cell is-on"></span><span class="cap-cell is-partial"></span><span class="cap-cell is-gap">GAP</span><span class="cap-cell is-on"></span><span class="cap-cell is-partial"></span><span class="cap-cell is-on"></span><span class="cap-cell is-gap">GAP</span></div><span class="cap-answer">The hole is the finding.</span></div><div class="tool-copy"><p class="kicker">FIND THE COVERAGE GAPS</p><h2>CAP<br>Evaluator</h2><p>Import Entra Conditional Access policies and see what’s enforced, partial, or missing. Heat map, findings, a report — all in the browser. Nothing leaves the machine.</p><div class="tags"><span class="tag">Entra</span><span class="tag">Conditional Access</span><span class="tag">Identity</span></div></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/CAP-Evaluator/" target="_blank" rel="noopener noreferrer" aria-label="Check the gaps (opens in a new tab)">Check the gaps <span class="arrow-icon" aria-hidden="true"></span></a><a class="source-link" href="https://github.com/servicelogon/CAP-Evaluator" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source on GitHub <span class="arrow-icon" aria-hidden="true"></span></a></div></article>
-      <article class="tool-card trail-card" id="copilot-security-trail"><div class="tool-top"><span class="kicker">02 / EXPLORE</span><span class="tool-pill">INTERACTIVE GUIDE</span></div><div class="tool-visual trail-stops" aria-label="Five trail stations"><span>01<small>Data</small></span><i></i><span>02<small>Protection</small></span><i></i><span>03<small>Readiness</small></span><i></i><span>04<small>Agents</small></span><i></i><span>05<small>Zero Trust</small></span></div><div class="tool-copy"><p class="kicker">TAKE THE SCENIC ROUTE</p><h2>Copilot<br>Security Trail</h2><p>Five stops. A clearer view of Copilot security. Explore data protection, agent governance, and Zero Trust at your own pace.</p><div class="tags"><span class="tag">Copilot</span><span class="tag">Zero Trust</span><span class="tag">5 stations</span></div></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/copilot-security-trail/" target="_blank" rel="noopener noreferrer" aria-label="Hit the trail (opens in a new tab)">Hit the trail <span class="arrow-icon" aria-hidden="true"></span></a><a class="source-link" href="https://github.com/servicelogon/copilot-security-trail" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source on GitHub <span class="arrow-icon" aria-hidden="true"></span></a></div></article>
-      <article class="tool-card passkey-card" id="passkey-aaguid-lookup"><div class="tool-top"><span class="kicker">03 / IDENTIFY</span><span class="tool-pill">LOOKUP UTILITY</span></div><div class="tool-visual lookup-visual" aria-hidden="true"><span class="lookup-prompt">AAGUID → PROVIDER</span><div class="lookup-code">xxxxxxxx-xxxx-xxxx<br>-xxxx-xxxxxxxxxxxx</div><span class="lookup-answer">A little less mystery.</span></div><div class="tool-copy"><p class="kicker">PUT A NAME TO THAT PASSKEY</p><h2>Passkey<br>AAGUID Lookup</h2><p>A long identifier, a quick answer. Match an AAGUID to its passkey provider, or browse the directory to see who’s who.</p><div class="tags"><span class="tag">Passkeys</span><span class="tag">Identity</span><span class="tag">AAGUID</span></div></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/PasskeyLookup/" target="_blank" rel="noopener noreferrer" aria-label="Meet your passkey (opens in a new tab)">Meet your passkey <span class="arrow-icon" aria-hidden="true"></span></a><a class="source-link" href="https://github.com/servicelogon/PasskeyLookup" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source on GitHub <span class="arrow-icon" aria-hidden="true"></span></a></div><p class="tool-note">Provider labels use community data; they aren’t a basis for security decisions.</p></article>
-      <article class="tool-card token-card" id="entra-token-lab"><div class="tool-top"><span class="kicker">04 / TRACE</span><span class="tool-pill">AUTH FLOW</span></div><div class="tool-visual token-visual" aria-hidden="true"><span class="token-prompt">SIGN-IN → TICKETS</span><div class="token-flow"><span class="token-node"><b>CODE</b><small>once</small></span><i></i><span class="token-node is-held"><b>ID</b><small>who</small></span><i></i><span class="token-node is-held"><b>ACCESS</b><small>what</small></span><i></i><span class="token-node"><b>REFRESH</b><small>again</small></span></div><span class="token-answer">Each ticket answers one question.</span></div><div class="tool-copy"><p class="kicker">WATCH THE TICKETS MOVE</p><h2>Entra<br>Token Lab</h2><p>Watch a Microsoft sign-in hand off its tickets. Authorization code, ID token, access token, refresh token — where each one goes, and the question it answers.</p><div class="tags"><span class="tag">Entra</span><span class="tag">Tokens</span><span class="tag">Identity</span></div></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/entra-auth-flow-visualizer/" target="_blank" rel="noopener noreferrer" aria-label="Watch the flow (opens in a new tab)">Watch the flow <span class="arrow-icon" aria-hidden="true"></span></a><a class="source-link" href="https://github.com/servicelogon/entra-auth-flow-visualizer" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source on GitHub <span class="arrow-icon" aria-hidden="true"></span></a></div></article>
-    </section><aside class="explore-strip"><a class="internal-button" href="/">Back to the field notes</a></aside>`, { path: '/tools', origin: seo.origin || '', posts: seo.posts || [] });
+    <section class="page-intro tools-intro"><h1>Toolbox</h1><p class="opening-line">Tools for working in the Identity and Cloud security space</p></section>
+    <section class="tool-list" aria-label="Identity and security tools">
+      <article class="tool-row" id="cap-evaluator"><div class="tool-visual cap-visual" aria-hidden="true"><span class="cap-prompt">POLICIES → GAPS</span><div class="cap-map"><span class="cap-col">MFA</span><span class="cap-col">Device</span><span class="cap-col">Location</span><span class="cap-col">Session</span><span class="cap-cell is-on"></span><span class="cap-cell is-on"></span><span class="cap-cell is-partial"></span><span class="cap-cell is-gap">GAP</span><span class="cap-cell is-on"></span><span class="cap-cell is-partial"></span><span class="cap-cell is-on"></span><span class="cap-cell is-gap">GAP</span></div><span class="cap-answer">The hole is the finding.</span></div><div class="tool-copy"><h2>CAP Evaluator</h2><p>Import Entra Conditional Access policies and see what’s enforced, partial, or missing.</p></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/CAP-Evaluator/" target="_blank" rel="noopener noreferrer" aria-label="Check the gaps (opens in a new tab)">Open</a><a class="source-link" href="https://github.com/servicelogon/CAP-Evaluator" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>
+      <article class="tool-row" id="copilot-security-trail"><div class="tool-visual trail-stops" aria-label="Five trail stations"><span>01<small>Data</small></span><i></i><span>02<small>Protection</small></span><i></i><span>03<small>Readiness</small></span><i></i><span>04<small>Agents</small></span><i></i><span>05<small>Zero Trust</small></span></div><div class="tool-copy"><h2>Copilot Security Trail</h2><p>Five stops through Copilot security, data protection, and Zero Trust.</p></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/copilot-security-trail/" target="_blank" rel="noopener noreferrer" aria-label="Hit the trail (opens in a new tab)">Open</a><a class="source-link" href="https://github.com/servicelogon/copilot-security-trail" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>
+      <article class="tool-row" id="passkey-aaguid-lookup"><div class="tool-visual lookup-visual" aria-hidden="true"><span class="lookup-prompt">AAGUID → PROVIDER</span><div class="lookup-code">xxxxxxxx-xxxx-xxxx<br>-xxxx-xxxxxxxxxxxx</div><span class="lookup-answer">A little less mystery.</span></div><div class="tool-copy"><h2>Passkey AAGUID Lookup</h2><p>Match an AAGUID to its passkey provider, or browse the directory.</p><p class="tool-note">Provider labels use community data; they aren’t a basis for security decisions.</p></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/PasskeyLookup/" target="_blank" rel="noopener noreferrer" aria-label="Meet your passkey (opens in a new tab)">Open</a><a class="source-link" href="https://github.com/servicelogon/PasskeyLookup" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>
+      <article class="tool-row" id="entra-token-lab"><div class="tool-visual token-visual" aria-hidden="true"><span class="token-prompt">SIGN-IN → TICKETS</span><div class="token-flow"><span class="token-node"><b>CODE</b><small>once</small></span><i></i><span class="token-node is-held"><b>ID</b><small>who</small></span><i></i><span class="token-node is-held"><b>ACCESS</b><small>what</small></span><i></i><span class="token-node"><b>REFRESH</b><small>again</small></span></div><span class="token-answer">Each ticket answers one question.</span></div><div class="tool-copy"><h2>Entra Token Lab</h2><p>Watch a Microsoft Entra sign-in hand off its authorization code, ID token, access token, and refresh token.</p></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/entra-auth-flow-visualizer/" target="_blank" rel="noopener noreferrer" aria-label="Watch the flow (opens in a new tab)">Open</a><a class="source-link" href="https://github.com/servicelogon/entra-auth-flow-visualizer" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>
+    </section>`, { path: '/tools', origin: seo.origin || '', posts: seo.posts || [] });
 }

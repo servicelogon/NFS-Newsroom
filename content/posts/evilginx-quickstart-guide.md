@@ -3,8 +3,8 @@ title: Evilginx Quick-start Guide
 description: A guide to quickly start a phishing assessment with Evilginx.
 date: 2024-12-06
 author: Nate Hess
-image: /assets/blog/evilginx-quickstart-header.webp
-imageAlt: Evilginx Quick-Start Guide title art
+image: /assets/blog/evilginx-quick-start.jpg
+imageAlt: Pink figure beside the Evilginx Quick-Start Guide title
 tags:
   - Cybersecurity
   - Phishing

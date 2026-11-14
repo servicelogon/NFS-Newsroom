@@ -78,10 +78,10 @@ test('snapshots are reused, manual refresh is throttled, and stale articles expi
   const first = await service.getNews();
   assert.equal(await service.getNews(), first);
   assert.equal(await service.getNews({ force: true }), first);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2); // the feed, then the article page because the item has no picture
   time += 51;
   assert.notEqual(await service.getNews({ force: true }), first);
-  assert.equal(calls, 2);
+  assert.equal(calls, 3); // the page had no story image, so the next refresh does not fetch it again
   offline = true;
   time += 1001;
   const stale = await service.getNews();

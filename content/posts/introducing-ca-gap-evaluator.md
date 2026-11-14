@@ -3,8 +3,8 @@ title: Introducing CA Gap Evaluator
 description: A browser-only way to see where your Conditional Access coverage actually has holes.
 date: 2026-10-29
 author: Nate Hess
-image: /assets/blog/introducing-ca-gap-evaluator-header.webp
-imageAlt: Yellow building line-work beside Entra ID Conditional Access Gap Evaluator title art and the New Frontier Security mark
+image: /assets/blog/conditional-access-gap-evaluator.jpg
+imageAlt: Cyan building beside the Entra ID Conditional Access Gap Evaluator title
 tags:
   - Entra
   - Identity

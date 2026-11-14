@@ -1,25 +1,39 @@
 <!-- Newsroom body, rendered inside the same shell as field notes and tools. -->
 <section class="masthead" aria-label="Newsroom">
-  <img class="newsroom-logo" src="/assets/newsroom-logo.png" width="2033" height="344" alt="NEWSROOM" fetchpriority="high">
+  <h1 class="page-title">Newsroom</h1>
 </section>
 <div class="workspace">
-  <nav class="browse-controls" aria-label="Browse coverage">
-    <button class="front-page-nav" id="front-page-link" type="button" aria-pressed="true"><span>Front Page</span></button>
-    <details id="coverage-pulse" class="coverage-pulse" hidden>
-      <summary><svg class="pulse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Pulse</span><span class="pulse-period">24h</span></summary>
-      <div class="coverage-pulse-panel">
-        <h2 class="coverage-pulse-title">Coverage pulse <span>last 24 hours</span></h2>
-        <p id="coverage-pulse-lead" class="coverage-pulse-lead" hidden></p>
-        <div id="coverage-pulse-strip" class="coverage-pulse-strip"></div>
-        <button class="pulse-all-coverage" id="pulse-all-coverage" type="button">Browse all coverage →</button>
-        <p class="coverage-pulse-note">Article volume, not threat severity. Microsoft coverage overlaps other topics.</p>
+  <div class="browse-controls">
+    <div id="coverage-pulse" class="coverage-pulse" hidden>
+      <div class="coverage-pulse-band">
+        <div class="coverage-pulse-copy">
+          <p id="coverage-pulse-lead" class="coverage-pulse-lead" hidden></p>
+          <div id="coverage-pulse-strip" class="coverage-pulse-strip"></div>
+        </div>
+        <canvas class="newsroom-globe" width="200" height="200" aria-hidden="true"></canvas>
       </div>
-    </details>
-  </nav>
+      <p class="coverage-pulse-note">Article volume, not threat severity. Microsoft coverage overlaps other topics.</p>
+    </div>
+    <nav class="coverage-switch" aria-label="Browse coverage">
+      <button class="text-choice" id="front-page-link" type="button" aria-pressed="true">Front page</button>
+      <button class="text-choice" id="pulse-all-coverage" type="button" aria-pressed="false">All coverage</button>
+    </nav>
+    <div class="newsroom-toolbar">
+      <div class="briefing-bar" id="briefing-bar" hidden>
+        <h1 id="section-title">Latest coverage</h1>
+        <p class="description" id="description">The bigger picture, without the noise.</p>
+        <div class="microsoft-filter" id="microsoft-filter" aria-label="Microsoft feed filters" hidden>
+          <button type="button" data-microsoft-filter="all" aria-pressed="true">All Microsoft</button><button type="button" data-microsoft-filter="news" aria-pressed="false">Microsoft News</button><button type="button" data-microsoft-filter="message-center" aria-pressed="false">Message Center</button>
+        </div>
+        <p id="briefing-status" class="briefing-status" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
   <p class="news-error" id="news-error" role="status" hidden></p>
   <div class="content">
     <section class="front-page" id="front-page" aria-labelledby="front-page-title">
-      <div class="front-page-heading"><div><span class="eyebrow">The daily perspective</span><h1 id="front-page-title">Front Page</h1></div><time class="front-page-date" id="front-page-date"></time></div>
+      <h1 id="front-page-title" class="visually-hidden">Front Page</h1>
+      <time class="front-page-date" id="front-page-date"></time>
       <p class="visually-hidden" id="front-page-status" role="status" aria-live="polite"></p>
       <div class="front-page-feed" id="front-page-feed"></div>
       <div class="empty" id="front-page-empty" hidden>
@@ -28,12 +42,6 @@
       </div>
     </section>
     <section id="briefing-view" aria-labelledby="section-title" hidden>
-      <div class="section-heading"><h1 id="section-title">Latest coverage</h1><p class="description" id="description">The bigger picture, without the noise.</p></div>
-      <div class="microsoft-filter" id="microsoft-filter" aria-label="Microsoft feed filters" hidden>
-        <button type="button" data-microsoft-filter="all" aria-pressed="true">All Microsoft</button><button type="button" data-microsoft-filter="news" aria-pressed="false">Microsoft News</button><button type="button" data-microsoft-filter="message-center" aria-pressed="false">Message Center</button>
-      </div>
-      <div class="tools"><label class="news-search"><span class="visually-hidden">Search news articles</span><input id="search" type="search" placeholder="Search the briefing…" aria-label="Search news articles" maxlength="200"></label><button class="internal-button" id="clear" type="button">Reset filters</button></div>
-      <p id="briefing-status" class="briefing-status" role="status" aria-live="polite"></p>
       <div class="feed" id="feed"></div>
       <button class="internal-button" id="load-more" type="button" hidden>Load more articles</button>
       <div class="empty" id="empty" hidden>
@@ -45,4 +53,4 @@
   </div>
 </div>
 <noscript><p class="empty">Enable JavaScript to browse live news. Field notes and the toolbox work without it.</p></noscript>
-<aside class="newsroom-explore"><a class="internal-button" href="/">Read the field notes</a><a class="internal-button" href="/tools">Explore the toolbox</a></aside>
+<aside class="newsroom-explore"><a href="/">Read the field notes</a><a href="/tools">Toolbox</a></aside>

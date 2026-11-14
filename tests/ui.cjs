@@ -13,6 +13,7 @@ const assert = require('node:assert/strict');
   articles[3] = { ...articles[3], title: 'MC123456 — Fixture admin center update', source: 'MS Message Center', category: 'microsoft' };
   articles[4] = { ...articles[4], title: 'CVE-2026-1234 advisory', source: 'Microsoft Entra Blog', category: 'vulnerabilities' };
   articles[0].imageUrl = 'https://example.com/advisory.jpg';
+  articles[1].imageUrl = 'https://example.com/advisory.jpg';
   articles[0].stale = true;
   let snapshot = {
     articles, frontPageIds: selectFrontPage(articles), updatedAt: new Date(now).toISOString(), checkedAt: new Date(now).toISOString(),
@@ -48,6 +49,7 @@ const assert = require('node:assert/strict');
     const cardImage = page.locator('.story-media img').first();
     assert.equal(await cardImage.getAttribute('alt'), await cardImage.evaluate(img => img.closest('article').querySelector('h2').textContent));
     assert.notEqual(await cardImage.getAttribute('alt'), '');
+    assert.match(await cardImage.evaluate(img => getComputedStyle(img).filter), /grayscale/);
     const zoned = await browser.newPage({ timezoneId: 'America/Los_Angeles', viewport: { width: 1440, height: 1000 } });
     await zoned.goto(base + '/newsroom');
     await expect(zoned.locator('.front-page-story time').first()).toBeVisible();
@@ -59,12 +61,32 @@ const assert = require('node:assert/strict');
     await expect(page.locator('.front-page-story .stale-badge').first()).toHaveText('Cached story');
     await expect(page.locator('#coverage-pulse [data-topic]')).toHaveCount(7);
     await expect(page.locator('#topic-select')).toHaveCount(0);
-    await expect(page.locator('.pulse-icon')).toBeVisible();
-    assert.equal(await page.locator('.pulse-icon').evaluate(el => getComputedStyle(el).color), 'rgb(247, 255, 0)');
-    await expect(page.locator('#coverage-pulse-strip')).toBeHidden();
-    await page.locator('#coverage-pulse summary').click();
+    await expect(page.locator('#coverage-pulse summary, .pulse-icon, .coverage-pulse-panel')).toHaveCount(0);
+    await expect(page.locator('#coverage-pulse-strip')).toBeVisible();
+    const pulseBand = await page.evaluate(() => {
+      const lead = document.querySelector('#coverage-pulse-lead').getBoundingClientRect();
+      const strip = document.querySelector('#coverage-pulse-strip').getBoundingClientRect();
+      const globe = document.querySelector('.newsroom-globe').getBoundingClientRect();
+      const chips = [...document.querySelectorAll('#coverage-pulse-strip [data-topic]')].map(chip => chip.getBoundingClientRect());
+      const gap = chips.length > 1 ? chips[1].left - chips[0].right : 0;
+      return {
+        leadLeft: lead.left, leadTop: lead.top, stripLeft: strip.left, stripBottom: strip.bottom,
+        globeLeft: globe.left, globeRight: globe.right, globeMid: (globe.top + globe.bottom) / 2,
+        globeWidth: globe.width, stripRight: strip.right, gap,
+        bandRight: document.querySelector('.coverage-pulse-band').getBoundingClientRect().right,
+      };
+    });
+    assert.ok(Math.abs(pulseBand.stripLeft - pulseBand.leadLeft) < 2, 'category counts stay left-aligned with the coverage line');
+    assert.ok(pulseBand.gap > 0 && pulseBand.gap < 48, `category counts sit close together (${pulseBand.gap}px)`);
+    assert.ok(pulseBand.globeLeft >= pulseBand.stripRight - 1, 'the globe sits to the right of the counts');
+    assert.ok(pulseBand.globeMid > pulseBand.leadTop && pulseBand.globeMid < pulseBand.stripBottom, 'the globe shares the line with the coverage label and the counts');
+    assert.ok(pulseBand.globeWidth >= 140, 'the globe is larger than the previous mark');
+    assert.ok(pulseBand.bandRight - pulseBand.globeRight < 2, 'the globe is right-aligned');
     await expect(page.locator('#coverage-pulse [data-topic="vulnerabilities"]')).toBeVisible();
     await expect(page.locator('.coverage-pulse-note')).toContainText('not threat severity');
+    await expect(page.locator('.coverage-pulse-note')).not.toContainText('counts may be incomplete');
+    assert.ok(await page.locator('#front-page-link').evaluate(el => parseFloat(getComputedStyle(el).fontSize) >= 28));
+    assert.equal(await page.locator('.coverage-switch').evaluate(el => getComputedStyle(el).borderTopWidth), '1px');
     const pulseStyle = await page.evaluate(() => {
       const hexToRgb = {};
       const labels = {};
@@ -84,13 +106,13 @@ const assert = require('node:assert/strict');
       return { labels, hexToRgb };
     });
     const expectedPulseColors = {
-      cloud: '#f59e0b',
-      identity: '#c084fc',
-      vulnerabilities: '#ff6b6b',
-      incidents: '#f7ff00',
-      malware: '#fb7185',
-      operations: '#2dd4bf',
-      microsoft: '#60a5fa',
+      cloud: '#3b82f6',
+      identity: '#a855f7',
+      vulnerabilities: '#ef4444',
+      incidents: '#f97316',
+      malware: '#ec4899',
+      operations: '#10b981',
+      microsoft: '#6366f1',
     };
     for (const [id, hex] of Object.entries(expectedPulseColors)) {
       assert.equal(pulseStyle.labels[id]?.hex, hex, `${id} uses the feed tag palette`);
@@ -100,8 +122,8 @@ const assert = require('node:assert/strict');
       }
     }
     await page.keyboard.press('Escape');
-    await expect(page.locator('#coverage-pulse-strip')).toBeHidden();
-    assert.ok(await page.locator('#coverage-pulse summary').evaluate(el => el === document.activeElement));
+    await expect(page.locator('#coverage-pulse-strip')).toBeVisible();
+    await expect(page.locator('#coverage-pulse [data-topic]')).toHaveCount(7);
 
     // A single DOM ordering is preserved at every breakpoint.
     const desktopOrder = await page.locator('.front-page-story').evaluateAll(nodes => nodes.map(node => node.dataset.articleId));
@@ -110,17 +132,17 @@ const assert = require('node:assert/strict');
     assert.doesNotMatch(await page.locator('main').innerText(), /The stories worth your attention|headlines shaping the brief|Go beyond the headline/);
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      assert.ok((await page.locator('.browse-controls').boundingBox()).height <= 70, 'collapsed controls fit in one compact row');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `controls fit at ${width}px`);
-      await page.locator('#coverage-pulse summary').click();
-      const panel = await page.locator('.coverage-pulse-panel').boundingBox();
-      assert.ok(panel.x >= 0 && panel.x + panel.width <= width, `pulse panel fits at ${width}px`);
+      const figures = await page.locator('#coverage-pulse-strip').boundingBox();
+      assert.ok(figures.x >= 0 && figures.x + figures.width <= width + 1, `pulse figures fit at ${width}px`);
       if (process.env.SCREENSHOTS && width === 390) await page.screenshot({ path: '/tmp/nfs-controls-expanded-390.png' });
       await page.locator('#coverage-pulse [data-topic="vulnerabilities"]').click();
       await expect(page.locator('#feed > .story')).toHaveCount(2);
-      await expect(page.locator('#coverage-pulse-strip')).toBeHidden();
+      await expect(page.locator('#coverage-pulse-strip')).toBeVisible();
       await expect(page.locator('#section-title')).toHaveText('Vulnerabilities');
-      assert.ok(await page.locator('#coverage-pulse summary').evaluate(el => el === document.activeElement));
+      assert.ok(await page.locator('#section-title').evaluate(el => parseFloat(getComputedStyle(el).fontSize) <= 18));
+      assert.ok(await page.locator('#description').evaluate(el => getComputedStyle(el).position === 'absolute' && el.getBoundingClientRect().height <= 1));
+      await expect(page.locator('#coverage-pulse [data-topic="vulnerabilities"]')).toHaveAttribute('aria-pressed', 'true');
       await page.locator('#front-page-link').click();
       await expect(page.locator('#front-page')).toBeVisible();
       await expect(page.locator('#front-page-link')).toHaveAttribute('aria-pressed', 'true');
@@ -130,55 +152,30 @@ const assert = require('node:assert/strict');
     const positions = await page.locator('.front-page-story').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
     assert.ok(positions.every((top, i) => i === 0 || top > positions[i - 1]), 'mobile visual order follows the ranked DOM');
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.locator('#coverage-pulse summary').click();
     await page.locator('#front-page-link').click();
-    await expect(page.locator('#coverage-pulse-strip')).toBeHidden();
+    await expect(page.locator('#coverage-pulse-strip')).toBeVisible();
     await expect(page.locator('#front-page')).toBeVisible();
-    await page.locator('#coverage-pulse summary').click();
     await page.locator('#pulse-all-coverage').click();
     await expect(page.locator('#feed > .story')).toHaveCount(40);
+    await expect(page.locator('#feed .story-row .story-media img')).toHaveCount(1);
+    const primaryWidth = await page.locator('#feed .lead-story .story-media').evaluate(el => el.getBoundingClientRect().width);
+    const rowWidth = await page.locator('#feed .story-row .story-media').first().evaluate(el => el.getBoundingClientRect().width);
+    assert.ok(primaryWidth > rowWidth * 2, 'the first story image stays easy to spot');
+    await expect(page.locator('#search, .news-search, #clear')).toHaveCount(0);
     await page.locator('#load-more').click();
     await expect(page.locator('#feed > .story')).toHaveCount(80);
     await page.locator('#load-more').click();
     await expect(page.locator('#feed > .story')).toHaveCount(105);
     assert.deepEqual(await page.locator('#feed > .story').evaluateAll(nodes => nodes.map(node => node.dataset.articleId)), articles.map(a => a.id));
     await expect(page.locator('#load-more')).toBeHidden();
-    await page.locator('#clear').click();
+    await page.locator('#coverage-pulse [data-topic="cloud"]').click();
+    await page.locator('#pulse-all-coverage').click();
     await expect(page.locator('#feed > .story')).toHaveCount(40);
     snapshot = { ...snapshot, articles: articles.map((article, i) => i === 0 ? { ...article, title: 'Updated lead headline' } : article), checkedAt: new Date(now + 1000).toISOString() };
     await page.locator('#load-more').click();
     await expect(page.locator('#feed > .story')).toHaveCount(40);
     await expect(page.locator('#load-more')).toBeEnabled();
     await expect(page.locator('#feed .story h2').first()).toHaveText('Updated lead headline');
-    await page.locator('#search').fill('Rare searchable token');
-    await expect(page.locator('#feed > .story')).toHaveCount(1);
-    await expect(page.locator('#feed .story h2')).toHaveText('Rare searchable token report');
-    let delayedStarted = false, releaseDelayed, finishDelayed;
-    const delivered = new Promise(resolve => { finishDelayed = resolve; });
-    const delayed = new Promise(resolve => { releaseDelayed = resolve; });
-    const slowRoute = async route => {
-      const url = new URL(route.request().url());
-      if (url.searchParams.get('query') !== 'delayed') return route.continue();
-      const response = await route.fetch();
-      delayedStarted = true;
-      await delayed;
-      await route.fulfill({ response }).catch(() => {}); // cancellation is expected
-      finishDelayed();
-    };
-    await page.route(base + '/api/news?**', slowRoute);
-    await page.locator('#search').fill('delayed');
-    await expect.poll(() => delayedStarted).toBe(true);
-    await page.locator('#search').fill('Rare searchable token');
-    await expect(page.locator('#feed .story h2')).toHaveText('Rare searchable token report');
-    releaseDelayed();
-    await delivered;
-    await page.unroute(base + '/api/news?**', slowRoute);
-    await expect(page.locator('#feed .story h2')).toHaveText('Rare searchable token report');
-    await page.locator('#search').fill('nothing-matches');
-    await expect(page.locator('#empty')).toBeVisible();
-    await page.locator('#clear').click();
-    await expect(page.locator('#feed > .story')).toHaveCount(40);
-    await page.locator('#coverage-pulse summary').click();
     await page.locator('#coverage-pulse [data-topic="microsoft"]').click();
     await expect(page.locator('#feed > .story')).toHaveCount(2);
     await expect(page.locator('#feed')).not.toContainText('CVE');
@@ -189,7 +186,6 @@ const assert = require('node:assert/strict');
     await expect(page.locator('#feed .story h2')).toHaveText('Fixture Entra update');
     await page.locator('[data-microsoft-filter="message-center"]').click();
     await expect(page.locator('#feed .story h2')).toHaveText('Fixture admin center update');
-    await page.locator('#coverage-pulse summary').click();
     await page.locator('#coverage-pulse [data-topic="vulnerabilities"]').click();
     await expect(page.locator('#feed > .story')).toHaveCount(2);
 
@@ -197,14 +193,12 @@ const assert = require('node:assert/strict');
     await expect(page.locator('#section-title')).toHaveText('Identity security');
     await expect(page.locator('#front-page')).toBeHidden();
     assert.equal(new URL(page.url()).searchParams.get('topic'), 'identity');
-    await page.locator('#search').fill('entra');
-    await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe('entra');
     await expect.poll(() => new URL(page.url()).searchParams.get('topic')).toBe('identity');
     await page.goto(base + '/newsroom?topic=microsoft&microsoft=message-center&search=admin');
     await expect(page.locator('#section-title')).toHaveText('Microsoft');
     await expect(page.locator('[data-microsoft-filter="message-center"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#search')).toHaveValue('admin');
-    await page.locator('#search').fill('');
+    await expect(page.locator('#search')).toHaveCount(0);
+    assert.equal(await page.locator('[data-microsoft-filter="all"]').evaluate(el => getComputedStyle(el).borderTopWidth), '1px');
     await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe(null);
     await page.locator('#front-page-link').click();
     await expect(page.locator('#front-page')).toBeVisible();
@@ -241,14 +235,12 @@ const assert = require('node:assert/strict');
     await page.keyboard.press('Escape');
 
     // Failures retain loaded results or show an empty state without manual retries.
-    await page.locator('#coverage-pulse summary').click();
     await page.locator('#coverage-pulse [data-topic="vulnerabilities"]').click();
     await expect(page.locator('#feed > .story')).toHaveCount(2);
     offline = true;
     await page.evaluate(() => window.loadNews());
     await expect(page.locator('#feed > .story')).toHaveCount(2);
     await expect(page.locator('#news-error')).toContainText('Showing the last loaded results');
-    await page.locator('#coverage-pulse summary').click();
     await page.locator('#coverage-pulse [data-topic="cloud"]').click();
     await expect(page.locator('#empty')).toBeVisible();
     await expect(page.locator('#empty .empty-actions')).toBeHidden();
@@ -258,7 +250,6 @@ const assert = require('node:assert/strict');
     await page.locator('#front-page-link').click();
     await page.reload();
     await expect(page.locator('.front-page-story')).toHaveCount(8);
-    await page.locator('#coverage-pulse summary').click();
     await page.locator('#coverage-pulse [data-topic="cloud"]').click();
     await expect(page.locator('#feed > .story')).toHaveCount(40);
     await expect(page.locator('#news-error')).toBeHidden();

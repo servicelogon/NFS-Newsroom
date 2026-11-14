@@ -7,7 +7,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { loadPosts, parsePost, postPage, SITE_ORIGIN, SITE_TOOLS, searchIndex, searchIndexScript } from '../blog.js';
+import { loadPosts, parsePost, postPage, blogPage, SITE_ORIGIN, searchIndex, searchIndexScript } from '../blog.js';
 import { createAppServer } from '../server.js';
 const source = (title, date = '2026-09-14', extra = '', body = '## Heading\n\n**Strong** and [safe](https://example.com).') => `---\ntitle: ${title}\ndescription: A test field note\ndate: ${date}\n${extra}---\n${body}`;
 async function directory(t) { // temp posts folder, deleted after the test
@@ -15,6 +15,16 @@ async function directory(t) { // temp posts folder, deleted after the test
   t.after(() => rm(dir, { recursive:true, force:true }));
   return dir;
 }
+test('field note labels use a vivid category color and the title hover matches the first tag', async t => {
+  const dir = await directory(t);
+  await writeFile(join(dir, 'note.md'), source('Entra note', '2026-10-29', 'tags:\n  - Entra\n  - Security\n  - Microsoft\n'));
+  const html = blogPage(await loadPosts(dir));
+  assert.match(html, /style="--topic-color:#a855f7"/);
+  assert.match(html, /style="--tag-color:#a855f7"[^>]*>Entra</);
+  assert.match(html, /style="--tag-color:#10b981"[^>]*>Security</);
+  assert.match(html, /style="--tag-color:#6366f1"[^>]*>Microsoft</);
+  assert.doesNotMatch(html, /#b7d4f2|#d4c6f2|#f2c6c6/);
+});
 test('posts load newest first, support Markdown, and reflect folder edits without a restart', async t => {
   const dir = await directory(t);
   await writeFile(join(dir, 'first.md'), source('First', '2026-09-01'));
@@ -23,9 +33,9 @@ test('posts load newest first, support Markdown, and reflect folder edits withou
   assert.deepEqual(posts.map(p => p.slug), ['second', 'first']);
   assert.match(posts[0].html, /<h2 id="heading">Heading<a class="heading-anchor" href="#heading" aria-label="Link to Heading"><span aria-hidden="true">#<\/span><\/a><\/h2>/);
   assert.match(posts[0].html, /<strong>Strong<\/strong>/);
-  await writeFile(join(dir, 'second.md'), source('Edited'));
+  await writeFile(join(dir, 'second.md'), source('Edited title'));
   posts = await loadPosts(dir);
-  assert.equal(posts[0].title, 'Edited');
+  assert.equal(posts[0].title, 'Edited title');
   await rm(join(dir, 'second.md'));
   assert.equal((await loadPosts(dir)).length, 1);
 });
@@ -68,7 +78,8 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   }
   const home = await (await fetch(base)).text();
   assert.match(home, /href="\/blog\/published"/);
-  assert.match(home, /notes-from-the-frontier\.png/);
+  assert.match(home, /<h1>Blog<\/h1>/);
+  assert.doesNotMatch(home, /notes-from-the-frontier\.png/);
   assert.match(home, /Field notes and news from the new frontier of Identity and Cloud security\./);
   assert.doesNotMatch(home, /Identity, cloud, and the questions worth exploring/);
   assert.match(home, /id="nfs-search-index"/);
@@ -76,17 +87,18 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.doesNotMatch(home, /\/blog\/draft/);
   const tools = await (await fetch(base + '/tools')).text();
   assert.match(tools, /id="nfs-search-index"/);
-  assert.match(tools, /toolbox-wordmark\.png/);
-  assert.match(tools, /alt="Toolbox"/);
+  assert.match(tools, /<h1>Toolbox<\/h1>/);
+  assert.doesNotMatch(tools, /toolbox-wordmark\.png/);
   assert.doesNotMatch(tools, /THE TOOLBOX/);
   assert.doesNotMatch(tools, /Built to be useful/);
   assert.match(tools, />Toolbox<\/a>/);
   assert.doesNotMatch(tools, /Serious security/);
   assert.match(tools, /id="copilot-security-trail"/);
   assert.match(tools, /id="cap-evaluator"/);
-  assert.match(tools, new RegExp(`${String(SITE_TOOLS.length).padStart(2, '0')} TOOLS / READY TO EXPLORE`));
+  assert.match(tools, /Tools for working in the Identity and Cloud security space/);
+  assert.doesNotMatch(tools, /READY TO EXPLORE|01 \/ EVALUATE|02 \/ EXPLORE|03 \/ IDENTIFY|04 \/ TRACE/);
   assert.match(tools, /id="cap-evaluator"[\s\S]*id="copilot-security-trail"[\s\S]*id="passkey-aaguid-lookup"[\s\S]*id="entra-token-lab"/);
-  assert.match(tools, /01 \/ EVALUATE[\s\S]*02 \/ EXPLORE[\s\S]*03 \/ IDENTIFY[\s\S]*04 \/ TRACE/);
+  assert.match(tools, /<h2>CAP Evaluator<\/h2>[\s\S]*<h2>Copilot Security Trail<\/h2>[\s\S]*<h2>Passkey AAGUID Lookup<\/h2>[\s\S]*<h2>Entra Token Lab<\/h2>/);
   assert.match(tools, /https:\/\/servicelogon.github.io\/copilot-security-trail\//);
   assert.match(tools, /https:\/\/servicelogon.github.io\/PasskeyLookup\//);
   assert.match(tools, /https:\/\/servicelogon.github.io\/CAP-Evaluator\//);
@@ -139,15 +151,16 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
   const home = await (await fetch(base)).text();
-  assert.match(home, /<a class="tag" href="\/blog\/tag\/identity">Identity<\/a>/);
-  assert.match(home, /<a class="tag" href="\/blog\/tag\/cloud-security">Cloud Security<\/a>/);
-  assert.match(home, /<a class="tag" href="\/blog\/tag\/script">&lt;script&gt;<\/a>/);
+  assert.match(home, /<a class="tag" style="--tag-color:#a855f7" href="\/blog\/tag\/identity">Identity<\/a>/);
+  assert.match(home, /<a class="tag" style="--tag-color:#3b82f6" href="\/blog\/tag\/cloud-security">Cloud Security<\/a>/);
+  assert.match(home, /<a class="tag" style="--tag-color:#3b82f6" href="\/blog\/tag\/script">&lt;script&gt;<\/a>/);
   assert.doesNotMatch(home, /<a class="tag"[^>]*>\s*<script>/);
   assert.match(home, /rel="canonical" href="https:\/\/nfs\.example\/"/);
   assert.match(home, /rel="icon" href="\/favicon\.ico" sizes="any"/);
   assert.match(home, /rel="icon" type="image\/png" sizes="32x32" href="\/assets\/favicon-32\.png\?v=[a-f0-9]{12}"/);
   assert.match(home, /rel="apple-touch-icon" sizes="180x180" href="\/assets\/apple-touch-icon\.png\?v=[a-f0-9]{12}"/);
-  assert.match(home, /class="brand-logo" src="\/assets\/new-frontier-security-logo\.png/);
+  assert.match(home, /class="brand-logo" src="\/assets\/new-frontier-security-logo\.png\?v=[a-f0-9]{12}" width="1594" height="233"/);
+  assert.doesNotMatch(home, /theme-toggle|theme\.js|Switch to light mode|data-theme/);
   assert.match(home, /property="og:image" content="https:\/\/nfs\.example\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}"/);
   assert.match(home, /name="twitter:card" content="summary_large_image"/);
   assert.equal((await fetch(base)).headers.get('cache-control'), 'no-cache');
@@ -294,7 +307,7 @@ test('published posts include the CA Gap Evaluator note in the blog and search i
   assert.ok(post);
   assert.equal(post.draft, false);
   assert.equal(post.title, 'Introducing CA Gap Evaluator');
-  assert.equal(post.image, '/assets/blog/introducing-ca-gap-evaluator-header.webp');
+  assert.equal(post.image, '/assets/blog/conditional-access-gap-evaluator.jpg');
   assert.match(post.html, /src="\/assets\/blog\/ca-gap-evaluator-heatmap\.webp"/);
   assert.match(post.html, /loading="lazy" decoding="async"/);
   assert.match(post.html, /https:\/\/servicelogon\.github\.io\/CAP-Evaluator\//);

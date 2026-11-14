@@ -204,3 +204,46 @@ test('RSS produces sanitized, URL-deduplicated articles and source statuses', as
   assert.ok(result.sources.every(s => s.status === 'ok'));
   assert.ok(Date.parse(result.updatedAt));
 });
+
+test('article pages fill in og:image when the feed has no picture, and a miss is remembered', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'beacon-og-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>Security</title><item><title>Bare story</title><link>https://example.com/bare</link><description>No picture in the feed</description></item><item><title>Logo only</title><link>https://example.com/logo-story</link><description>Brand mark</description></item><item><title>Local</title><link>http://127.0.0.1/admin</link><description>Do not fetch</description></item></channel></rss>`;
+  const pages = {
+    'https://example.com/bare': '<html><head><meta property="og:image" content="https://cdn.example.com/story.jpg?utm_source=rss"></head><body></body></html>',
+    'https://example.com/logo-story': '<html><head><meta property="og:image" content="https://example.com/logo.webp"><meta name="twitter:image" content="https://cdn.example.com/real.jpg"></head></html>',
+  };
+  const seen = [];
+  let time = Date.now();
+  const service = backend.createNewsService({
+    cacheFile: join(dir, 'news.json'), feeds: [{ name: 'Pages', url: 'https://example.com/rss' }],
+    now: () => time, ttlMs: 10, minRefreshMs: 0, imageBudgetMs: 2_000,
+    fetchImpl: async (url, options) => {
+      const href = String(url);
+      seen.push(href);
+      if (href.endsWith('/rss')) return new Response(xml);
+      if (href.includes('127.0.0.1')) throw new Error('private fetch');
+      if (!href.endsWith('/rss')) assert.equal(options.redirect, 'manual');
+      return new Response(pages[href] || '<html><head></head></html>');
+    },
+  });
+  const first = await service.getNews();
+  const byUrl = new Map(first.articles.map(item => [item.url, item]));
+  assert.equal(byUrl.get('https://example.com/bare').imageUrl, 'https://cdn.example.com/story.jpg');
+  assert.equal(byUrl.get('https://example.com/logo-story').imageUrl, 'https://cdn.example.com/real.jpg');
+  assert.equal(byUrl.get('http://127.0.0.1/admin').imageUrl, undefined);
+  assert.equal(seen.some(href => href.includes('127.0.0.1')), false);
+  const pageCalls = seen.filter(href => href.includes('example.com/') && !href.endsWith('/rss')).length;
+  time += 11;
+  await service.getNews();
+  assert.equal(seen.filter(href => href.includes('example.com/') && !href.endsWith('/rss')).length, pageCalls);
+});
+
+test('RSS images include media thumbnails and encoded pictures, not only enclosures', async t => {
+  const xml = `<?xml version="1.0"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Security</title><item><title>Thumbnail story</title><link>https://example.com/thumb</link><description>No inline image</description><media:thumbnail url="https://example.com/thumb.jpg"/></item><item><title>Encoded story</title><link>https://example.com/encoded</link><description>Plain summary</description><content:encoded><![CDATA[<p><img src="https://example.com/encoded.jpg" width="1200" height="800"/></p>]]></content:encoded></item><item><title>Video only</title><link>https://example.com/video</link><description>Clip</description><media:content url="https://example.com/clip.mp4" type="video/mp4" medium="video"/></item></channel></rss>`;
+  const service = await setup(t, { feeds: [{ name: 'Images', url: 'https://example.com/rss', category: 'operations' }], fetchImpl: async () => new Response(xml) });
+  const byUrl = new Map((await service.getNews()).articles.map(item => [item.url, item]));
+  assert.equal(byUrl.get('https://example.com/thumb').imageUrl, 'https://example.com/thumb.jpg');
+  assert.equal(byUrl.get('https://example.com/encoded').imageUrl, 'https://example.com/encoded.jpg');
+  assert.equal(byUrl.get('https://example.com/video').imageUrl, undefined);
+});

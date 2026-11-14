@@ -1,6 +1,6 @@
 import { TOPICS, TOPIC_BY_ID, matchesTopic, isMicrosoftStory } from './assets/news-topics.js';
 import { searchHaystack } from './assets/search.js';
-import { countLast24h } from './assets/coverage-pulse.js';
+import { countLast24h, isWithinLast24h } from './assets/coverage-pulse.js';
 import { externalNewsArticle } from './news-policy.js';
 
 const ALLOWED = new Set(['topic', 'query', 'offset', 'limit', 'microsoftFilter', 'refresh']);
@@ -49,6 +49,7 @@ export function newsPage(snapshot, options = {}) {
   if (index.pulseMinute !== minute) {
     index.pulseMinute = minute;
     index.pulseCounts = countLast24h(index.articles, { isMicrosoftStory });
+    index.storiesLast24h = index.articles.filter(article => isWithinLast24h(article.publishedAt)).length;
   }
   const articles = matches.slice(offset, offset + limit).map(entry => entry.article);
   return {
@@ -56,7 +57,7 @@ export function newsPage(snapshot, options = {}) {
     checkedAt: snapshot.checkedAt || null, refreshAvailableAt: snapshot.refreshAvailableAt || null,
     frontPage: index.frontPage, frontPageIds: index.frontPage.map(article => article.id),
     topicCounts: index.topicCounts,
-    pulseCounts: index.pulseCounts,
+    pulseCounts: index.pulseCounts, storiesLast24h: index.storiesLast24h,
     total: matches.length, totalArticles: index.entries.length,
     offset, limit, nextOffset: offset + articles.length < matches.length ? offset + articles.length : null,
   };

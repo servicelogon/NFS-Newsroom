@@ -3,8 +3,8 @@ title: Microsoft Entra Baseline Conditional Access Policies
 description: A list of baseline Conditional Access policies to help secure your Microsoft environment.
 date: 2026-03-30
 author: Nate Hess
-image: /assets/blog/entra-conditional-access-baselines-header.webp
-imageAlt: Conditional Access Policies To Get Started title art
+image: /assets/blog/conditional-access-policies.jpg
+imageAlt: Mint clipboard beside Conditional Access Policies To Get Started
 tags:
   - Entra
   - Conditional Access

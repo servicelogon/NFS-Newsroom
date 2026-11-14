@@ -1,14 +1,24 @@
 // Bounded feed ingestion and a persisted snapshot; HTTP paging lives in news-api.js.
 import Parser from 'rss-parser';
 import { createHash } from 'node:crypto';
+import { lookup } from 'node:dns/promises';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { isIP } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { FEEDS } from './sources.js';
 import { classify, selectFrontPage } from './topic-classifier.js';
 import { externalNewsArticle } from './news-policy.js';
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const parser = new Parser();
+const parser = new Parser({
+  customFields: {
+    item: [
+      ['media:content', 'media:content', { keepArray: true }],
+      ['media:thumbnail', 'media:thumbnail', { keepArray: true }],
+      ['media:group', 'media:group', { keepArray: true }],
+    ],
+  },
+});
 
 // Strip markup so classification and summaries never see raw HTML from a feed.
 function text(value = '') {
@@ -29,18 +39,193 @@ function cleanUrl(value) {
   }
 }
 
-// Prefer enclosure/media tags; fall back to the first <img> in the item HTML.
+function mediaCandidate(node) {
+  if (!node) return null;
+  if (typeof node === 'string') return cleanUrl(node);
+  if (Array.isArray(node)) {
+    for (const entry of node) {
+      const found = mediaCandidate(entry);
+      if (found) return found;
+    }
+    return null;
+  }
+  const kind = `${node.$?.type || ''} ${node.$?.medium || ''}`;
+  if (/video|audio/.test(kind) && !/image/.test(kind)) return null;
+  return cleanUrl(node.$?.url || node.url) || mediaCandidate(node['media:content']) || mediaCandidate(node['media:thumbnail']);
+}
+
+function htmlImage(html) {
+  for (const match of String(html || '').matchAll(/<img\b[^>]*>/gi)) {
+    const tag = match[0];
+    if (/\b(?:width|height)=["']1["']|spacer|pixel|tracking|badge/i.test(tag)) continue;
+    const src = tag.match(/\bsrc=["']([^"']+)["']/i);
+    const url = src && cleanUrl(src[1]);
+    if (url) return url;
+  }
+  return null;
+}
+
+const IMAGE_META = ['og:image', 'og:image:url', 'og:image:secure_url', 'twitter:image', 'twitter:image:src'];
+
+function decodeEntities(value) {
+  return String(value).replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+
+function tagAttrs(tag) {
+  const attrs = {};
+  for (const attr of tag.matchAll(/([:\w-]+)\s*=\s*["']([^"']*)["']/gi)) attrs[attr[1].toLowerCase()] = decodeEntities(attr[2]);
+  return attrs;
+}
+
+// Site marks and tracking pixels are not story art.
+function isStoryImage(value) {
+  let path = '';
+  try { path = decodeURIComponent(new URL(value).pathname).toLowerCase(); } catch { return false; }
+  if (/(?:^|\/)(?:logo|favicon|apple-touch-icon|sprite|site-icon|avatar|gravatar)(?:[-_.][^/]*)?$/.test(path)) return false;
+  if (/spacer|pixel|tracking|1x1|badge|favicon/.test(path)) return false;
+  return true;
+}
+
+// Open Graph, Twitter, or image_src. The first real story image wins; logos do not.
+function pageImage(html, pageUrl) {
+  const buckets = new Map(IMAGE_META.map(name => [name, []]));
+  const linked = [];
+  for (const tag of String(html || '').matchAll(/<meta\b[^>]*>/gi)) {
+    const attrs = tagAttrs(tag[0]);
+    const name = attrs.property || attrs.name || '';
+    if (buckets.has(name) && attrs.content) buckets.get(name).push(attrs.content);
+  }
+  for (const tag of String(html || '').matchAll(/<link\b[^>]*>/gi)) {
+    const attrs = tagAttrs(tag[0]);
+    if (/\bimage_src\b/i.test(attrs.rel || '') && attrs.href) linked.push(attrs.href);
+  }
+  for (const raw of [...IMAGE_META.flatMap(name => buckets.get(name)), ...linked]) {
+    let absolute;
+    try { absolute = new URL(raw, pageUrl).href; } catch { continue; }
+    const cleaned = cleanUrl(absolute);
+    if (cleaned && isStoryImage(cleaned)) return cleaned;
+  }
+  return null;
+}
+
+function isPublicIp(address) {
+  let ip = String(address).toLowerCase();
+  if (ip.startsWith('::ffff:')) {
+    const mapped = ip.slice('::ffff:'.length);
+    if (isIP(mapped) === 4) ip = mapped;
+  }
+  if (isIP(ip) === 4) {
+    const [a, b] = ip.split('.').map(Number);
+    if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false;
+    return true;
+  }
+  if (ip === '::1' || ip === '::') return false;
+  if (ip.startsWith('fe80') || ip.startsWith('fc') || ip.startsWith('fd') || ip.startsWith('ff')) return false;
+  return isIP(ip) === 6;
+}
+
+// Article links come from the feed catalog, but a poisoned item must not reach loopback or cloud metadata.
+async function blockedTarget(value) {
+  let url;
+  try { url = new URL(value); } catch { return true; }
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return true;
+  const host = url.hostname.toLowerCase().replace(/\.$/, '');
+  if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') || (!host.includes('.') && !isIP(host))) return true;
+  if (isIP(host)) return !isPublicIp(host);
+  try {
+    const records = await lookup(host, { all: true, verbatim: true });
+    if (records.some(record => !isPublicIp(record.address))) return true;
+  } catch { /* Tests inject fetch and may have no resolver. A real socket still has to pass the redirect checks. */ }
+  return false;
+}
+
+async function readHead(response, maxBytes) {
+  const reader = response.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (size < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(Buffer.from(value));
+      size += value.byteLength;
+      if (/<\/head>/i.test(Buffer.concat(chunks).toString('utf8'))) break;
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+// '' means the page was checked and has no story image. null means try again later.
+async function fetchArticleImage(pageUrl, fetchImpl, timeoutMs, budgetSignal) {
+  let current = pageUrl;
+  for (let hop = 0; hop < 4; hop++) {
+    if (await blockedTarget(current)) return '';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error('Article request timed out')), timeoutMs);
+    try {
+      const response = await fetchImpl(current, {
+        signal: AbortSignal.any([controller.signal, budgetSignal]),
+        redirect: 'manual',
+        headers: { 'User-Agent': 'NFSNewsroom/1.0 (article image lookup)', Accept: 'text/html,application/xhtml+xml' },
+      });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        await response.body?.cancel();
+        const location = response.headers.get('location');
+        if (!location) return '';
+        current = new URL(location, current).href;
+        continue;
+      }
+      if (!response.ok || !response.body) {
+        await response.body?.cancel();
+        return response.status === 429 || response.status >= 500 ? null : '';
+      }
+      const html = await readHead(response, 256_000);
+      return pageImage(html, current) || '';
+    } catch {
+      return null;
+    } finally { clearTimeout(timer); }
+  }
+  return '';
+}
+
+async function discoverImages(items, { fetchImpl, timeoutMs, budgetMs, concurrency }) {
+  const found = new Map();
+  if (!items.length) return found;
+  const budget = new AbortController();
+  const timer = setTimeout(() => budget.abort(new Error('Image lookup deadline')), budgetMs);
+  let next = 0;
+  try {
+    await Promise.all(Array.from({ length: Math.min(items.length, Math.max(1, Math.floor(concurrency))) }, async () => {
+      while (next < items.length && !budget.signal.aborted) {
+        const item = items[next++];
+        const image = await fetchArticleImage(item.url, fetchImpl, timeoutMs, budget.signal);
+        if (image === null) continue;
+        found.set(item.url, image);
+        if (image) item.imageUrl = image;
+      }
+    }));
+  } finally { clearTimeout(timer); }
+  return found;
+}
+
+// Prefer a real image enclosure, then Media RSS, then the first picture in the post HTML.
 function imageUrl(item) {
-  const candidates = [
+  const tagged = [
     item.enclosure?.type?.startsWith('image/') ? item.enclosure.url : null,
-    item['media:content']?.$.url,
-    item['media:thumbnail']?.$.url,
-    item.image?.url || item.image,
-  ];
-  const html = String(item.content || item.summary || item.description || '');
-  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-  if (match) candidates.push(match[1]);
-  return candidates.map(cleanUrl).find(Boolean) || null;
+    mediaCandidate(item['media:content']),
+    mediaCandidate(item['media:thumbnail']),
+    mediaCandidate(item['media:group']),
+    item.image?.url || (typeof item.image === 'string' ? item.image : null),
+  ].map(cleanUrl).find(Boolean);
+  if (tagged) return tagged;
+  return htmlImage([item['content:encoded'], item.content, item.summary, item.description].filter(Boolean).join('\n'));
 }
 
 // Drop items without a safe URL or title. Id is a short hash of the canonical URL.
@@ -94,7 +279,7 @@ async function fetchFeed(url, fetchImpl, timeoutMs, maxBytes, refreshSignal) {
 }
 
 // Aggregates all feeds, persists a 5-minute disk cache, and coalesces overlapping getNews() calls.
-export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile = join(ROOT, '.cache/news.json'), ttlMs = 300_000, now = Date.now, timeoutMs = 8_000, concurrency = 8, totalTimeoutMs = 24_000, maxBytes = 3_000_000, maxStaleMs = 7 * 24 * 60 * 60 * 1000, minRefreshMs = 30_000 } = {}) {
+export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile = join(ROOT, '.cache/news.json'), ttlMs = 300_000, now = Date.now, timeoutMs = 8_000, concurrency = 8, totalTimeoutMs = 24_000, maxBytes = 3_000_000, maxStaleMs = 7 * 24 * 60 * 60 * 1000, minRefreshMs = 30_000, imageBudgetMs = 90_000, imageConcurrency = 8 } = {}) {
   let cache = null, inflight = null, loaded = false;
   const snapshots = new WeakMap();
   const snapshot = value => {
@@ -148,7 +333,39 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
         }
       }));
     } finally { clearTimeout(timer); }
-    cache = { version: 1, checkedAt: now(), updatedAt: successes ? new Date(now()).toISOString() : cache?.updatedAt || null, batches };
+    const remembered = cache?.images && typeof cache.images === 'object' ? cache.images : {};
+    const fromFeed = new Set();
+    const pending = [];
+    const queued = new Set();
+    for (const batch of batches) {
+      if (batch?.source?.status !== 'ok') continue;
+      for (const item of batch.articles) if (item?.url && item.imageUrl) fromFeed.add(item.url);
+    }
+    for (const batch of batches) {
+      if (batch?.source?.status !== 'ok') continue;
+      for (const item of batch.articles) {
+        if (!item?.url || fromFeed.has(item.url) || queued.has(item.url)) continue;
+        if (Object.prototype.hasOwnProperty.call(remembered, item.url)) {
+          if (remembered[item.url]) item.imageUrl = remembered[item.url];
+          continue;
+        }
+        queued.add(item.url);
+        pending.push(item);
+      }
+    }
+    // Feeds stay inside their deadline. Pages are a second bounded pass, and a miss is remembered.
+    const discovered = await discoverImages(pending, { fetchImpl, timeoutMs: Math.min(timeoutMs, 6_000), budgetMs: imageBudgetMs, concurrency: imageConcurrency });
+    const images = {};
+    for (const batch of batches) {
+      for (const item of batch?.articles || []) {
+        if (!item?.url || fromFeed.has(item.url)) continue;
+        const known = discovered.has(item.url) ? discovered.get(item.url) : (Object.prototype.hasOwnProperty.call(remembered, item.url) ? remembered[item.url] : null);
+        if (known === null) continue;
+        images[item.url] = known || '';
+        if (known && !item.imageUrl) item.imageUrl = known;
+      }
+    }
+    cache = { version: 1, checkedAt: now(), updatedAt: successes ? new Date(now()).toISOString() : cache?.updatedAt || null, batches, images };
     try {
       await mkdir(dirname(cacheFile), { recursive: true });
       const temp = `${cacheFile}.${process.pid}.tmp`;

@@ -43,12 +43,13 @@ const path = require('node:path');
         if (route === '/newsroom') {
           assert.equal(await page.getByText(/go beyond the headline/i).count(), 0, 'newsroom still shows the headline line');
           assert.ok(await page.getByRole('link', { name: 'Read the field notes' }).isVisible());
+          assert.equal(await page.locator('.newsroom-globe').count(), 1);
         }
         assert.equal(await page.locator('.topbar').getByText(/Nathan Hess/i).count(), 0, `${route} topbar credit`);
         assert.equal(await page.locator('main').count(), 1);
-        assert.equal(await page.locator('.footer-logo').count(), 1);
+        assert.equal(await page.locator('.footer-logo, .footer-starfield, .footer-sky').count(), 0);
         assert.equal(await page.locator('.social-placeholder').count(), 0);
-        assert.ok(await page.locator('.footer-logo').evaluate(img => img.complete && img.naturalWidth > 0 && img.alt === 'New Frontier Security'), `${route} footer mark`);
+        assert.equal(await page.locator('.footer-wire').count(), 1);
         assert.equal(await page.locator('.footer-name').textContent(), 'New Frontier Security');
         assert.equal(await page.locator('.footer-nav a').count(), 3);
         assert.equal(await page.locator('.footer-nav [aria-current="page"]').count(), 1);
@@ -64,25 +65,60 @@ const path = require('node:path');
           await page.locator('.site-menu summary').click();
           assert.ok(await page.getByRole('navigation', {name:'Mobile navigation'}).isVisible());
           assert.equal(await page.locator('.site-menu [aria-current="page"]').count(), 1);
+          assert.ok(await page.locator('.site-menu nav').evaluate(nav => {
+            const box = nav.getBoundingClientRect();
+            return box.left <= 1 && box.top <= 1 && box.width >= innerWidth - 1 && box.height >= innerHeight - 1;
+          }), `menu covers the viewport at ${width}`);
           await page.keyboard.press('Escape');
           assert.equal(await page.locator('.site-menu').getAttribute('open'), null);
           assert.ok(await page.locator('.site-menu summary').evaluate(el => document.activeElement === el));
           assert.equal((await page.locator('.site-menu summary').textContent()).trim(), '');
         }
-        await page.getByRole('button', {name:'Switch to light mode'}).click();
-        assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
+        assert.equal(await page.locator('.theme-toggle').count(), 0, `${route} still has a theme toggle`);
+        assert.equal(await page.getByRole('button', { name: /light mode|dark mode/i }).count(), 0);
+        await page.evaluate(() => localStorage.setItem('nfs-theme', 'light'));
         await page.reload();
-        assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
-        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} light mode overflows at ${width}`);
+        assert.notEqual(await page.locator('html').getAttribute('data-theme'), 'light', `${route} still turns light`);
+        assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(21, 21, 21)');
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} overflows at ${width}`);
         if (route === '/') {
-          assert.equal(await page.locator('.feature-image').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)', `light feature-image at ${width}`);
+          assert.equal(await page.locator('.figure-row, [data-figure]').count(), 0, `no field-note figures at ${width}`);
+          assert.equal(await page.locator('.featured-post, .tool-card').count(), 0);
+          const logo = await page.locator('.brand-logo').evaluate(img => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0);
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            let opaqueWhite = 0;
+            let opaqueDark = 0;
+            for (let i = 0; i < data.length; i += 16) {
+              const alpha = data[i + 3];
+              if (alpha < 16) continue;
+              if (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) opaqueWhite += 1;
+              if (data[i] < 40 && data[i + 1] < 40 && data[i + 2] < 40 && alpha > 200) opaqueDark += 1;
+            }
+            const box = img.getBoundingClientRect();
+            return {
+              corner: data[3],
+              opaqueWhite,
+              opaqueDark,
+              naturalWidth: img.naturalWidth,
+              displayWidth: box.width,
+            };
+          });
+          assert.equal(logo.corner, 0, 'logo corner stays transparent');
+          assert.equal(logo.opaqueDark, 0, 'logo has no black field');
+          assert.ok(logo.opaqueWhite > 50, 'logo mark is white');
+          assert.ok(logo.naturalWidth >= logo.displayWidth * 2, `logo is crisp at ${width}px (${logo.naturalWidth} vs ${logo.displayWidth})`);
         }
         if (process.env.SCREENSHOTS && width === 390 && route === '/') {
           await page.screenshot({path:'/private/tmp/nfs-blog-light-390.png',fullPage:true});
         }
-        await page.getByRole('button', {name:'Switch to dark mode'}).click();
         if (route === '/') {
-          assert.equal(await page.locator('.feature-image').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)', `dark feature-image at ${width}`);
+          assert.ok(await page.locator('.note-row').first().isVisible(), `note row at ${width}`);
+          assert.equal(await page.locator('.featured-post').count(), 0);
         }
         if (route === '/blog/entra-default-settings-that-you-should-change' && width === 1440) {
           const lefts = await page.evaluate(() => {
@@ -126,32 +162,33 @@ const path = require('node:path');
     await page.waitForURL(/\/blog\/entra-default-settings-that-you-should-change$/);
     await page.setViewportSize({width:320, height:1000});
     await page.goto(base);
-    await page.getByRole('button', {name:'Switch to light mode'}).click();
+    await page.evaluate(() => localStorage.setItem('nfs-theme', 'light'));
     await page.goto(base + '/tools');
-    assert.equal(await page.locator('html').getAttribute('data-theme'), 'light'); // theme survives navigation
-    await page.getByRole('button', {name:'Switch to dark mode'}).click();
+    assert.notEqual(await page.locator('html').getAttribute('data-theme'), 'light');
+    assert.equal(await page.locator('.theme-toggle').count(), 0);
     await page.goto(base);
-    assert.equal(await page.locator('.featured-post .post-tags .tag').count(), 5);
-    await page.locator('.featured-post .post-tags .tag', { hasText: 'Identity' }).click();
+    assert.equal(await page.locator('.note-row .post-tags .tag').count(), 5);
+    await page.locator('.note-row .post-tags .tag', { hasText: 'Identity' }).click();
     assert.ok(page.url().endsWith('/blog/tag/identity'));
     assert.ok(await page.getByRole('heading', { name: 'Identity', exact: true }).isVisible());
     assert.equal(await page.locator('.post-tile').count(), 1);
     await page.goto(base);
-    assert.equal(await page.locator('.featured-post .tag').count(), 5);
+    assert.equal(await page.locator('.note-row .tag').count(), 5);
+    assert.equal(await page.locator('[data-figure], .figure-row').count(), 0);
+    assert.equal(await page.getByText('Stories in the last 24 hours').count(), 0);
     assert.equal(await page.getByRole('link', {name:'Read the story'}).count(), 0);
     assert.equal(await page.locator('.site-footer .social-placeholder').count(), 0);
-    assert.ok(await page.getByRole('heading', {name:/Notes from the frontier/i}).isVisible());
+    assert.ok(await page.getByRole('heading', {name:'Blog', exact:true}).isVisible());
     assert.ok(await page.getByText('Field notes and news from the new frontier of Identity and Cloud security.').isVisible());
     assert.equal(await page.getByText('Identity, cloud, and the questions worth exploring.').count(), 0);
-    assert.ok(await page.locator('.blog-wordmark img').evaluate(img => img.complete && img.naturalWidth > 0));
-    assert.match(await page.locator('.feature-image img').getAttribute('src'), /^\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}$/);
-    assert.ok(await page.locator('.feature-image img').evaluate(img => img.complete && img.naturalWidth > 0));
+    assert.equal(await page.locator('.blog-wordmark, .newsroom-logo, .toolbox-wordmark').count(), 0);
+    assert.ok(await page.locator('.note-row.is-lead .note-media img').evaluate(img => img.complete && img.naturalWidth > 0));
     await page.locator('#featured-title a').click();
     assert.ok(page.url().endsWith('/blog/entra-default-settings-that-you-should-change'));
     assert.equal(await page.locator('.post-heading .post-tags .tag').count(), 5);
     assert.doesNotMatch(await page.locator('.post-heading h1').evaluate(el => getComputedStyle(el).fontFamily), /Georgia|Times New Roman/i);
     assert.doesNotMatch(await page.locator('.prose h2').first().evaluate(el => getComputedStyle(el).fontFamily), /Georgia|Times New Roman/i);
-    assert.match(await page.locator('.post-hero img').getAttribute('src'), /^\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}$/);
+    assert.match(await page.locator('.post-hero img').getAttribute('src'), /^\/assets\/blog\/entra-default-settings\.jpg\?v=[a-f0-9]{12}$/);
     assert.equal(await page.locator('.post-hero img').getAttribute('loading'), 'eager');
     assert.ok(await page.locator('.post-hero img').evaluate(img => img.complete && img.naturalWidth > 0));
     assert.equal(await page.locator('.prose img').count(), 3);
@@ -167,7 +204,7 @@ const path = require('node:path');
     await page.getByRole('navigation', {name:'Mobile navigation'}).getByRole('link', {name:'Toolbox'}).click();
     assert.ok(page.url().endsWith('/tools'));
     assert.ok(await page.getByRole('heading', { name: /^Toolbox$/i }).isVisible());
-    assert.ok(await page.locator('.toolbox-wordmark img').evaluate(img => img.complete && img.naturalWidth > 0));
+    assert.equal(await page.locator('.toolbox-wordmark').count(), 0);
     assert.equal(await page.locator('.tools-intro .kicker').count(), 0);
     assert.equal(await page.getByText('Built to be useful. Shared to be explored.').count(), 0);
     assert.equal(await page.locator('.tool-launch').count(), 4);
@@ -177,24 +214,18 @@ const path = require('node:path');
     assert.ok(await page.locator('.cap-visual').isVisible());
     assert.ok(await page.locator('#entra-token-lab').isVisible());
     assert.ok(await page.locator('.token-visual').isVisible());
-    assert.deepEqual(await page.locator('.tool-card').evaluateAll(cards => cards.map(card => card.id)), ['cap-evaluator', 'copilot-security-trail', 'passkey-aaguid-lookup', 'entra-token-lab']);
-    assert.deepEqual(await page.locator('.tool-top .kicker').allTextContents(), ['01 / EVALUATE', '02 / EXPLORE', '03 / IDENTIFY', '04 / TRACE']);
-    const trailBg = await page.locator('.trail-card').evaluate(el => getComputedStyle(el).backgroundColor);
-    const passkeyBg = await page.locator('.passkey-card').evaluate(el => getComputedStyle(el).backgroundColor);
-    const capBg = await page.locator('.cap-card').evaluate(el => getComputedStyle(el).backgroundColor);
-    const tokenBg = await page.locator('.token-card').evaluate(el => getComputedStyle(el).backgroundColor);
-    assert.notEqual(trailBg, passkeyBg, 'toolbox tiles should stay visually distinct');
-    assert.notEqual(trailBg, capBg, 'CAP tile should not match the trail tile');
-    assert.notEqual(passkeyBg, capBg, 'CAP tile should not match the passkey tile');
-    assert.notEqual(tokenBg, trailBg, 'token tile should not match the trail tile');
-    assert.notEqual(tokenBg, passkeyBg, 'token tile should not match the passkey tile');
-    assert.notEqual(tokenBg, capBg, 'token tile should not match the CAP tile');
+    assert.deepEqual(await page.locator('.tool-row').evaluateAll(rows => rows.map(row => row.id)), ['cap-evaluator', 'copilot-security-trail', 'passkey-aaguid-lookup', 'entra-token-lab']);
+    assert.deepEqual(await page.locator('.tool-row h2').allTextContents(), ['CAP Evaluator', 'Copilot Security Trail', 'Passkey AAGUID Lookup', 'Entra Token Lab']);
+    assert.equal(await page.locator('.tool-top, .tool-pill, .tool-card').count(), 0);
+    const rowBackgrounds = await page.locator('.tool-row').evaluateAll(rows => rows.map(row => getComputedStyle(row).backgroundColor));
+    assert.ok(rowBackgrounds.every(color => color === 'rgba(0, 0, 0, 0)'), 'tool rows have no tinted tile');
     const capVisualBg = await page.locator('.cap-visual').evaluate(el => getComputedStyle(el).backgroundColor);
     assert.equal(capVisualBg, 'rgba(0, 0, 0, 0)', 'CAP graphic must sit on the tile with no inset box');
     const tokenVisualBg = await page.locator('.token-visual').evaluate(el => getComputedStyle(el).backgroundColor);
     assert.equal(tokenVisualBg, 'rgba(0, 0, 0, 0)', 'token graphic must sit on the tile with no inset box');
     assert.equal(await page.locator('#entra-token-lab .tool-launch').getAttribute('href'), 'https://servicelogon.github.io/entra-auth-flow-visualizer/');
-    assert.match(await page.locator('.tool-launch').first().evaluate(el => getComputedStyle(el).backgroundColor), /rgb\(\s*247,\s*255,\s*0\s*\)/);
+    assert.equal(await page.locator('.tool-launch').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
+    assert.equal(await page.locator('.tool-launch').first().evaluate(el => getComputedStyle(el).color), 'rgb(247, 255, 0)');
     for (const anchor of await page.locator('.tool-actions a').all()) {
       assert.match(await anchor.getAttribute('href'), /^https:\/\//);
       assert.match(await anchor.getAttribute('rel'), /noopener/);
@@ -205,7 +236,9 @@ const path = require('node:path');
     await page.goto(base);
     assert.match(await page.locator('#featured-title').textContent(), /A second field note/);
     assert.equal(await page.locator('.post-tile').count(), 2);
-    assert.equal(await page.locator('.post-tile .feature-image').count(), 2);
+    assert.equal(await page.locator('.note-row').count(), 2);
+    assert.equal(await page.locator('[data-figure], .figure-row').count(), 0);
+    assert.equal(await page.locator('.feature-image').count(), 0);
     await fs.rm(path.join(postsDirectory, 'another-post.md'));
     await fs.rm(path.join(postsDirectory, 'entra-default-settings-that-you-should-change.md'));
     await page.reload();
