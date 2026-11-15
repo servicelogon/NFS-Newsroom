@@ -157,7 +157,8 @@ const assert = require('node:assert/strict');
     await expect(page.locator('#front-page')).toBeVisible();
     await page.locator('#pulse-all-coverage').click();
     await expect(page.locator('#feed > .story')).toHaveCount(40);
-    await expect(page.locator('#feed .story-row .story-media img')).toHaveCount(1);
+    await expect(page.locator('#feed .story-row .story-media img')).toHaveCount(2);
+    assert.deepEqual((await page.locator('#feed .story-row .story-media img').evaluateAll(nodes => nodes.map(img => img.getAttribute('src')))).sort(), ['/assets/mmc-logo.webp', 'https://example.com/advisory.jpg']);
     const primaryWidth = await page.locator('#feed .lead-story .story-media').evaluate(el => el.getBoundingClientRect().width);
     const rowWidth = await page.locator('#feed .story-row .story-media').first().evaluate(el => el.getBoundingClientRect().width);
     assert.ok(primaryWidth > rowWidth * 2, 'the first story image stays easy to spot');
@@ -186,6 +187,8 @@ const assert = require('node:assert/strict');
     await expect(page.locator('#feed .story h2')).toHaveText('Fixture Entra update');
     await page.locator('[data-microsoft-filter="message-center"]').click();
     await expect(page.locator('#feed .story h2')).toHaveText('Fixture admin center update');
+    await expect(page.locator('#feed .story-media img')).toHaveAttribute('src', '/assets/mmc-logo.webp');
+    await expect(page.locator('#feed .story-media img')).toHaveCSS('object-fit', 'contain');
     await page.locator('#coverage-pulse [data-topic="vulnerabilities"]').click();
     await expect(page.locator('#feed > .story')).toHaveCount(2);
 

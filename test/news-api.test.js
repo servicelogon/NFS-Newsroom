@@ -59,7 +59,10 @@ test('Microsoft server filters exclude CVEs and distinguish community previews',
   const base = `http://127.0.0.1:${server.address().port}/api/news?topic=microsoft`;
   assert.deepEqual((await (await fetch(base)).json()).articles.map(a => a.id), ['1', '3']);
   assert.deepEqual((await (await fetch(base + '&microsoftFilter=news')).json()).articles.map(a => a.id), ['1']);
-  assert.deepEqual((await (await fetch(base + '&microsoftFilter=message-center')).json()).articles.map(a => a.id), ['3']);
+  const center = await (await fetch(base + '&microsoftFilter=message-center')).json();
+  assert.deepEqual(center.articles.map(a => a.id), ['3']);
+  assert.equal(center.articles[0].imageUrl, '/assets/mmc-logo.webp');
+  assert.equal((await (await fetch(base + '&microsoftFilter=news')).json()).articles[0].imageUrl, undefined);
 });
 
 test('snapshots are reused, manual refresh is throttled, and stale articles expire', async t => {

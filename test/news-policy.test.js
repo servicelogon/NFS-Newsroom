@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { createNewsService } from '../news-service.js';
 import { newsPage, headlineSearch } from '../news-api.js';
 import { FEEDS } from '../sources.js';
+import { MESSAGE_CENTER_IMAGE } from '../assets/news-topics.js';
 
 const articles = () => {
   const story = { title: 'Internal identity guide', category: 'cloud', source: 'Fixture Wire', publishedAt: new Date().toISOString(), topicScore: 0.9 };
@@ -70,4 +71,22 @@ test('existing disk caches and stale fallback cannot reintroduce NFS posts or im
   assert.equal(stale.sources[0].articleCount, 2);
   assert.ok(stale.articles.every(a => a.stale));
   assert.equal(stale.articles[0].imageUrl, undefined);
+});
+
+test('Message Center stories use the MMC logo and other publishers keep their images', () => {
+  assert.equal(MESSAGE_CENTER_IMAGE, '/assets/mmc-logo.webp');
+  const now = new Date().toISOString();
+  const snapshot = {
+    articles: [
+      { id: 'mc', title: 'MC100 — Admin change', source: 'MS Message Center', url: 'https://msmessagecenter.com/MC100/', imageUrl: 'https://msmessagecenter.com/message-images/MC100.png', category: 'microsoft', publishedAt: now },
+      { id: 'mc-own', title: 'Bare message', source: 'MS Message Center', url: 'https://msmessagecenter.com/MC101/', imageUrl: 'https://newfrontiersecurity.net/assets/blog/header.jpg', category: 'microsoft', publishedAt: now },
+      { id: 'other', title: 'Cloud report', source: 'Fixture', url: 'https://example.com/cloud', imageUrl: 'https://example.com/publisher.jpg', category: 'cloud', publishedAt: now },
+    ],
+    sources: [],
+    frontPageIds: [],
+  };
+  const page = newsPage(snapshot);
+  assert.equal(page.articles.find(article => article.id === 'mc').imageUrl, MESSAGE_CENTER_IMAGE);
+  assert.equal(page.articles.find(article => article.id === 'mc-own').imageUrl, MESSAGE_CENTER_IMAGE);
+  assert.equal(page.articles.find(article => article.id === 'other').imageUrl, 'https://example.com/publisher.jpg');
 });

@@ -1,4 +1,4 @@
-import { TOPIC_BY_ID, isMessageCenterStory } from './news-topics.js';
+import { TOPIC_BY_ID, isMessageCenterStory, MESSAGE_CENTER_IMAGE } from './news-topics.js';
 import { formatTimestamp } from './dates.js';
 
 const safeUrl = value => {
@@ -76,7 +76,7 @@ export function createArticleCard(story, { frontPage = false, lead = false, sour
   link.textContent = title;
   heading.append(link);
   const badges = storyBadges(story, source);
-  const imageUrl = safeUrl(story.imageUrl);
+  const imageUrl = isMessageCenterStory(story) ? MESSAGE_CENTER_IMAGE : safeUrl(story.imageUrl);
   if (imageUrl) article.append(storyMedia(imageUrl, title, lead));
   const copy = document.createElement('div');
   copy.className = 'story-copy';
