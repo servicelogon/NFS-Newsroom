@@ -13,6 +13,7 @@ const files = new Map([
   ['/assets/notes-from-the-frontier.png', ['assets/notes-from-the-frontier.png', 'image/png']],
   ['/assets/toolbox-wordmark.png', ['assets/toolbox-wordmark.png', 'image/png']],
   ['/assets/nfs-footer-mark.png', ['assets/nfs-footer-mark.png', 'image/png']],
+  ['/assets/mmc-logo.webp', ['assets/mmc-logo.webp', 'image/webp']],
   ['/favicon.ico', ['assets/favicon.ico', 'image/x-icon']],
   ['/assets/favicon.ico', ['assets/favicon.ico', 'image/x-icon']],
   ['/assets/favicon-32.png', ['assets/favicon-32.png', 'image/png']],

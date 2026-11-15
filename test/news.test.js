@@ -76,6 +76,9 @@ test('HTTP serves app and API only, rejects arbitrary files and user feed URLs',
   const logo = await fetch(`${base}/assets/newsroom-logo.png`);
   assert.equal(logo.status, 200);
   assert.match(logo.headers.get('content-type'), /image\/png/);
+  const mmc = await fetch(`${base}/assets/mmc-logo.webp`);
+  assert.equal(mmc.status, 200);
+  assert.match(mmc.headers.get('content-type'), /image\/webp/);
   const favicon = await fetch(`${base}/favicon.ico`);
   assert.equal(favicon.status, 200);
   assert.match(favicon.headers.get('content-type'), /image\/x-icon|image\/vnd\.microsoft\.icon/);
@@ -203,6 +206,55 @@ test('RSS produces sanitized, URL-deduplicated articles and source statuses', as
   assert.equal(result.sources.length, backend.FEEDS.length);
   assert.ok(result.sources.every(s => s.status === 'ok'));
   assert.ok(Date.parse(result.updatedAt));
+});
+
+test('Message Center stories keep the MMC logo and do not fetch article screenshots', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'beacon-mmc-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const mc = `<?xml version="1.0"?><rss version="2.0"><channel><title>MS Message Center</title><item><title>MC100 — Screenshot post</title><link>https://msmessagecenter.com/MC100/</link><description>Admin center change</description><enclosure url="https://msmessagecenter.com/message-images/MC100.png" type="image/png"/></item><item><title>Bare message</title><link>https://msmessagecenter.com/MC101/</link><description>No picture in the feed</description></item></channel></rss>`;
+  const other = `<?xml version="1.0"?><rss version="2.0"><channel><title>Security</title><item><title>Publisher story</title><link>https://example.com/publisher</link><description>Keeps its picture</description><enclosure url="https://example.com/publisher.jpg" type="image/jpeg"/></item></channel></rss>`;
+  const seen = [];
+  const service = backend.createNewsService({
+    cacheFile: join(dir, 'news.json'), ttlMs: 10, minRefreshMs: 0, now: () => Date.now(),
+    feeds: [
+      { name: 'MS Message Center', url: 'https://msmessagecenter.com/feed.xml', category: 'microsoft' },
+      { name: 'Example Wire', url: 'https://example.com/rss' },
+    ],
+    fetchImpl: async url => {
+      const href = String(url);
+      seen.push(href);
+      if (href.endsWith('/feed.xml')) return new Response(mc);
+      if (href.endsWith('/rss')) return new Response(other);
+      return new Response('<html><head><meta property="og:image" content="https://cdn.example.com/shot.jpg"></head></html>');
+    },
+  });
+  const result = await service.getNews();
+  const byUrl = new Map(result.articles.map(item => [item.url, item]));
+  assert.equal(byUrl.get('https://msmessagecenter.com/MC100/').imageUrl, '/assets/mmc-logo.webp');
+  assert.equal(byUrl.get('https://msmessagecenter.com/MC101/').imageUrl, '/assets/mmc-logo.webp');
+  assert.equal(byUrl.get('https://example.com/publisher').imageUrl, 'https://example.com/publisher.jpg');
+  assert.equal(seen.some(href => href.includes('msmessagecenter.com/MC')), false);
+  const time = Date.now();
+  const cacheFile = join(dir, 'remembered.json');
+  await writeFile(cacheFile, JSON.stringify({
+    version: 1, checkedAt: time, updatedAt: new Date(time).toISOString(),
+    images: { 'https://msmessagecenter.com/MC100/': 'https://msmessagecenter.com/message-images/MC100.png' },
+    batches: [{
+      feedUrl: 'https://msmessagecenter.com/feed.xml',
+      source: { name: 'MS Message Center', status: 'ok', lastSuccessAt: new Date(time).toISOString() },
+      articles: [{ id: 'mc', title: 'MC100 — Screenshot post', url: 'https://msmessagecenter.com/MC100/', source: 'MS Message Center', publishedAt: new Date(time).toISOString(), summary: 'Admin center change', imageUrl: 'https://msmessagecenter.com/message-images/MC100.png', category: 'microsoft', topicScore: 1 }],
+    }],
+  }));
+  let cacheReads = 0;
+  const cached = backend.createNewsService({
+    cacheFile, ttlMs: 60_000, now: () => time,
+    feeds: [{ name: 'MS Message Center', url: 'https://msmessagecenter.com/feed.xml', category: 'microsoft' }],
+    fetchImpl: async () => { cacheReads++; return new Response(mc); },
+  });
+  const hit = await cached.getNews();
+  assert.equal(cacheReads, 0);
+  assert.equal(hit.articles[0].imageUrl, '/assets/mmc-logo.webp');
+  assert.equal(hit.articles[0].title, 'MC100 — Screenshot post');
 });
 
 test('article pages fill in og:image when the feed has no picture, and a miss is remembered', async t => {

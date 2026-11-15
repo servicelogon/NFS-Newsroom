@@ -29,6 +29,7 @@ export function categoryColor(label) {
   return palette[hash % palette.length].color;
 }
 const MICROSOFT_NEWS = new Set(['Microsoft Security Blog', 'Defender for Cloud Blog', 'Microsoft Entra Blog', 'Microsoft Security Community']);
+export const MESSAGE_CENTER_IMAGE = '/assets/mmc-logo.webp';
 export const isMessageCenterStory = story => story.source === 'MS Message Center';
 export function isMicrosoftStory(story) {
   return !/\bCVE(?:-\d{4}-\d{4,7})?\b/i.test([story.title, story.summary].join(' ')) &&
