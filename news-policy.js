@@ -16,7 +16,7 @@ function isOwnUrl(value) {
 export function externalNewsArticle(article) {
   if (!article || isOwnUrl(article.url) || /^(?:nfs|new frontier security)(?: (?:blog|field notes|newsroom))?$/i.test(String(article.source || '').trim().replace(/\s+/g, ' '))) return null;
   // Message Center RSS items have no picture, so the ingest was using each
-  // article's og:image screenshot. Show the MMC wordmark instead.
+  // article's og:image screenshot. Show the Message Center logo instead.
   if (isMessageCenterStory(article)) return { ...article, imageUrl: MESSAGE_CENTER_IMAGE };
   if (isOwnUrl(article.imageUrl)) {
     const { imageUrl, ...external } = article;
