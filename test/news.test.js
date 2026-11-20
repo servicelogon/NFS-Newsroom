@@ -1,6 +1,7 @@
 // News service and HTTP allow-list tests. Shared RSS fixture is at the bottom of this file.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { IMAGE_LOOKUP_BUDGET_MS } from '../news-service.js';
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -289,6 +290,58 @@ test('article pages fill in og:image when the feed has no picture, and a miss is
   time += 11;
   await service.getNews();
   assert.equal(seen.filter(href => href.includes('example.com/') && !href.endsWith('/rss')).length, pageCalls);
+});
+
+test('image lookup fills the front page and the first page without crawling the rest of the catalog', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'beacon-image-scope-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const day = 24 * 60 * 60 * 1000;
+  const item = (title, url, ageDays) => `<item><title>${title}</title><link>${url}</link><pubDate>${new Date(Date.now() - ageDays * day).toUTCString()}</pubDate><description>No picture in the feed</description></item>`;
+  const archive = Array.from({ length: 45 }, (_, index) => item(`Weekly roundup ${index}`, `https://example.com/old-${index}`, index + 2));
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>Security</title>${archive.join('')}${item('Kubernetes cloud posture issue', 'https://example.com/lead', 0)}</channel></rss>`;
+  const seen = [];
+  const service = backend.createNewsService({
+    cacheFile: join(dir, 'news.json'),
+    feeds: [{ name: 'Pages', url: 'https://example.com/rss' }],
+    imageBudgetMs: 5_000,
+    fetchImpl: async url => {
+      const href = String(url);
+      seen.push(href);
+      if (href.endsWith('/rss')) return new Response(xml);
+      if (href.includes('/old-44')) await new Promise(() => {});
+      return new Response('<html><head><meta property="og:image" content="https://cdn.example.com/story.jpg"></head></html>');
+    },
+  });
+  const result = await Promise.race([
+    service.getNews(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('image crawl held the refresh')), 3_000)),
+  ]);
+  const lead = result.articles.find(article => article.url === 'https://example.com/lead');
+  assert.equal(lead.imageUrl, 'https://cdn.example.com/story.jpg');
+  assert.equal(seen.includes('https://example.com/lead'), true);
+  assert.equal(seen.includes('https://example.com/old-0'), true);
+  assert.equal(seen.includes('https://example.com/old-44'), false);
+});
+
+test('a slow article page cannot hold image lookup past its budget', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'beacon-image-budget-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>Security</title><item><title>Kubernetes cloud posture issue</title><link>https://example.com/lead</link><description>AWS storage bucket exposure</description></item></channel></rss>`;
+  const service = backend.createNewsService({
+    cacheFile: join(dir, 'news.json'),
+    feeds: [{ name: 'Pages', url: 'https://example.com/rss' }],
+    imageBudgetMs: 300,
+    fetchImpl: async (url, { signal }) => {
+      if (String(url).endsWith('/rss')) return new Response(xml);
+      await new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+  });
+  const start = performance.now();
+  const result = await service.getNews();
+  assert.equal(IMAGE_LOOKUP_BUDGET_MS, 8_000);
+  assert.ok(performance.now() - start < 1_500, 'refresh stayed inside the image budget');
+  assert.equal(result.articles[0].imageUrl, undefined);
+  assert.equal(result.articles[0].title, 'Kubernetes cloud posture issue');
 });
 
 test('RSS images include media thumbnails and encoded pictures, not only enclosures', async t => {

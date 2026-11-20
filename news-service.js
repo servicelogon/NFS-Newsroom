@@ -278,8 +278,24 @@ async function fetchFeed(url, fetchImpl, timeoutMs, maxBytes, refreshSignal) {
   } finally { clearTimeout(timer); }
 }
 
+// The page paints at most the front page plus the first page of headlines.
+// Scraping every other article held the news request long enough for the browser to give up.
+const IMAGE_LOOKUP_PAGE = 40;
+export const IMAGE_LOOKUP_BUDGET_MS = 8_000;
+
+function imageLookupTargets(pending, batches, nowMs) {
+  if (!pending.length) return pending;
+  const preview = output({ batches, checkedAt: nowMs, updatedAt: null }, 0);
+  const rank = new Map();
+  preview.frontPageIds.forEach((id, index) => rank.set(id, index));
+  for (const [index, article] of preview.articles.slice(0, IMAGE_LOOKUP_PAGE).entries()) {
+    if (!rank.has(article.id)) rank.set(article.id, preview.frontPageIds.length + index);
+  }
+  return pending.filter(item => rank.has(item.id)).sort((a, b) => rank.get(a.id) - rank.get(b.id));
+}
+
 // Aggregates all feeds, persists a 5-minute disk cache, and coalesces overlapping getNews() calls.
-export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile = join(ROOT, '.cache/news.json'), ttlMs = 300_000, now = Date.now, timeoutMs = 8_000, concurrency = 8, totalTimeoutMs = 24_000, maxBytes = 3_000_000, maxStaleMs = 7 * 24 * 60 * 60 * 1000, minRefreshMs = 30_000, imageBudgetMs = 90_000, imageConcurrency = 8 } = {}) {
+export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile = join(ROOT, '.cache/news.json'), ttlMs = 300_000, now = Date.now, timeoutMs = 8_000, concurrency = 8, totalTimeoutMs = 24_000, maxBytes = 3_000_000, maxStaleMs = 7 * 24 * 60 * 60 * 1000, minRefreshMs = 30_000, imageBudgetMs = IMAGE_LOOKUP_BUDGET_MS, imageConcurrency = 8 } = {}) {
   let cache = null, inflight = null, loaded = false;
   const snapshots = new WeakMap();
   const snapshot = value => {
@@ -353,8 +369,8 @@ export function createNewsService({ feeds = FEEDS, fetchImpl = fetch, cacheFile 
         pending.push(item);
       }
     }
-    // Feeds stay inside their deadline. Pages are a second bounded pass, and a miss is remembered.
-    const discovered = await discoverImages(pending, { fetchImpl, timeoutMs: Math.min(timeoutMs, 6_000), budgetMs: imageBudgetMs, concurrency: imageConcurrency });
+    // Feeds stay inside their deadline. Only the stories this page can show are looked up, and a miss is remembered.
+    const discovered = await discoverImages(imageLookupTargets(pending, batches, now()), { fetchImpl, timeoutMs: Math.min(timeoutMs, 6_000), budgetMs: imageBudgetMs, concurrency: imageConcurrency });
     const images = {};
     for (const batch of batches) {
       for (const item of batch?.articles || []) {
