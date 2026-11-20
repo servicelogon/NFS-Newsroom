@@ -63,7 +63,7 @@ function initSite() {
       <input id="command-palette-input" type="search" maxlength="200" aria-label="Search posts, tools, and headlines" role="combobox" aria-autocomplete="list" aria-controls="command-palette-results" aria-expanded="true" placeholder="Search posts, tools, and headlines" autocomplete="off" spellcheck="false">
       <ul id="command-palette-results" class="command-palette-results" role="listbox" tabindex="-1"></ul>
       <p class="command-palette-empty" hidden>No matching posts, tools, or headlines.</p>
-      <p class="command-palette-status" role="status" aria-live="polite"></p><p class="command-palette-hint">↑↓ to move · Enter to open · Esc to close</p>
+      <p class="command-palette-status" role="status" aria-live="polite"></p><p class="command-palette-hint"><kbd>↑↓</kbd> navigate · <kbd>↵</kbd> open · <kbd>esc</kbd> close</p>
     </div>`;
   document.body.append(root);
   const input = root.querySelector('#command-palette-input');
@@ -240,7 +240,54 @@ function initSite() {
 }
 function startSite() {
   initSite();
+  initToolboxSchematics();
   initFooterWire();
+}
+
+function initToolboxSchematics() {
+  const row = document.getElementById('passkey-aaguid-lookup');
+  const code = row?.querySelector('.lookup-code');
+  const answer = row?.querySelector('.lookup-answer');
+  if (!row || !code || !answer) return;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const samples = [
+    ['ea9b8d66-4d01-1d21', '-3ce4-b6b48cb575d4', 'Google Password Manager'],
+    ['fbfc3007-154e-4ecc', '-8c0b-6e020557d7bd', 'iCloud Keychain'],
+    ['bada5566-a7aa-401f', '-bd96-45619a55120d', '1Password'],
+  ];
+  const defaultLines = ['xxxxxxxx-xxxx-xxxx', '-xxxx-xxxxxxxxxxxx'];
+  const defaultAnswer = answer.textContent;
+  let timer = 0;
+  let index = 0;
+
+  function renderLines(first, second, label) {
+    code.replaceChildren(document.createTextNode(first), document.createElement('br'), document.createTextNode(second));
+    answer.textContent = label;
+  }
+
+  function startCycle() {
+    if (reduce.matches || timer) return;
+    const [a, b, label] = samples[index % samples.length];
+    renderLines(a, b, label);
+    index += 1;
+    timer = setInterval(() => {
+      const [first, second, nextLabel] = samples[index % samples.length];
+      renderLines(first, second, nextLabel);
+      index += 1;
+    }, 1500);
+  }
+
+  function stopCycle() {
+    clearInterval(timer);
+    timer = 0;
+    renderLines(defaultLines[0], defaultLines[1], defaultAnswer);
+  }
+
+  row.addEventListener('pointerenter', startCycle);
+  row.addEventListener('focusin', startCycle);
+  row.addEventListener('pointerleave', () => { if (!row.matches(':focus-within')) stopCycle(); });
+  row.addEventListener('focusout', event => { if (!row.contains(event.relatedTarget) && !row.matches(':hover')) stopCycle(); });
+  reduce.addEventListener('change', () => { if (reduce.matches) stopCycle(); });
 }
 
 // One hairline wireframe above the footer name. A single slow turn; a still frame when motion is reduced.
@@ -253,9 +300,13 @@ function initFooterWire() {
     .map(([x, y, z]) => { const length = Math.hypot(x, y, z); return [x / length, y / length, z / length]; });
   const edges = [[0, 1], [0, 5], [0, 7], [0, 10], [0, 11], [1, 5], [1, 7], [1, 8], [1, 9], [2, 3], [2, 4], [2, 6], [2, 10], [2, 11], [3, 4], [3, 6], [3, 8], [3, 9], [4, 5], [4, 9], [4, 11], [5, 9], [5, 11], [6, 7], [6, 8], [6, 10], [7, 8], [7, 10], [8, 9], [10, 11]];
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const tilt = 0.62;
+  const baseTilt = 0.62;
   let frame = 0;
   let running = false;
+  let targetYaw = 0;
+  let targetTilt = 0;
+  let pointerYaw = 0;
+  let pointerTilt = 0;
 
   function size() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -265,14 +316,14 @@ function initFooterWire() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function project(vertex, yaw) {
+  function project(vertex, yaw, tilt) {
     const [x, y, z] = vertex;
     const x1 = x * Math.cos(yaw) + z * Math.sin(yaw);
     const z1 = -x * Math.sin(yaw) + z * Math.cos(yaw);
     return { x: x1, y: y * Math.cos(tilt) - z1 * Math.sin(tilt), z: y * Math.sin(tilt) + z1 * Math.cos(tilt) };
   }
 
-  function draw(yaw) {
+  function draw(yaw, tilt = baseTilt) {
     const width = canvas.clientWidth || 168;
     const radius = width * 0.36;
     const cx = width / 2;
@@ -281,8 +332,8 @@ function initFooterWire() {
     ctx.lineWidth = 1;
     ctx.strokeStyle = getComputedStyle(canvas).color;
     const lines = edges.map(([a, b]) => {
-      const start = project(verts[a], yaw);
-      const end = project(verts[b], yaw);
+      const start = project(verts[a], yaw, tilt);
+      const end = project(verts[b], yaw, tilt);
       return { start, end, depth: (start.z + end.z) / 2 };
     }).sort((a, b) => a.depth - b.depth);
     for (const line of lines) {
@@ -296,7 +347,9 @@ function initFooterWire() {
   }
 
   function tick(now) {
-    draw((now || 0) * 0.00018);
+    pointerYaw += (targetYaw - pointerYaw) * 0.08;
+    pointerTilt += (targetTilt - pointerTilt) * 0.08;
+    draw((now || 0) * 0.00018 + pointerYaw, baseTilt + pointerTilt);
     frame = requestAnimationFrame(tick);
   }
 
@@ -309,13 +362,32 @@ function initFooterWire() {
   function stop(still = 0.4) {
     running = false;
     cancelAnimationFrame(frame);
-    draw(still);
+    targetYaw = 0;
+    targetTilt = 0;
+    pointerYaw = 0;
+    pointerTilt = 0;
+    draw(still, baseTilt);
   }
+
+  const host = canvas.closest('.footer-mark') || canvas;
+  host.addEventListener('pointermove', event => {
+    if (reduce.matches) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const nx = Math.max(-1, Math.min(1, ((event.clientX - rect.left) / rect.width) * 2 - 1));
+    const ny = Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height) * 2 - 1));
+    targetYaw = nx * 0.32;
+    targetTilt = ny * 0.22;
+  });
+  host.addEventListener('pointerleave', () => {
+    targetYaw = 0;
+    targetTilt = 0;
+  });
 
   size();
   reduce.matches ? stop() : start();
   reduce.addEventListener('change', () => (reduce.matches ? stop() : start()));
-  new ResizeObserver(() => { size(); if (!running) draw(0.4); }).observe(canvas);
+  new ResizeObserver(() => { size(); if (!running) draw(0.4, baseTilt); }).observe(canvas);
   new IntersectionObserver(([entry]) => {
     if (reduce.matches) return;
     entry.isIntersecting ? start() : stop();

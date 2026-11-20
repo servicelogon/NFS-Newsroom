@@ -125,6 +125,7 @@ function render() {
   errorNotice.hidden = !state.error || !(state.front ? state.frontPage.length : state.stories.length);
   errorNotice.textContent = errorNotice.hidden ? '' : 'The latest headlines could not be loaded. Showing the last loaded results.';
   renderPulse();
+  syncNewsroomGlobeAccent?.(!state.front && state.topic !== 'all' ? topic?.color || '' : '');
 }
 
 async function loadNews({ append = false } = {}) {
@@ -205,7 +206,10 @@ function writeFilters() {
   if (`${location.pathname}${location.search}${location.hash}` !== next) history.replaceState(null, '', next);
 }
 
+let syncNewsroomGlobeAccent = null;
+
 applyUrlFilters();
+initNewsroomGlobe();
 // Exposed for the browser test harness.
 window.loadNews = loadNews;
 loadNews();
@@ -218,7 +222,12 @@ function initNewsroomGlobe() {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   let frame = 0;
   let running = false;
-  const tilt = 0.42;
+  const baseTilt = 0.42;
+  let accentColor = '';
+  let targetYaw = 0;
+  let targetTilt = 0;
+  let pointerYaw = 0;
+  let pointerTilt = 0;
 
   function size() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -228,14 +237,14 @@ function initNewsroomGlobe() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function point(lat, lon, rotation) {
+  function point(lat, lon, rotation, tilt) {
     const x = Math.cos(lat) * Math.sin(lon + rotation);
     const y = Math.sin(lat);
     const z = Math.cos(lat) * Math.cos(lon + rotation);
     return { x, y: y * Math.cos(tilt) - z * Math.sin(tilt), z: y * Math.sin(tilt) + z * Math.cos(tilt) };
   }
 
-  function stroke(samples, rotation, front) {
+  function stroke(samples, rotation, tilt, front) {
     const width = canvas.clientWidth || 156;
     const radius = width * 0.42;
     const cx = width / 2;
@@ -243,7 +252,7 @@ function initNewsroomGlobe() {
     ctx.beginPath();
     let drawing = false;
     for (const [lat, lon] of samples) {
-      const p = point(lat, lon, rotation);
+      const p = point(lat, lon, rotation, tilt);
       if ((front && p.z < 0) || (!front && p.z >= 0)) { drawing = false; continue; }
       const x = cx + p.x * radius;
       const y = cy - p.y * radius;
@@ -253,11 +262,12 @@ function initNewsroomGlobe() {
     ctx.stroke();
   }
 
-  function draw(rotation) {
+  function draw(rotation, tilt = baseTilt) {
     const width = canvas.clientWidth || 156;
+    const baseStroke = getComputedStyle(canvas).color;
     ctx.clearRect(0, 0, width, width);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = getComputedStyle(canvas).color;
+    ctx.strokeStyle = baseStroke;
     ctx.beginPath();
     ctx.arc(width / 2, width / 2, width * 0.42, 0, Math.PI * 2);
     ctx.stroke();
@@ -275,14 +285,22 @@ function initNewsroomGlobe() {
       rings.push(samples);
     }
     ctx.globalAlpha = 0.28;
-    for (const samples of rings) stroke(samples, rotation, false);
+    for (const samples of rings) stroke(samples, rotation, tilt, false);
     ctx.globalAlpha = 0.9;
-    for (const samples of rings) stroke(samples, rotation, true);
+    for (let i = 0; i < rings.length; i++) {
+      // Gently tint the equator and prime meridian toward the active topic color.
+      const highlighted = accentColor && (i === 1 || i === 3);
+      ctx.strokeStyle = highlighted ? accentColor : baseStroke;
+      stroke(rings[i], rotation, tilt, true);
+    }
+    ctx.strokeStyle = baseStroke;
     ctx.globalAlpha = 1;
   }
 
   function tick(now) {
-    draw((now || 0) * 0.00022);
+    pointerYaw += (targetYaw - pointerYaw) * 0.08;
+    pointerTilt += (targetTilt - pointerTilt) * 0.08;
+    draw((now || 0) * 0.00022 + pointerYaw, baseTilt + pointerTilt);
     frame = requestAnimationFrame(tick);
   }
 
@@ -295,17 +313,41 @@ function initNewsroomGlobe() {
   function stop(still = 0.8) {
     running = false;
     cancelAnimationFrame(frame);
-    draw(still);
+    targetYaw = 0;
+    targetTilt = 0;
+    pointerYaw = 0;
+    pointerTilt = 0;
+    draw(still, baseTilt);
   }
+
+  syncNewsroomGlobeAccent = color => {
+    accentColor = color || '';
+    if (accentColor) canvas.style.setProperty('--globe-accent', accentColor);
+    else canvas.style.removeProperty('--globe-accent');
+    if (!running) draw(0.8, baseTilt);
+  };
+
+  const band = canvas.closest('.coverage-pulse-band') || canvas;
+  band.addEventListener('pointermove', event => {
+    if (reduce.matches) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const nx = Math.max(-1, Math.min(1, ((event.clientX - rect.left) / rect.width) * 2 - 1));
+    const ny = Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height) * 2 - 1));
+    targetYaw = nx * 0.28;
+    targetTilt = ny * 0.18;
+  });
+  band.addEventListener('pointerleave', () => {
+    targetYaw = 0;
+    targetTilt = 0;
+  });
 
   size();
   reduce.matches ? stop() : start();
   reduce.addEventListener('change', () => (reduce.matches ? stop() : start()));
-  new ResizeObserver(() => { size(); if (!running) draw(0.8); }).observe(canvas);
+  new ResizeObserver(() => { size(); if (!running) draw(0.8, baseTilt); }).observe(canvas);
   new IntersectionObserver(([entry]) => {
     if (reduce.matches) return;
     entry.isIntersecting ? start() : stop();
   }).observe(canvas);
 }
-
-initNewsroomGlobe();
