@@ -207,6 +207,40 @@ const assert = require('node:assert/strict');
     await expect(page.locator('#front-page')).toBeVisible();
     assert.equal(new URL(page.url()).search, '');
 
+    // Each category highlights a distinct sequential meridian line on the newsroom globe.
+    const globePage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+    await globePage.goto(base + '/newsroom');
+    await expect(globePage.locator('#coverage-pulse [data-topic="cloud"]')).toBeVisible();
+    const readGlobeState = () => globePage.evaluate(() => {
+      const canvas = document.querySelector('.newsroom-globe');
+      return {
+        topic: canvas.dataset.globeTopic || '',
+        meridian: canvas.dataset.globeMeridian ?? '',
+        accent: canvas.style.getPropertyValue('--globe-accent').trim().toLowerCase(),
+        dataUrl: canvas.toDataURL(),
+      };
+    });
+    const neutralGlobe = await readGlobeState();
+    assert.equal(neutralGlobe.topic, '');
+    assert.equal(neutralGlobe.meridian, '');
+    assert.equal(neutralGlobe.accent, '');
+    const seenDataUrls = new Set([neutralGlobe.dataUrl]);
+    const topicOrder = ['cloud', 'identity', 'vulnerabilities', 'incidents', 'malware', 'operations', 'microsoft'];
+    for (let i = 0; i < topicOrder.length; i++) {
+      const id = topicOrder[i];
+      await globePage.locator(`#coverage-pulse [data-topic="${id}"]`).click();
+      await expect(globePage.locator('.newsroom-globe')).toHaveAttribute('data-globe-topic', id);
+      const current = await readGlobeState();
+      assert.equal(current.meridian, String(i), `${id} maps to meridian ${i}`);
+      assert.equal(current.accent, expectedPulseColors[id], `${id} uses its topic highlight color`);
+      assert.ok(!seenDataUrls.has(current.dataUrl), `${id} renders a distinct highlighted globe line`);
+      seenDataUrls.add(current.dataUrl);
+    }
+    await globePage.locator('#pulse-all-coverage').click();
+    await expect(globePage.locator('.newsroom-globe')).not.toHaveAttribute('data-globe-topic', /.+/);
+    assert.equal((await readGlobeState()).dataUrl, neutralGlobe.dataUrl, 'All coverage resets the globe to neutral');
+    await globePage.close();
+
     // Search is discoverable, queries the full collection, and contains focus.
     await page.getByRole('button', { name: 'Search the site', exact: true }).click();
     await expect(page.locator('.shell')).toHaveAttribute('inert', '');

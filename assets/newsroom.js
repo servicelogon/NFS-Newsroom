@@ -1,5 +1,5 @@
 import { TOPIC_BY_ID } from './news-topics.js';
-import { describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
+import { PULSE_TOPICS, describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
 import { describeEmptyState } from '/assets/newsroom-states.js';
 import { createArticleCard } from './article-card.js';
 import { formatCalendarDate } from './dates.js';
@@ -125,7 +125,8 @@ function render() {
   errorNotice.hidden = !state.error || !(state.front ? state.frontPage.length : state.stories.length);
   errorNotice.textContent = errorNotice.hidden ? '' : 'The latest headlines could not be loaded. Showing the last loaded results.';
   renderPulse();
-  syncNewsroomGlobeAccent?.(!state.front && state.topic !== 'all' ? topic?.color || '' : '');
+  const activeTopic = !state.front && state.topic !== 'all' ? topic : null;
+  syncNewsroomGlobeAccent?.(activeTopic ? { id: activeTopic.id, color: activeTopic.color || '' } : null);
 }
 
 async function loadNews({ append = false } = {}) {
@@ -223,7 +224,11 @@ function initNewsroomGlobe() {
   let frame = 0;
   let running = false;
   const baseTilt = 0.42;
+  const meridianCount = PULSE_TOPICS.length;
+  const meridianByTopic = new Map(PULSE_TOPICS.map((topic, index) => [topic.id, index]));
+  let accentTopic = '';
   let accentColor = '';
+  let accentMeridian = -1;
   let targetYaw = 0;
   let targetTilt = 0;
   let pointerYaw = 0;
@@ -271,29 +276,37 @@ function initNewsroomGlobe() {
     ctx.beginPath();
     ctx.arc(width / 2, width / 2, width * 0.42, 0, Math.PI * 2);
     ctx.stroke();
-    const rings = [];
+    const latitudes = [];
     for (let i = 1; i <= 3; i++) {
       const lat = -Math.PI / 2 + (i * Math.PI) / 4;
       const samples = [];
       for (let step = 0; step <= 64; step++) samples.push([lat, (step / 64) * Math.PI * 2]);
-      rings.push(samples);
+      latitudes.push(samples);
     }
-    for (let i = 0; i < 6; i++) {
-      const lon = (i / 6) * Math.PI;
+    const meridians = [];
+    for (let i = 0; i < meridianCount; i++) {
+      const lon = (i / meridianCount) * Math.PI;
       const samples = [];
-      for (let step = 0; step <= 48; step++) samples.push([-Math.PI / 2 + (step / 48) * Math.PI, lon]);
-      rings.push(samples);
+      for (let step = 0; step <= 96; step++) samples.push([(step / 96) * Math.PI * 2, lon]);
+      meridians.push(samples);
     }
     ctx.globalAlpha = 0.28;
-    for (const samples of rings) stroke(samples, rotation, tilt, false);
+    for (const samples of latitudes) stroke(samples, rotation, tilt, false);
+    for (const samples of meridians) stroke(samples, rotation, tilt, false);
     ctx.globalAlpha = 0.9;
-    for (let i = 0; i < rings.length; i++) {
-      // Gently tint the equator and prime meridian toward the active topic color.
-      const highlighted = accentColor && (i === 1 || i === 3);
-      ctx.strokeStyle = highlighted ? accentColor : baseStroke;
-      stroke(rings[i], rotation, tilt, true);
+    for (const samples of latitudes) stroke(samples, rotation, tilt, true);
+    for (let i = 0; i < meridians.length; i++) {
+      if (accentColor && i === accentMeridian) continue;
+      stroke(meridians[i], rotation, tilt, true);
     }
-    ctx.strokeStyle = baseStroke;
+    if (accentColor && accentMeridian >= 0 && accentMeridian < meridians.length) {
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 1;
+      stroke(meridians[accentMeridian], rotation, tilt, true);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = baseStroke;
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -320,10 +333,19 @@ function initNewsroomGlobe() {
     draw(still, baseTilt);
   }
 
-  syncNewsroomGlobeAccent = color => {
-    accentColor = color || '';
-    if (accentColor) canvas.style.setProperty('--globe-accent', accentColor);
-    else canvas.style.removeProperty('--globe-accent');
+  syncNewsroomGlobeAccent = topic => {
+    accentTopic = topic?.id || '';
+    accentColor = topic?.color || '';
+    accentMeridian = accentColor && meridianByTopic.has(accentTopic) ? meridianByTopic.get(accentTopic) : -1;
+    if (accentColor && accentMeridian >= 0) {
+      canvas.style.setProperty('--globe-accent', accentColor);
+      canvas.dataset.globeTopic = accentTopic;
+      canvas.dataset.globeMeridian = String(accentMeridian);
+    } else {
+      canvas.style.removeProperty('--globe-accent');
+      delete canvas.dataset.globeTopic;
+      delete canvas.dataset.globeMeridian;
+    }
     if (!running) draw(0.8, baseTilt);
   };
 
