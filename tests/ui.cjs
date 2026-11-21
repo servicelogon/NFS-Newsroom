@@ -83,7 +83,7 @@ const assert = require('node:assert/strict');
     assert.ok(pulseBand.globeWidth >= 140, 'the globe is larger than the previous mark');
     assert.ok(pulseBand.bandRight - pulseBand.globeRight < 2, 'the globe is right-aligned');
     await expect(page.locator('#coverage-pulse [data-topic="vulnerabilities"]')).toBeVisible();
-    await expect(page.locator('.coverage-pulse-note')).toHaveText('Select a topic to filter. Article volume, not threat severity. Microsoft coverage overlaps other topics.');
+    await expect(page.locator('.coverage-pulse-note')).toHaveText('Select a topic to filter. Numbers = daily article volume for that category. Microsoft coverage overlaps other topics.');
     await expect(page.locator('#coverage-pulse-strip')).toHaveAttribute('aria-label', 'Topic filters');
     assert.ok(await page.locator('#front-page-link').evaluate(el => parseFloat(getComputedStyle(el).fontSize) >= 28));
     assert.equal(await page.locator('.coverage-switch').evaluate(el => getComputedStyle(el).borderTopWidth), '1px');
