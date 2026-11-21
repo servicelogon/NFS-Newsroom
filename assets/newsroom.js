@@ -14,7 +14,7 @@ const state = {
 let controller, switchMotion = false;
 let requestId = 0;
 const viewKey = () => JSON.stringify([state.topic, state.microsoftFilter, state.query]);
-const PULSE_NOTE = 'Select a topic to filter. Article volume, not threat severity. Microsoft coverage overlaps other topics.';
+const PULSE_NOTE = 'Select a topic to filter. Numbers = daily article volume for that category. Microsoft coverage overlaps other topics.';
 const touchFocusChips = new WeakSet();
 
 function pulseActionLabel(topic, pressed) {
