@@ -14,6 +14,72 @@ const state = {
 let controller, switchMotion = false;
 let requestId = 0;
 const viewKey = () => JSON.stringify([state.topic, state.microsoftFilter, state.query]);
+const PULSE_NOTE = 'Select a topic to filter. Article volume, not threat severity. Microsoft coverage overlaps other topics.';
+const touchFocusChips = new WeakSet();
+
+function pulseActionLabel(topic, pressed) {
+  return pressed
+    ? `${topic.name} filter on, ${topic.count} articles. Activate to clear.`
+    : `Filter briefing to ${topic.name}, ${topic.count} articles`;
+}
+
+function paintPulseChip(button, topic) {
+  const pressed = !state.front && state.topic === topic.id;
+  button.setAttribute('aria-pressed', String(pressed));
+  button.setAttribute('aria-label', pulseActionLabel(topic, pressed));
+  button.querySelector('.coverage-pulse-chip-count').textContent = String(topic.count);
+}
+
+function previewPulseTopic(topic, color) {
+  if (!matchMedia('(hover: hover)').matches || !color) return;
+  previewNewsroomGlobe?.({ id: topic.id, color });
+}
+
+function createPulseChip(topic) {
+  const button = document.createElement('button');
+  button.className = 'coverage-pulse-chip';
+  button.type = 'button';
+  button.dataset.topic = topic.id;
+  const palette = TOPIC_BY_ID.get(topic.id);
+  if (palette?.color) button.style.setProperty('--topic-color', palette.color);
+  const label = document.createElement('span');
+  label.className = 'topic coverage-pulse-chip-label';
+  label.textContent = topic.name;
+  const count = document.createElement('span');
+  count.className = 'coverage-pulse-chip-count';
+  button.append(count, label);
+  paintPulseChip(button, topic);
+  button.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch') touchFocusChips.add(button);
+    else touchFocusChips.delete(button);
+  });
+  button.addEventListener('pointerenter', event => {
+    if (event.pointerType === 'touch') return;
+    previewPulseTopic(topic, palette?.color || '');
+  });
+  button.addEventListener('pointerleave', () => {
+    if (document.activeElement === button) return;
+    clearNewsroomGlobePreview?.();
+  });
+  button.addEventListener('focus', () => {
+    if (touchFocusChips.has(button)) return;
+    previewPulseTopic(topic, palette?.color || '');
+  });
+  button.addEventListener('blur', () => {
+    touchFocusChips.delete(button);
+    if (button.matches(':hover') && matchMedia('(hover: hover)').matches) return;
+    clearNewsroomGlobePreview?.();
+  });
+  button.addEventListener('click', () => {
+    if (!state.front && state.topic === topic.id) {
+      switchMotion = true;
+      reset();
+      return;
+    }
+    selectTopic(topic.id);
+  });
+  return button;
+}
 
 function renderPulse() {
   const mode = shouldShowCoveragePulse({ loading: state.loading, articleCount: state.totalArticles });
@@ -24,6 +90,7 @@ function renderPulse() {
   const strip = $('#coverage-pulse-strip');
   const lead = $('#coverage-pulse-lead');
   lead.hidden = mode !== 'ready';
+  if (mode !== 'hidden') $('.coverage-pulse-note').textContent = PULSE_NOTE;
   if (mode === 'hidden') { strip.replaceChildren(); return; }
   if (mode === 'placeholder') {
     const placeholder = document.createElement('div');
@@ -34,26 +101,10 @@ function renderPulse() {
   }
   const { sentence, topics } = describeCoveragePulse(state.pulseCounts);
   lead.textContent = sentence;
-  strip.replaceChildren(...topics.map(topic => {
-    const button = document.createElement('button');
-    button.className = 'coverage-pulse-chip';
-    button.type = 'button';
-    button.dataset.topic = topic.id;
-    button.setAttribute('aria-pressed', String(!state.front && state.topic === topic.id));
-    button.setAttribute('aria-label', `${topic.name}, ${topic.count} stories in the last 24 hours`);
-    const palette = TOPIC_BY_ID.get(topic.id);
-    if (palette?.color) button.style.setProperty('--topic-color', palette.color);
-    const label = document.createElement('span');
-    label.className = 'topic coverage-pulse-chip-label';
-    label.textContent = topic.name;
-    const count = document.createElement('span');
-    count.className = 'coverage-pulse-chip-count';
-    count.textContent = topic.count;
-    button.append(count, label);
-    button.addEventListener('click', () => selectTopic(topic.id));
-    return button;
-  }));
-  $('.coverage-pulse-note').textContent = 'Article volume, not threat severity. Microsoft coverage overlaps other topics.';
+  const chips = [...strip.querySelectorAll(':scope > .coverage-pulse-chip')];
+  const reusable = chips.length === topics.length && chips.every((chip, index) => chip.dataset.topic === topics[index].id);
+  if (!reusable) strip.replaceChildren(...topics.map(createPulseChip));
+  else topics.forEach((topic, index) => paintPulseChip(chips[index], topic));
 }
 
 function applyEmptyState(root, visibleCount, front = false) {
@@ -110,9 +161,18 @@ function render() {
   $('#front-page-date').textContent = formatCalendarDate(today, { weekday: true });
   writeFilters();
   $('#front-page-status').textContent = state.loading ? 'Loading headlines…' : `${state.frontPage.length} headlines loaded.`;
-  const matchCount = state.loading ? 'Loading coverage…' : `${state.stories.length} of ${state.total} matching articles`;
-  $('#briefing-status').textContent = state.loading ? 'Loading…' : `${state.stories.length} of ${state.total}`;
-  $('#briefing-status').setAttribute('aria-label', matchCount);
+  const pulseTopic = PULSE_TOPICS.find(item => item.id === state.topic);
+  const briefingText = state.loading
+    ? 'Loading…'
+    : state.front
+      ? ''
+      : !pulseTopic || state.topic === 'all'
+        ? 'Showing all coverage.'
+        : `Showing ${pulseTopic.name}, ${Number(state.pulseCounts?.[state.topic]) || 0} articles.`;
+  const briefingStatus = $('#briefing-status');
+  briefingStatus.textContent = briefingText;
+  if (briefingText) briefingStatus.setAttribute('aria-label', briefingText);
+  else briefingStatus.removeAttribute('aria-label');
   if (state.front) renderCards($('#front-page-feed'), state.frontPage, true);
   else renderCards($('#feed'), state.stories);
   applyEmptyState($('#front-page-empty'), state.frontPage.length, true);
@@ -208,6 +268,8 @@ function writeFilters() {
 }
 
 let syncNewsroomGlobeAccent = null;
+let previewNewsroomGlobe = null;
+let clearNewsroomGlobePreview = null;
 
 applyUrlFilters();
 initNewsroomGlobe();
@@ -229,6 +291,13 @@ function initNewsroomGlobe() {
   let accentTopic = '';
   let accentColor = '';
   let accentMeridian = -1;
+  let accentAlpha = 0;
+  let accentAlphaTarget = 0;
+  let committedId = '';
+  let committedColor = '';
+  let previewId = '';
+  let previewColor = '';
+  let lastTick = 0;
   let targetYaw = 0;
   let targetTilt = 0;
   let pointerYaw = 0;
@@ -299,21 +368,35 @@ function initNewsroomGlobe() {
       if (accentColor && i === accentMeridian) continue;
       stroke(meridians[i], rotation, tilt, true);
     }
-    if (accentColor && accentMeridian >= 0 && accentMeridian < meridians.length) {
+    if (accentColor && accentAlpha > 0 && accentMeridian >= 0 && accentMeridian < meridians.length) {
       ctx.strokeStyle = accentColor;
       ctx.lineWidth = 1.5;
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = accentAlpha;
       stroke(meridians[accentMeridian], rotation, tilt, true);
       ctx.lineWidth = 1;
       ctx.strokeStyle = baseStroke;
     }
     ctx.globalAlpha = 1;
+    canvas.dataset.globeAccentAlpha = accentAlpha.toFixed(2);
   }
 
   function tick(now) {
+    const time = now || 0;
+    if (accentAlpha !== accentAlphaTarget) {
+      const dt = lastTick ? Math.min(48, time - lastTick) : 16;
+      const step = reduce.matches ? 1 : dt / 150;
+      const delta = accentAlphaTarget - accentAlpha;
+      accentAlpha = Math.abs(delta) <= step ? accentAlphaTarget : accentAlpha + Math.sign(delta) * step;
+    }
+    if (accentAlpha === 0 && accentColor && !previewColor && !committedColor) {
+      accentTopic = '';
+      accentColor = '';
+      accentMeridian = -1;
+    }
+    lastTick = time;
     pointerYaw += (targetYaw - pointerYaw) * 0.08;
     pointerTilt += (targetTilt - pointerTilt) * 0.08;
-    draw((now || 0) * 0.00022 + pointerYaw, baseTilt + pointerTilt);
+    draw(time * 0.00022 + pointerYaw, baseTilt + pointerTilt);
     frame = requestAnimationFrame(tick);
   }
 
@@ -333,20 +416,77 @@ function initNewsroomGlobe() {
     draw(still, baseTilt);
   }
 
-  syncNewsroomGlobeAccent = topic => {
-    accentTopic = topic?.id || '';
-    accentColor = topic?.color || '';
-    accentMeridian = accentColor && meridianByTopic.has(accentTopic) ? meridianByTopic.get(accentTopic) : -1;
-    if (accentColor && accentMeridian >= 0) {
-      canvas.style.setProperty('--globe-accent', accentColor);
-      canvas.dataset.globeTopic = accentTopic;
-      canvas.dataset.globeMeridian = String(accentMeridian);
+  function writeCommittedGlobe() {
+    if (committedColor && meridianByTopic.has(committedId)) {
+      canvas.style.setProperty('--globe-accent', committedColor);
+      canvas.dataset.globeTopic = committedId;
+      canvas.dataset.globeMeridian = String(meridianByTopic.get(committedId));
     } else {
       canvas.style.removeProperty('--globe-accent');
       delete canvas.dataset.globeTopic;
       delete canvas.dataset.globeMeridian;
     }
-    if (!running) draw(0.8, baseTilt);
+    if (previewColor && meridianByTopic.has(previewId)) {
+      canvas.dataset.globePreview = previewId;
+      canvas.dataset.globePreviewMeridian = String(meridianByTopic.get(previewId));
+    } else {
+      delete canvas.dataset.globePreview;
+      delete canvas.dataset.globePreviewMeridian;
+    }
+  }
+
+  // Hover preview fades over 150ms. A committed selection snaps on, so a click does not animate.
+  function applyGlobe(fade) {
+    const next = previewColor
+      ? { id: previewId, color: previewColor, alpha: 0.5 }
+      : committedColor
+        ? { id: committedId, color: committedColor, alpha: 1 }
+        : { id: '', color: '', alpha: 0 };
+    const instant = !fade || reduce.matches;
+    accentAlphaTarget = next.alpha;
+    if (next.color && meridianByTopic.has(next.id)) {
+      const changed = next.id !== accentTopic || next.color !== accentColor;
+      accentTopic = next.id;
+      accentColor = next.color;
+      accentMeridian = meridianByTopic.get(next.id);
+      if (instant) accentAlpha = next.alpha;
+      else if (changed) accentAlpha = 0;
+    } else if (instant || accentAlpha === 0) {
+      accentTopic = '';
+      accentColor = '';
+      accentMeridian = -1;
+      accentAlpha = 0;
+    }
+    writeCommittedGlobe();
+    if (!running) {
+      accentAlpha = accentAlphaTarget;
+      if (!accentAlpha && !next.color) {
+        accentTopic = '';
+        accentColor = '';
+        accentMeridian = -1;
+      }
+      draw(0.8, baseTilt);
+    } else canvas.dataset.globeAccentAlpha = accentAlpha.toFixed(2);
+  }
+
+  syncNewsroomGlobeAccent = topic => {
+    committedId = topic?.id || '';
+    committedColor = topic?.color || '';
+    previewId = '';
+    previewColor = '';
+    applyGlobe(false);
+  };
+  previewNewsroomGlobe = topic => {
+    if (!matchMedia('(hover: hover)').matches || !topic?.id || !topic.color) return;
+    previewId = topic.id;
+    previewColor = topic.color;
+    applyGlobe(true);
+  };
+  clearNewsroomGlobePreview = () => {
+    if (!previewColor) return;
+    previewId = '';
+    previewColor = '';
+    applyGlobe(true);
   };
 
   const band = canvas.closest('.coverage-pulse-band') || canvas;
@@ -366,7 +506,10 @@ function initNewsroomGlobe() {
 
   size();
   reduce.matches ? stop() : start();
-  reduce.addEventListener('change', () => (reduce.matches ? stop() : start()));
+  reduce.addEventListener('change', () => {
+    if (reduce.matches) accentAlpha = accentAlphaTarget;
+    reduce.matches ? stop() : start();
+  });
   new ResizeObserver(() => { size(); if (!running) draw(0.8, baseTilt); }).observe(canvas);
   new IntersectionObserver(([entry]) => {
     if (reduce.matches) return;
