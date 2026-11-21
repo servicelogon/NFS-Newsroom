@@ -1,6 +1,6 @@
 import { TOPIC_BY_ID } from './news-topics.js';
 import { PULSE_TOPICS, describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
-import { describeEmptyState } from '/assets/newsroom-states.js';
+import { describeEmptyState, describeFrontPageStatus } from '/assets/newsroom-states.js';
 import { createArticleCard } from './article-card.js';
 import { formatCalendarDate } from './dates.js';
 import { filtersFromSearch, searchFromFilters } from './newsroom-filters.js';
@@ -119,6 +119,7 @@ function applyEmptyState(root, visibleCount, front = false) {
   root.querySelector('[data-empty-copy]').textContent = empty.body;
   root.querySelector('.empty-actions').hidden = !empty.reset;
   root.querySelectorAll('[data-empty-reset]').forEach(button => { button.hidden = !empty.reset; });
+  return empty;
 }
 
 function renderCards(container, articles, front = false) {
@@ -160,7 +161,10 @@ function render() {
   $('#front-page-date').dateTime = today.toISOString().slice(0, 10);
   $('#front-page-date').textContent = formatCalendarDate(today, { weekday: true });
   writeFilters();
-  $('#front-page-status').textContent = state.loading ? 'Loading headlines…' : `${state.frontPage.length} headlines loaded.`;
+  const frontEmpty = applyEmptyState($('#front-page-empty'), state.frontPage.length, true);
+  $('#front-page-status').textContent = describeFrontPageStatus({
+    loading: state.loading, headlineCount: state.frontPage.length, empty: frontEmpty,
+  });
   const pulseTopic = PULSE_TOPICS.find(item => item.id === state.topic);
   const briefingText = state.loading
     ? 'Loading…'
@@ -175,7 +179,6 @@ function render() {
   else briefingStatus.removeAttribute('aria-label');
   if (state.front) renderCards($('#front-page-feed'), state.frontPage, true);
   else renderCards($('#feed'), state.stories);
-  applyEmptyState($('#front-page-empty'), state.frontPage.length, true);
   applyEmptyState($('#empty'), state.stories.length);
   const more = $('#load-more');
   more.hidden = state.nextOffset === null;

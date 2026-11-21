@@ -376,15 +376,59 @@ export async function loadPosts(directory) {
 // ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
-// Tools listed in the Cmd+K palette. hrefs jump to the matching card on
-// /tools via the fragment id.
+// Toolbox cards and the Cmd+K palette share one sentence per tool.
+// hrefs jump to the matching card on /tools via the fragment id.
 
-export const SITE_TOOLS = [
-  { title: 'CAP Evaluator', href: '/tools#cap-evaluator', description: 'CA Gap Evaluator: find coverage gaps in Entra Conditional Access. Runs locally in the browser.' },
-  { title: 'Copilot Security Trail', href: '/tools#copilot-security-trail', description: 'Five stops through Copilot security, data protection, and Zero Trust.' },
-  { title: 'Passkey AAGUID Lookup', href: '/tools#passkey-aaguid-lookup', description: 'Match an AAGUID to its passkey provider, or browse the directory.' },
-  { title: 'Entra Token Lab', href: '/tools#entra-token-lab', description: 'Watch a Microsoft Entra sign-in: authorization code, ID token, access token, and refresh token.' },
+const TOOLBOX = [
+  {
+    id: 'cap-evaluator',
+    title: 'CAP Evaluator',
+    description: 'Import Entra Conditional Access policies and see what’s enforced, partial, or missing.',
+    visual: `<div class="tool-visual cap-visual" aria-hidden="true"><span class="cap-prompt">POLICIES → GAPS</span><div class="cap-map"><span class="cap-col">MFA</span><span class="cap-col">Device</span><span class="cap-col">Location</span><span class="cap-col">Session</span><span class="cap-cell is-on"></span><span class="cap-cell is-on"></span><span class="cap-cell is-partial"></span><span class="cap-cell is-gap">GAP</span><span class="cap-cell is-on"></span><span class="cap-cell is-partial"></span><span class="cap-cell is-on"></span><span class="cap-cell is-gap">GAP</span></div><span class="cap-answer">The hole is the finding.</span></div>`,
+    launchHref: 'https://servicelogon.github.io/CAP-Evaluator/',
+    launchLabel: 'Check the gaps (opens in a new tab)',
+    sourceHref: 'https://github.com/servicelogon/CAP-Evaluator',
+  },
+  {
+    id: 'copilot-security-trail',
+    title: 'Copilot Security Trail',
+    description: 'Five stops through Copilot security, data protection, and Zero Trust.',
+    visual: `<div class="tool-visual trail-stops" aria-label="Five trail stations"><span>01<small>Data</small></span><i></i><span>02<small>Protection</small></span><i></i><span>03<small>Readiness</small></span><i></i><span>04<small>Agents</small></span><i></i><span>05<small>Zero Trust</small></span></div>`,
+    launchHref: 'https://servicelogon.github.io/copilot-security-trail/',
+    launchLabel: 'Hit the trail (opens in a new tab)',
+    sourceHref: 'https://github.com/servicelogon/copilot-security-trail',
+  },
+  {
+    id: 'passkey-aaguid-lookup',
+    title: 'Passkey AAGUID Lookup',
+    description: 'Match an AAGUID to its passkey provider, or browse the directory.',
+    visual: `<div class="tool-visual lookup-visual" aria-hidden="true"><span class="lookup-prompt">AAGUID → PROVIDER</span><div class="lookup-code">xxxxxxxx-xxxx-xxxx<br>-xxxx-xxxxxxxxxxxx</div><span class="lookup-answer">A little less mystery.</span></div>`,
+    launchHref: 'https://servicelogon.github.io/PasskeyLookup/',
+    launchLabel: 'Meet your passkey (opens in a new tab)',
+    sourceHref: 'https://github.com/servicelogon/PasskeyLookup',
+    note: 'Provider labels use community data; they aren’t a basis for security decisions.',
+  },
+  {
+    id: 'entra-token-lab',
+    title: 'Entra Token Lab',
+    description: 'Watch a Microsoft Entra sign-in hand off its authorization code, ID token, access token, and refresh token.',
+    visual: `<div class="tool-visual token-visual" aria-hidden="true"><span class="token-prompt">SIGN-IN → TICKETS</span><div class="token-flow"><span class="token-node"><b>CODE</b><small>once</small></span><i></i><span class="token-node is-held"><b>ID</b><small>who</small></span><i></i><span class="token-node is-held"><b>ACCESS</b><small>what</small></span><i></i><span class="token-node"><b>REFRESH</b><small>again</small></span></div><span class="token-answer">Each ticket answers one question.</span></div>`,
+    launchHref: 'https://servicelogon.github.io/entra-auth-flow-visualizer/',
+    launchLabel: 'Watch the flow (opens in a new tab)',
+    sourceHref: 'https://github.com/servicelogon/entra-auth-flow-visualizer',
+  },
 ];
+
+export const SITE_TOOLS = TOOLBOX.map(tool => ({
+  title: tool.title,
+  href: `/tools#${tool.id}`,
+  description: tool.description,
+}));
+
+function toolCard(tool) {
+  const note = tool.note ? `<p class="tool-note">${escapeHtml(tool.note)}</p>` : '';
+  return `<article class="tool-row" id="${escapeHtml(tool.id)}">${tool.visual}<div class="tool-copy"><h2>${escapeHtml(tool.title)}</h2><p>${escapeHtml(tool.description)}</p>${note}</div><div class="tool-actions"><a class="tool-launch" href="${escapeHtml(tool.launchHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(tool.launchLabel)}">Open</a><a class="source-link" href="${escapeHtml(tool.sourceHref)}" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>`;
+}
 
 // Published posts plus SITE_TOOLS. The client reads this JSON; news headlines
 // are merged in elsewhere and may include a `source` field.
@@ -541,12 +585,9 @@ export function notFoundPage(seo = {}) {
 // renders the list and outbound links. Diagrams stay inside each row.
 
 export function toolsPage(seo = {}) {
-  return layout('Toolbox', 'Explore CAP Evaluator, Copilot Security Trail, Passkey AAGUID Lookup, and Entra Token Lab, tools by Nathan Hess.', 'Toolbox', `
-    <section class="page-intro tools-intro"><h1>Toolbox</h1><p class="opening-line">Tools for working in the Identity and Cloud security space</p></section>
+  return layout('Toolbox', 'Explore CAP Evaluator, Copilot Security Trail, Passkey AAGUID Lookup, and Entra Token Lab. Tools by Nathan Hess.', 'Toolbox', `
+    <section class="page-intro tools-intro"><h1>Toolbox</h1><p class="opening-line">Tools for working in the Identity and Cloud security space.</p></section>
     <section class="tool-list" aria-label="Identity and security tools">
-      <article class="tool-row" id="cap-evaluator"><div class="tool-visual cap-visual" aria-hidden="true"><span class="cap-prompt">POLICIES → GAPS</span><div class="cap-map"><span class="cap-col">MFA</span><span class="cap-col">Device</span><span class="cap-col">Location</span><span class="cap-col">Session</span><span class="cap-cell is-on"></span><span class="cap-cell is-on"></span><span class="cap-cell is-partial"></span><span class="cap-cell is-gap">GAP</span><span class="cap-cell is-on"></span><span class="cap-cell is-partial"></span><span class="cap-cell is-on"></span><span class="cap-cell is-gap">GAP</span></div><span class="cap-answer">The hole is the finding.</span></div><div class="tool-copy"><h2>CAP Evaluator</h2><p>Import Entra Conditional Access policies and see what’s enforced, partial, or missing.</p></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/CAP-Evaluator/" target="_blank" rel="noopener noreferrer" aria-label="Check the gaps (opens in a new tab)">Open</a><a class="source-link" href="https://github.com/servicelogon/CAP-Evaluator" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>
-      <article class="tool-row" id="copilot-security-trail"><div class="tool-visual trail-stops" aria-label="Five trail stations"><span>01<small>Data</small></span><i></i><span>02<small>Protection</small></span><i></i><span>03<small>Readiness</small></span><i></i><span>04<small>Agents</small></span><i></i><span>05<small>Zero Trust</small></span></div><div class="tool-copy"><h2>Copilot Security Trail</h2><p>Five stops through Copilot security, data protection, and Zero Trust.</p></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/copilot-security-trail/" target="_blank" rel="noopener noreferrer" aria-label="Hit the trail (opens in a new tab)">Open</a><a class="source-link" href="https://github.com/servicelogon/copilot-security-trail" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>
-      <article class="tool-row" id="passkey-aaguid-lookup"><div class="tool-visual lookup-visual" aria-hidden="true"><span class="lookup-prompt">AAGUID → PROVIDER</span><div class="lookup-code">xxxxxxxx-xxxx-xxxx<br>-xxxx-xxxxxxxxxxxx</div><span class="lookup-answer">A little less mystery.</span></div><div class="tool-copy"><h2>Passkey AAGUID Lookup</h2><p>Match an AAGUID to its passkey provider, or browse the directory.</p><p class="tool-note">Provider labels use community data; they aren’t a basis for security decisions.</p></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/PasskeyLookup/" target="_blank" rel="noopener noreferrer" aria-label="Meet your passkey (opens in a new tab)">Open</a><a class="source-link" href="https://github.com/servicelogon/PasskeyLookup" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>
-      <article class="tool-row" id="entra-token-lab"><div class="tool-visual token-visual" aria-hidden="true"><span class="token-prompt">SIGN-IN → TICKETS</span><div class="token-flow"><span class="token-node"><b>CODE</b><small>once</small></span><i></i><span class="token-node is-held"><b>ID</b><small>who</small></span><i></i><span class="token-node is-held"><b>ACCESS</b><small>what</small></span><i></i><span class="token-node"><b>REFRESH</b><small>again</small></span></div><span class="token-answer">Each ticket answers one question.</span></div><div class="tool-copy"><h2>Entra Token Lab</h2><p>Watch a Microsoft Entra sign-in hand off its authorization code, ID token, access token, and refresh token.</p></div><div class="tool-actions"><a class="tool-launch" href="https://servicelogon.github.io/entra-auth-flow-visualizer/" target="_blank" rel="noopener noreferrer" aria-label="Watch the flow (opens in a new tab)">Open</a><a class="source-link" href="https://github.com/servicelogon/entra-auth-flow-visualizer" target="_blank" rel="noopener noreferrer" aria-label="Source on GitHub (opens in a new tab)">Source</a></div></article>
+      ${TOOLBOX.map(toolCard).join('\n      ')}
     </section>`, { path: '/tools', origin: seo.origin || '', posts: seo.posts || [] });
 }

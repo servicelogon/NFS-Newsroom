@@ -522,6 +522,8 @@ const assert = require('node:assert/strict');
     await page.reload();
     await expect(page.locator('#front-page-empty')).toBeVisible();
     await expect(page.locator('#front-page-empty')).toContainText('could not be loaded');
+    await expect(page.locator('#front-page-status')).toContainText('could not be loaded');
+    await expect(page.locator('#front-page-status')).not.toContainText('0 headlines loaded');
     await expect(page.locator('.front-page-story')).toHaveCount(0);
     assert.deepEqual(errors, []);
     console.log('Newsroom paging, full-catalog search, mobile order, simplified controls, focus, Microsoft filters, and recovery checks passed.');

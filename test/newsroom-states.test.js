@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { describeEmptyState, summarizeSourceHealth } from '../newsroom-states.js';
+import { describeEmptyState, describeFrontPageStatus, summarizeSourceHealth } from '../newsroom-states.js';
 
 test('summarizeSourceHealth counts existing source statuses only', () => {
   const health = summarizeSourceHealth([
@@ -75,4 +75,25 @@ test('describeEmptyState keeps filter empty separate from source outages', () =>
   });
   assert.equal(quiet.kind, 'empty');
   assert.match(quiet.body, /no stories/i);
+});
+
+test('front-page status repeats the visible empty state instead of a zero count', () => {
+  assert.equal(describeFrontPageStatus({ loading: true, headlineCount: 0 }), 'Loading headlines…');
+  assert.equal(describeFrontPageStatus({ headlineCount: 4 }), '4 headlines loaded.');
+  const failed = describeEmptyState({
+    articleCount: 0,
+    visibleCount: 0,
+    loadError: 'News service returned HTTP 503.',
+    view: 'front-page',
+  });
+  const status = describeFrontPageStatus({ headlineCount: 0, empty: failed });
+  assert.equal(status, `${failed.title} ${failed.body}`);
+  assert.doesNotMatch(status, /0 headlines loaded/);
+  const quiet = describeEmptyState({
+    articleCount: 0,
+    visibleCount: 0,
+    sources: [{ name: 'Fixture', status: 'ok' }],
+    view: 'front-page',
+  });
+  assert.equal(describeFrontPageStatus({ headlineCount: 0, empty: quiet }), `${quiet.title} ${quiet.body}`);
 });

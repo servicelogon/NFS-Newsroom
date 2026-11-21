@@ -88,3 +88,11 @@ export function describeEmptyState({
     reset: true,
   };
 }
+
+// The front-page live region repeats the visible empty state. A failed load
+// must not be announced as a headline count.
+export function describeFrontPageStatus({ loading = false, headlineCount = 0, empty = null } = {}) {
+  if (loading) return 'Loading headlines…';
+  if (empty) return `${empty.title} ${empty.body}`;
+  return `${headlineCount} headlines loaded.`;
+}

@@ -49,7 +49,7 @@
 .eyebrow { color:var(--muted); font:11px/1.5 var(--sans); letter-spacing:.08em; text-transform:uppercase; }
 .front-page-date { display:block; margin:28px 0 0; color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums; }
 .briefing-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; width:100%; }
-.briefing-bar h1 { margin:0; font:500 15px/1.4 var(--sans); letter-spacing:0; color:var(--ink); }
+.briefing-bar h2 { margin:0; font:500 15px/1.4 var(--sans); letter-spacing:0; color:var(--ink); }
 .briefing-bar .description { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .front-page-feed,.feed { display:block; }
 .front-page-feed { margin-top:8px; }

@@ -7,7 +7,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { loadPosts, parsePost, postPage, blogPage, SITE_ORIGIN, searchIndex, searchIndexScript } from '../blog.js';
+import { loadPosts, parsePost, postPage, blogPage, SITE_ORIGIN, searchIndex, searchIndexScript, SITE_TOOLS, escapeHtml } from '../blog.js';
 import { createAppServer } from '../server.js';
 const source = (title, date = '2026-09-14', extra = '', body = '## Heading\n\n**Strong** and [safe](https://example.com).') => `---\ntitle: ${title}\ndescription: A test field note\ndate: ${date}\n${extra}---\n${body}`;
 async function directory(t) { // temp posts folder, deleted after the test
@@ -95,7 +95,14 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.doesNotMatch(tools, /Serious security/);
   assert.match(tools, /id="copilot-security-trail"/);
   assert.match(tools, /id="cap-evaluator"/);
-  assert.match(tools, /Tools for working in the Identity and Cloud security space/);
+  assert.match(tools, /Tools for working in the Identity and Cloud security space\./);
+  assert.match(tools, /content="Explore CAP Evaluator, Copilot Security Trail, Passkey AAGUID Lookup, and Entra Token Lab\. Tools by Nathan Hess\."/);
+  assert.doesNotMatch(tools, /Entra Token Lab, tools by Nathan Hess/);
+  for (const tool of SITE_TOOLS) {
+    const id = tool.href.split('#')[1];
+    const card = tools.slice(tools.indexOf(`id="${id}"`));
+    assert.ok(card.includes(`<h2>${escapeHtml(tool.title)}</h2><p>${escapeHtml(tool.description)}</p>`), tool.title);
+  }
   assert.doesNotMatch(tools, /READY TO EXPLORE|01 \/ EVALUATE|02 \/ EXPLORE|03 \/ IDENTIFY|04 \/ TRACE/);
   assert.match(tools, /id="cap-evaluator"[\s\S]*id="copilot-security-trail"[\s\S]*id="passkey-aaguid-lookup"[\s\S]*id="entra-token-lab"/);
   assert.match(tools, /<h2>CAP Evaluator<\/h2>[\s\S]*<h2>Copilot Security Trail<\/h2>[\s\S]*<h2>Passkey AAGUID Lookup<\/h2>[\s\S]*<h2>Entra Token Lab<\/h2>/);
@@ -115,6 +122,11 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.doesNotMatch(tools, /BUILT BY NATHAN HESS/);
   assert.doesNotMatch(home, /BUILT BY NATHAN HESS/);
   const newsroom = await (await fetch(base + '/newsroom')).text();
+  assert.equal(newsroom.match(/<h1\b/g).length, 1);
+  assert.match(newsroom, /<h1 class="page-title">Newsroom<\/h1>/);
+  assert.match(newsroom, /<h2 id="section-title">Latest coverage<\/h2>/);
+  assert.match(newsroom, /<h2 id="front-page-title" class="visually-hidden">Front page<\/h2>/);
+  assert.doesNotMatch(newsroom, /Front Page/);
   assert.doesNotMatch(newsroom, /BUILT BY NATHAN HESS/);
   assert.doesNotMatch(newsroom, /Go beyond the headline/);
   assert.match(newsroom, /Read the field notes/);
