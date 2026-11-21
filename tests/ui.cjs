@@ -1,5 +1,5 @@
 // Browser contracts against the real page shell and paginated HTTP routes.
-const { chromium, expect } = require('@playwright/test');
+const { chromium, devices, expect } = require('@playwright/test');
 const assert = require('node:assert/strict');
 (async () => {
   const { createAppServer, selectFrontPage } = await import('../server.js');
@@ -83,8 +83,8 @@ const assert = require('node:assert/strict');
     assert.ok(pulseBand.globeWidth >= 140, 'the globe is larger than the previous mark');
     assert.ok(pulseBand.bandRight - pulseBand.globeRight < 2, 'the globe is right-aligned');
     await expect(page.locator('#coverage-pulse [data-topic="vulnerabilities"]')).toBeVisible();
-    await expect(page.locator('.coverage-pulse-note')).toContainText('not threat severity');
-    await expect(page.locator('.coverage-pulse-note')).not.toContainText('counts may be incomplete');
+    await expect(page.locator('.coverage-pulse-note')).toHaveText('Select a topic to filter. Article volume, not threat severity. Microsoft coverage overlaps other topics.');
+    await expect(page.locator('#coverage-pulse-strip')).toHaveAttribute('aria-label', 'Topic filters');
     assert.ok(await page.locator('#front-page-link').evaluate(el => parseFloat(getComputedStyle(el).fontSize) >= 28));
     assert.equal(await page.locator('.coverage-switch').evaluate(el => getComputedStyle(el).borderTopWidth), '1px');
     const pulseStyle = await page.evaluate(() => {
@@ -97,6 +97,7 @@ const assert = require('node:assert/strict');
           hex: getComputedStyle(chip).getPropertyValue('--topic-color').trim().toLowerCase(),
           color: style.color,
           weight: Number(style.fontWeight),
+          decoration: style.textDecorationLine,
         };
       }
       for (const tag of document.querySelectorAll('.front-page-story .topic, .story .topic')) {
@@ -116,7 +117,8 @@ const assert = require('node:assert/strict');
     };
     for (const [id, hex] of Object.entries(expectedPulseColors)) {
       assert.equal(pulseStyle.labels[id]?.hex, hex, `${id} uses the feed tag palette`);
-      assert.ok(pulseStyle.labels[id]?.weight >= 700, `${id} pulse label is bold`);
+      assert.ok(pulseStyle.labels[id]?.weight >= 700, `${id} pulse label is bold until selected`);
+      assert.equal(pulseStyle.labels[id]?.decoration, 'none', `${id} label is not underlined`);
       if (pulseStyle.hexToRgb[hex]) {
         assert.equal(pulseStyle.labels[id].color, pulseStyle.hexToRgb[hex], `${id} matches feed tag color`);
       }
@@ -135,6 +137,25 @@ const assert = require('node:assert/strict');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `controls fit at ${width}px`);
       const figures = await page.locator('#coverage-pulse-strip').boundingBox();
       assert.ok(figures.x >= 0 && figures.x + figures.width <= width + 1, `pulse figures fit at ${width}px`);
+      const pulseFit = await page.locator('#coverage-pulse-strip').evaluate(strip => {
+        const style = getComputedStyle(strip);
+        const boxes = [...strip.querySelectorAll('[data-topic]')].map(node => {
+          const rect = node.getBoundingClientRect();
+          return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, w: rect.width, h: rect.height };
+        });
+        return { columnGap: style.columnGap, rowGap: parseFloat(style.rowGap), boxes };
+      });
+      assert.equal(pulseFit.columnGap, '16px', `column gap stays 16px at ${width}px`);
+      assert.ok(pulseFit.rowGap <= 12, `row gap stays within 12px at ${width}px`);
+      for (const box of pulseFit.boxes) assert.ok(box.w >= 44 && box.h >= 44, `pulse hit box is ${box.w}x${box.h} at ${width}px`);
+      for (let i = 0; i < pulseFit.boxes.length; i++) {
+        for (let j = i + 1; j < pulseFit.boxes.length; j++) {
+          const a = pulseFit.boxes[i];
+          const b = pulseFit.boxes[j];
+          const overlap = a.x < b.right - 0.5 && b.x < a.right - 0.5 && a.y < b.bottom - 0.5 && b.y < a.bottom - 0.5;
+          assert.equal(overlap, false, `pulse hit boxes overlap at ${width}px`);
+        }
+      }
       if (process.env.SCREENSHOTS && width === 390) await page.screenshot({ path: '/tmp/nfs-controls-expanded-390.png' });
       await page.locator('#coverage-pulse [data-topic="vulnerabilities"]').click();
       await expect(page.locator('#feed > .story')).toHaveCount(2);
@@ -240,6 +261,206 @@ const assert = require('node:assert/strict');
     await expect(globePage.locator('.newsroom-globe')).not.toHaveAttribute('data-globe-topic', /.+/);
     assert.equal((await readGlobeState()).dataUrl, neutralGlobe.dataUrl, 'All coverage resets the globe to neutral');
     await globePage.close();
+
+    // Coverage counts read as filters: hover underline, selection, dimming, toggle, and hit area.
+    const pulsePage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await pulsePage.goto(base + '/newsroom');
+    const operations = pulsePage.locator('#coverage-pulse [data-topic="operations"]');
+    const cloudChip = pulsePage.locator('#coverage-pulse [data-topic="cloud"]');
+    await expect(operations).toBeVisible();
+    await expect(pulsePage.getByRole('group', { name: 'Topic filters' })).toBeVisible();
+    const chipCount = async id => (await pulsePage.locator(`#coverage-pulse [data-topic="${id}"] .coverage-pulse-chip-count`).innerText()).trim();
+    const identityCount = await chipCount('identity');
+    const operationsCount = await chipCount('operations');
+    await expect(pulsePage.locator('#coverage-pulse [data-topic="identity"]')).toHaveAttribute('aria-label', `Filter briefing to Identity, ${identityCount} articles`);
+    await expect(operations).toHaveAttribute('aria-label', `Filter briefing to Operations, ${operationsCount} articles`);
+    const underlineRule = await pulsePage.evaluate(() => {
+      let hover = false;
+      let outside = false;
+      const visit = (rules, inHover) => {
+        for (const rule of rules) {
+          if (rule instanceof CSSMediaRule) visit([...rule.cssRules], inHover || /\(hover:\s*hover\)/.test(rule.conditionText));
+          else if (String(rule.selectorText || '').includes('coverage-pulse-chip-count::after') && String(rule.style?.transform || '') === 'scaleX(0)') {
+            if (inHover && /180ms/.test(rule.style.transition || '')) hover = true;
+            if (!inHover) outside = true;
+          }
+        }
+      };
+      for (const sheet of document.styleSheets) {
+        try { visit([...sheet.cssRules], false); } catch { /* cross-origin sheet */ }
+      }
+      return { hover, outside };
+    });
+    assert.equal(underlineRule.hover, true, 'the number underline grows only inside hover media');
+    assert.equal(underlineRule.outside, false, 'the hover underline is not declared outside hover media');
+    const hitLayer = await cloudChip.evaluate(el => {
+      const before = getComputedStyle(el, '::before');
+      const rect = el.getBoundingClientRect();
+      return { content: before.content, position: before.position, top: before.top, width: rect.width, height: rect.height };
+    });
+    assert.equal(hitLayer.content, '""');
+    assert.equal(hitLayer.position, 'absolute');
+    assert.equal(hitLayer.top, '0px');
+    assert.ok(hitLayer.width >= 44 && hitLayer.height >= 44, `desktop hit box is ${hitLayer.width}x${hitLayer.height}`);
+    assert.equal(await cloudChip.evaluate(el => getComputedStyle(el).cursor), 'pointer');
+    const resting = await cloudChip.locator('.coverage-pulse-chip-count').evaluate(el => ({
+      transform: getComputedStyle(el, '::after').transform,
+      label: getComputedStyle(el.parentElement.querySelector('.coverage-pulse-chip-label')).color,
+      count: getComputedStyle(el).color,
+    }));
+    assert.ok(resting.transform.startsWith('matrix(0,'), `resting underline is hidden (${resting.transform})`);
+    await cloudChip.hover();
+    await expect.poll(() => cloudChip.locator('.coverage-pulse-chip-count').evaluate(el => getComputedStyle(el, '::after').transform)).toMatch(/^matrix\(1,/);
+    const hovered = await cloudChip.locator('.coverage-pulse-chip-count').evaluate(el => {
+      const after = getComputedStyle(el, '::after');
+      return {
+        height: after.height,
+        opacity: after.opacity,
+        label: getComputedStyle(el.parentElement.querySelector('.coverage-pulse-chip-label')).color,
+        count: getComputedStyle(el).color,
+      };
+    });
+    assert.equal(hovered.height, '2px');
+    assert.equal(hovered.opacity, '0.6');
+    assert.equal(hovered.label, resting.label, 'hover leaves the label color alone');
+    assert.equal(hovered.count, resting.count, 'hover leaves the number color alone');
+    await pulsePage.mouse.down();
+    await expect.poll(() => cloudChip.locator('.coverage-pulse-chip-count').evaluate(el => getComputedStyle(el).opacity)).toBe('0.7');
+    await pulsePage.mouse.move(0, 0);
+    await pulsePage.mouse.up();
+    await cloudChip.evaluate(button => button.blur());
+    const still = await pulsePage.locator('.newsroom-globe').evaluate(canvas => canvas.toDataURL());
+    await pulsePage.waitForTimeout(280);
+    assert.notEqual(await pulsePage.locator('.newsroom-globe').evaluate(canvas => canvas.toDataURL()), still, 'the globe is turning, so a hover preview can fade');
+    await pulsePage.mouse.move(0, 0);
+    await expect(pulsePage.locator('.newsroom-globe')).not.toHaveAttribute('data-globe-preview', /.+/);
+    await expect.poll(() => pulsePage.locator('.newsroom-globe').getAttribute('data-globe-accent-alpha')).toBe('0.00');
+    const fadeStart = await pulsePage.evaluate(() => {
+      document.querySelector('#coverage-pulse [data-topic="cloud"]').dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, pointerType: 'mouse' }));
+      const canvas = document.querySelector('.newsroom-globe');
+      return { alpha: canvas.dataset.globeAccentAlpha, preview: canvas.dataset.globePreview || '', meridian: canvas.dataset.globePreviewMeridian || '', topic: canvas.dataset.globeTopic || '' };
+    });
+    assert.equal(fadeStart.preview, 'cloud');
+    assert.equal(fadeStart.meridian, '0');
+    assert.equal(fadeStart.topic, '');
+    assert.ok(Number(fadeStart.alpha) < 0.5, `preview starts fading (${fadeStart.alpha})`);
+    await expect.poll(() => pulsePage.locator('.newsroom-globe').getAttribute('data-globe-accent-alpha')).toBe('0.50');
+    await pulsePage.evaluate(() => document.querySelector('#coverage-pulse [data-topic="cloud"]').dispatchEvent(new PointerEvent('pointerleave', { bubbles: true, pointerType: 'mouse' })));
+    await expect(pulsePage.locator('.newsroom-globe')).not.toHaveAttribute('data-globe-preview', /.+/);
+    await expect.poll(() => pulsePage.locator('.newsroom-globe').getAttribute('data-globe-accent-alpha')).toBe('0.00');
+    await pulsePage.locator('#coverage-pulse [data-topic="identity"]').focus();
+    await expect(pulsePage.locator('.newsroom-globe')).toHaveAttribute('data-globe-preview', 'identity');
+    await pulsePage.locator('#front-page-link').focus();
+    await expect(pulsePage.locator('.newsroom-globe')).not.toHaveAttribute('data-globe-preview', /.+/);
+    const outline = await cloudChip.evaluate(el => {
+      el.focus({ focusVisible: true });
+      const style = getComputedStyle(el);
+      return { width: style.outlineWidth, offset: style.outlineOffset, color: style.outlineColor };
+    });
+    assert.equal(outline.width, '2px');
+    assert.equal(outline.offset, '4px');
+    assert.equal(outline.color, 'rgb(247, 255, 0)');
+    await pulsePage.evaluate(() => document.activeElement?.blur());
+    const touched = await pulsePage.evaluate(() => {
+      document.querySelector('#coverage-pulse [data-topic="malware"]').dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, pointerType: 'touch' }));
+      return document.querySelector('.newsroom-globe').dataset.globePreview || '';
+    });
+    assert.equal(touched, '', 'touch does not preview a meridian');
+    await operations.click();
+    await expect(operations).toHaveAttribute('aria-pressed', 'true');
+    await expect(operations).toHaveAttribute('aria-label', `Operations filter on, ${operationsCount} articles. Activate to clear.`);
+    await expect(pulsePage.locator('#section-title')).toHaveText('Security operations');
+    await expect(pulsePage.locator('#briefing-status')).toHaveText(`Showing Operations, ${operationsCount} articles.`);
+    await expect(pulsePage.locator('.newsroom-globe')).toHaveAttribute('data-globe-topic', 'operations');
+    await expect(pulsePage.locator('.newsroom-globe')).toHaveAttribute('data-globe-meridian', '5');
+    const selected = await operations.locator('.coverage-pulse-chip-count').evaluate(el => {
+      const after = getComputedStyle(el, '::after');
+      const label = getComputedStyle(el.parentElement.querySelector('.coverage-pulse-chip-label'));
+      return {
+        height: after.height, opacity: after.opacity, width: parseFloat(after.width), host: el.getBoundingClientRect().width,
+        duration: after.transitionDuration, count: getComputedStyle(el).color, weight: Number(label.fontWeight), decoration: label.textDecorationLine,
+      };
+    });
+    assert.equal(selected.height, '3px');
+    assert.equal(selected.opacity, '1');
+    assert.ok(Math.abs(selected.width - selected.host) < 1, 'selected underline matches the number width');
+    assert.equal(selected.duration, '0s');
+    assert.equal(selected.count, 'rgb(245, 245, 245)');
+    assert.equal(selected.weight, 600);
+    assert.equal(selected.decoration, 'none');
+    await expect.poll(() => cloudChip.evaluate(el => getComputedStyle(el.querySelector('.coverage-pulse-chip-count')).color)).toBe('rgb(161, 161, 170)');
+    await expect.poll(() => cloudChip.evaluate(el => getComputedStyle(el.querySelector('.coverage-pulse-chip-label')).opacity)).toBe('0.7');
+    await operations.hover();
+    assert.equal(await operations.locator('.coverage-pulse-chip-count').evaluate(el => getComputedStyle(el, '::after').height), '3px');
+    await operations.click();
+    await expect(operations).toHaveAttribute('aria-pressed', 'false');
+    await expect(operations).toHaveAttribute('aria-label', `Filter briefing to Operations, ${operationsCount} articles`);
+    // A blank query is the front page, so clearing lands on the All coverage URL.
+    assert.equal(new URL(pulsePage.url()).search, '?topic=all');
+    assert.equal(new URL(pulsePage.url()).search.includes('topic=operations'), false);
+    await expect(pulsePage.locator('#briefing-view')).toBeVisible();
+    await expect(pulsePage.locator('#front-page')).toBeHidden();
+    await expect(pulsePage.locator('#section-title')).toHaveText('Latest coverage');
+    await expect(pulsePage.locator('#briefing-status')).toHaveText('Showing all coverage.');
+    await expect(pulsePage.locator('#pulse-all-coverage')).toHaveAttribute('aria-pressed', 'true');
+    await expect(pulsePage.locator('.newsroom-globe')).not.toHaveAttribute('data-globe-topic', /.+/);
+    await expect(pulsePage.locator('.newsroom-globe')).not.toHaveAttribute('data-globe-meridian', /.+/);
+    await expect.poll(() => cloudChip.locator('.coverage-pulse-chip-count').evaluate(el => getComputedStyle(el).color)).toBe('rgb(245, 245, 245)');
+    await expect(pulsePage.locator('#feed > .story')).toHaveCount(40);
+    await pulsePage.close();
+
+    const quietPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+    await quietPage.goto(base + '/newsroom');
+    await expect(quietPage.locator('#coverage-pulse [data-topic="cloud"]')).toBeVisible();
+    const quietMotion = await quietPage.locator('#coverage-pulse [data-topic="cloud"]').evaluate(el => {
+      const count = el.querySelector('.coverage-pulse-chip-count');
+      const label = el.querySelector('.coverage-pulse-chip-label');
+      return {
+        underline: getComputedStyle(count, '::after').transitionDuration,
+        count: getComputedStyle(count).transition,
+        label: getComputedStyle(label).transitionDuration,
+      };
+    });
+    assert.equal(quietMotion.underline, '0s');
+    assert.match(quietMotion.count, /opacity/);
+    assert.doesNotMatch(quietMotion.count, /color/);
+    assert.equal(quietMotion.label, '0s');
+    await quietPage.locator('#coverage-pulse [data-topic="cloud"]').hover();
+    assert.ok((await quietPage.locator('#coverage-pulse [data-topic="cloud"] .coverage-pulse-chip-count').evaluate(el => getComputedStyle(el, '::after').transform)).startsWith('matrix(1,'));
+    await quietPage.mouse.down();
+    await expect.poll(() => quietPage.locator('#coverage-pulse [data-topic="cloud"] .coverage-pulse-chip-count').evaluate(el => getComputedStyle(el).opacity)).toBe('0.7');
+    await quietPage.mouse.move(0, 0);
+    await quietPage.mouse.up();
+    await quietPage.locator('#coverage-pulse [data-topic="cloud"]').evaluate(button => button.blur());
+    const quietPreview = await quietPage.evaluate(() => {
+      const neutral = document.querySelector('.newsroom-globe').toDataURL();
+      document.querySelector('#coverage-pulse [data-topic="incidents"]').dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, pointerType: 'mouse' }));
+      const canvas = document.querySelector('.newsroom-globe');
+      return { alpha: canvas.dataset.globeAccentAlpha, preview: canvas.dataset.globePreview || '', url: canvas.toDataURL(), neutral };
+    });
+    assert.equal(quietPreview.alpha, '0.50');
+    assert.equal(quietPreview.preview, 'incidents');
+    assert.notEqual(quietPreview.url, quietPreview.neutral);
+    await quietPage.evaluate(() => document.querySelector('#coverage-pulse [data-topic="incidents"]').dispatchEvent(new PointerEvent('pointerleave', { bubbles: true, pointerType: 'mouse' })));
+    assert.equal(await quietPage.locator('.newsroom-globe').evaluate(canvas => canvas.toDataURL()), quietPreview.neutral);
+    await quietPage.locator('#coverage-pulse [data-topic="operations"]').click();
+    assert.equal(await quietPage.locator('#coverage-pulse [data-topic="cloud"] .coverage-pulse-chip-count').evaluate(el => getComputedStyle(el).transitionDuration), '0.08s');
+    await quietPage.close();
+
+    const coarseContext = await browser.newContext({ ...devices['iPhone 13'] });
+    const coarsePage = await coarseContext.newPage();
+    await coarsePage.goto(base + '/newsroom');
+    await expect(coarsePage.locator('#coverage-pulse [data-topic="cloud"]')).toBeVisible();
+    const noHover = await coarsePage.evaluate(() => {
+      const button = document.querySelector('#coverage-pulse [data-topic="cloud"]');
+      button.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, pointerType: 'mouse' }));
+      const after = getComputedStyle(button.querySelector('.coverage-pulse-chip-count'), '::after');
+      return { preview: document.querySelector('.newsroom-globe').dataset.globePreview || '', content: after.content, hover: matchMedia('(hover: hover)').matches };
+    });
+    assert.equal(noHover.hover, false);
+    assert.equal(noHover.preview, '');
+    assert.equal(noHover.content, 'none');
+    await coarseContext.close();
 
     // Search is discoverable, queries the full collection, and contains focus.
     await page.getByRole('button', { name: 'Search the site', exact: true }).click();
