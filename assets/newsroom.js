@@ -591,8 +591,9 @@ function initNewsroomGlobe() {
     ctx.stroke();
   }
 
-  function draw(rotation, tilt = baseTilt) {
+  function draw(rotation, tilt = baseTilt, time = 0) {
     const width = canvas.clientWidth || 156;
+    const watch = document.body.classList.contains('coverage-watch-open');
     const baseStroke = getComputedStyle(canvas).color;
     ctx.clearRect(0, 0, width, width);
     ctx.lineWidth = 1;
@@ -619,11 +620,12 @@ function initNewsroomGlobe() {
     for (const samples of meridians) stroke(samples, rotation, tilt, false);
     ctx.globalAlpha = 0.9;
     for (const samples of latitudes) stroke(samples, rotation, tilt, true);
+    const watchPulse = watch && !reduce.matches;
     for (let i = 0; i < meridians.length; i++) {
-      if (accentColor && i === accentMeridian) continue;
+      if (!watchPulse && accentColor && i === accentMeridian) continue;
       stroke(meridians[i], rotation, tilt, true);
     }
-    if (accentColor && accentAlpha > 0 && accentMeridian >= 0 && accentMeridian < meridians.length) {
+    if (!watchPulse && accentColor && accentAlpha > 0 && accentMeridian >= 0 && accentMeridian < meridians.length) {
       ctx.strokeStyle = accentColor;
       ctx.lineWidth = 1.5;
       ctx.globalAlpha = accentAlpha;
@@ -631,8 +633,49 @@ function initNewsroomGlobe() {
       ctx.lineWidth = 1;
       ctx.strokeStyle = baseStroke;
     }
+    if (watchPulse) {
+      const counts = PULSE_TOPICS.map(topic => Number(state.pulseCounts?.[topic.id]) || 0);
+      const peak = Math.max(1, ...counts);
+      let lead = 0;
+      for (let i = 1; i < counts.length; i++) if (counts[i] > counts[lead]) lead = i;
+      const halo = TOPIC_BY_ID.get(PULSE_TOPICS[lead].id)?.color;
+      const radius = width * 0.42;
+      const cx = width / 2;
+      const cy = width / 2;
+      if (halo && counts[lead] > 0) {
+        ctx.strokeStyle = halo;
+        ctx.lineWidth = Math.max(1.4, width * 0.004);
+        ctx.globalAlpha = 0.12 + 0.16 * (0.5 + 0.5 * Math.sin(time * 0.0017));
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + Math.max(5, width * 0.014), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      for (let i = 0; i < meridians.length; i++) {
+        const color = TOPIC_BY_ID.get(PULSE_TOPICS[i].id)?.color;
+        if (!color) continue;
+        const weight = counts[i] / peak;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.35;
+        ctx.globalAlpha = 0.16 + weight * 0.42;
+        stroke(meridians[i], rotation, tilt, true);
+        if (counts[i] <= 0) continue;
+        const lon = (i / meridianCount) * Math.PI;
+        const head = (time * (0.00026 + weight * 0.0005) + i * 0.13) % 1;
+        for (let b = 0; b < 5; b++) {
+          const p = point(((head - b * 0.02 + 1) % 1) * Math.PI * 2, lon, rotation, tilt);
+          if (p.z < 0.04) continue;
+          ctx.fillStyle = color;
+          ctx.globalAlpha = (0.38 + weight * 0.5) * (1 - b / 5);
+          ctx.beginPath();
+          ctx.arc(cx + p.x * radius, cy - p.y * radius, (1.7 + weight * 2.6) * (1 - b * 0.12), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.lineWidth = 1;
+    }
     ctx.globalAlpha = 1;
     canvas.dataset.globeAccentAlpha = accentAlpha.toFixed(2);
+    canvas.dataset.globeWatchPulse = watchPulse ? '1' : '';
   }
 
   function tick(now) {
@@ -651,7 +694,7 @@ function initNewsroomGlobe() {
     lastTick = time;
     pointerYaw += (targetYaw - pointerYaw) * 0.08;
     pointerTilt += (targetTilt - pointerTilt) * 0.08;
-    draw(time * 0.00022 + pointerYaw, baseTilt + pointerTilt);
+    draw(time * 0.00022 + pointerYaw, baseTilt + pointerTilt, time);
     frame = requestAnimationFrame(tick);
   }
 

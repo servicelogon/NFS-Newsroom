@@ -282,6 +282,23 @@ const assert = require('node:assert/strict');
     assert.equal(await watchPage.locator('#coverage-watch-headlines a').getAttribute('target'), '_blank');
     const globeSize = await watchPage.locator('#watch .newsroom-globe').evaluate(el => el.getBoundingClientRect().width);
     assert.ok(globeSize >= 280 && globeSize <= 640, `watch globe is ${globeSize}px`);
+    await expect.poll(() => watchPage.locator('#watch .newsroom-globe').getAttribute('data-globe-watch-pulse')).toBe('1');
+    const topicHits = await watchPage.locator('#watch .newsroom-globe').evaluate(canvas => {
+      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+      const targets = [[59, 130, 246], [168, 85, 247], [239, 68, 68], [249, 115, 22], [236, 72, 153], [16, 185, 129], [99, 102, 241]];
+      let hits = 0;
+      for (let i = 0; i < data.length; i += 16) {
+        if (data[i + 3] < 50) continue;
+        for (const [r, g, b] of targets) {
+          if (Math.abs(data[i] - r) < 42 && Math.abs(data[i + 1] - g) < 42 && Math.abs(data[i + 2] - b) < 42) {
+            hits += 1;
+            break;
+          }
+        }
+      }
+      return hits;
+    });
+    assert.ok(topicHits > 20, `watch globe paints topic colors (${topicHits} hits)`);
     await watchPage.locator('#watch [data-topic="cloud"]').click();
     await expect(watchPage.locator('#front-page-link')).toHaveAttribute('aria-pressed', 'true');
     await expect(watchPage.locator('#coverage-pulse [data-topic="cloud"]')).toHaveAttribute('aria-pressed', 'false');
@@ -290,6 +307,7 @@ const assert = require('node:assert/strict');
     await expect(watchPage.locator('.command-palette')).toBeHidden();
     await watchPage.keyboard.press('Escape');
     await expect(watchPage.locator('#watch')).toBeHidden();
+    await expect(watchPage.locator('.newsroom-globe')).not.toHaveAttribute('data-globe-watch-pulse', '1');
     assert.equal(new URL(watchPage.url()).hash, '');
     assert.ok(await watchPage.locator('.newsroom-globe-control').evaluate(el => el === document.activeElement), 'focus returns to the globe');
     assert.equal(await watchPage.locator('.topbar').evaluate(el => getComputedStyle(el).display), 'flex');
@@ -321,6 +339,7 @@ const assert = require('node:assert/strict');
     const stillWatch = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
     await stillWatch.goto(base + '/newsroom#watch');
     await expect(stillWatch.locator('#watch .newsroom-globe')).toBeVisible();
+    await expect(stillWatch.locator('#watch .newsroom-globe')).not.toHaveAttribute('data-globe-watch-pulse', '1');
     const stillFrame = await stillWatch.locator('#watch .newsroom-globe').evaluate(canvas => canvas.toDataURL());
     await stillWatch.waitForTimeout(280);
     assert.equal(await stillWatch.locator('#watch .newsroom-globe').evaluate(canvas => canvas.toDataURL()), stillFrame, 'reduced motion keeps a still watch globe');
