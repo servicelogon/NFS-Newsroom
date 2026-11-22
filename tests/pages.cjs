@@ -44,6 +44,10 @@ const path = require('node:path');
           assert.equal(await page.getByText(/go beyond the headline/i).count(), 0, 'newsroom still shows the headline line');
           assert.ok(await page.getByRole('link', { name: 'Read the field notes' }).isVisible());
           assert.equal(await page.locator('.newsroom-globe').count(), 1);
+          assert.equal(await page.getByRole('button', { name: 'Open coverage dashboard' }).count(), 1);
+          assert.equal(await page.locator('#watch').count(), 1);
+          assert.equal(await page.locator('#watch').getAttribute('hidden'), '');
+          assert.equal(await page.locator('.desktop-nav a[href$="#watch"], .site-menu a[href$="#watch"], .footer-nav a[href$="#watch"]').count(), 0);
         }
         assert.equal(await page.locator('.topbar').getByText(/Nathan Hess/i).count(), 0, `${route} topbar credit`);
         assert.equal(await page.locator('main').count(), 1);
@@ -135,6 +139,26 @@ const path = require('node:path');
         }
       }
     }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(base + '/newsroom');
+    await page.getByRole('button', { name: 'Open coverage dashboard' }).click();
+    assert.ok(await page.locator('#watch').isVisible());
+    assert.equal(await page.locator('.topbar').evaluate(el => getComputedStyle(el).display), 'none');
+    assert.equal(await page.locator('.site-footer').evaluate(el => getComputedStyle(el).display), 'none');
+    await page.keyboard.press('Control+k');
+    assert.equal(await page.locator('.command-palette').isVisible(), false);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#watch').isVisible(), false);
+    assert.ok(await page.locator('.topbar').isVisible());
+    await page.goto(base + '/newsroom#watch');
+    assert.ok(await page.locator('#watch').isVisible());
+    assert.equal(await page.locator('.topbar').evaluate(el => getComputedStyle(el).display), 'none');
+    await page.setViewportSize({ width: 390, height: 1000 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'watch overlay fits at 390');
+    assert.equal(await page.locator('.topbar').evaluate(el => getComputedStyle(el).display), 'none');
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    assert.equal(await page.locator('#watch').isVisible(), false);
+    await page.setViewportSize({ width: 1440, height: 1000 });
     for (const route of ['/', '/blog/entra-default-settings-that-you-should-change', '/blog/tag/conditional-access', '/tools', '/newsroom']) {
       await page.setViewportSize({width:1440, height:1000});
       await page.goto(base + route);
