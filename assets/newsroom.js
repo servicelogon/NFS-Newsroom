@@ -1,15 +1,15 @@
 import { TOPIC_BY_ID } from './news-topics.js';
 import { PULSE_TOPICS, describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
-import { describeEmptyState, describeFrontPageStatus } from '/assets/newsroom-states.js';
+import { describeEmptyState, describeFrontPageStatus, summarizeSourceHealth } from '/assets/newsroom-states.js';
 import { createArticleCard } from './article-card.js';
-import { formatCalendarDate } from './dates.js';
+import { formatCalendarDate, formatTimestamp } from './dates.js';
 import { filtersFromSearch, searchFromFilters } from './newsroom-filters.js';
 
 const $ = selector => document.querySelector(selector);
 const state = {
   front: true, topic: 'all', microsoftFilter: 'all', query: '', stories: [], frontPage: [],
   sources: [], total: 0, totalArticles: 0, nextOffset: null, pulseCounts: {},
-  checkedAt: null, loading: true, error: '',
+  storiesLast24h: 0, checkedAt: null, loading: true, error: '',
 };
 let controller, switchMotion = false;
 let requestId = 0;
@@ -188,6 +188,7 @@ function render() {
   errorNotice.hidden = !state.error || !(state.front ? state.frontPage.length : state.stories.length);
   errorNotice.textContent = errorNotice.hidden ? '' : 'The latest headlines could not be loaded. Showing the last loaded results.';
   renderPulse();
+  renderWatch();
   const activeTopic = !state.front && state.topic !== 'all' ? topic : null;
   syncNewsroomGlobeAccent?.(activeTopic ? { id: activeTopic.id, color: activeTopic.color || '' } : null);
 }
@@ -213,7 +214,7 @@ async function loadNews({ append = false } = {}) {
     }
     state.stories = append ? [...state.stories, ...data.articles] : data.articles;
     state.frontPage = data.frontPage;
-    for (const field of ['sources', 'total', 'totalArticles', 'nextOffset', 'pulseCounts', 'checkedAt']) state[field] = data[field];
+    for (const field of ['sources', 'total', 'totalArticles', 'nextOffset', 'pulseCounts', 'storiesLast24h', 'checkedAt']) state[field] = data[field];
     state.error = '';
   } catch (error) {
     if (!current.signal.aborted && id === requestId) {
@@ -279,6 +280,257 @@ initNewsroomGlobe();
 // Exposed for the browser test harness.
 window.loadNews = loadNews;
 loadNews();
+
+const WATCH_HASH = '#watch';
+const WATCH_HEADLINE_MS = 7000;
+const WATCH_REFRESH_MS = 60000;
+let watchOpen = false;
+let watchHeadlineIndex = 0;
+let watchHeadlineKey = '';
+let watchHeadlineTimer = 0;
+let watchClockTimer = 0;
+let watchRefreshTimer = 0;
+let watchLastFocus = null;
+
+function watchElements() {
+  return {
+    overlay: $('#watch'),
+    close: $('#coverage-watch-close'),
+    control: document.querySelector('.newsroom-globe-control'),
+    home: document.querySelector('.newsroom-globe-home'),
+    slot: document.querySelector('.coverage-watch-globe'),
+  };
+}
+
+function watchInertTargets() {
+  return ['.skip', '.topbar', '.masthead', '.workspace', '.newsroom-explore', '.site-footer']
+    .map(selector => document.querySelector(selector))
+    .filter(Boolean);
+}
+
+function watchHashIsOn() {
+  return location.hash === WATCH_HASH;
+}
+
+function writeWatchHash(open) {
+  const next = `${location.pathname}${location.search}${open ? WATCH_HASH : ''}`;
+  if (`${location.pathname}${location.search}${location.hash}` !== next) history.replaceState(null, '', next);
+}
+
+function watchFocusables(overlay) {
+  return [...overlay.querySelectorAll('button, a[href]')].filter(node => !node.hasAttribute('disabled') && node.getClientRects().length);
+}
+
+function describeWatchVolume() {
+  const count = Number(state.storiesLast24h) || 0;
+  return count === 1 ? '1 story in the last 24 hours.' : `${count} stories in the last 24 hours.`;
+}
+
+function describeWatchSources() {
+  const health = summarizeSourceHealth(state.sources);
+  const trouble = health.error.length + health.stale.length;
+  if (!health.total) return 'No sources reporting.';
+  const ok = `${health.ok.length} ${health.ok.length === 1 ? 'source' : 'sources'} ok`;
+  if (!trouble) return `${ok}.`;
+  return `${ok}, ${trouble} in trouble.`;
+}
+
+function watchHeadlineHref(url) {
+  try {
+    const parsed = new URL(url);
+    return ['https:', 'http:'].includes(parsed.protocol) && !parsed.username && !parsed.password ? parsed.href : '';
+  } catch { return ''; }
+}
+
+function paintWatchClock() {
+  const clock = $('#coverage-watch-clock');
+  if (!clock) return;
+  const now = new Date();
+  clock.dateTime = now.toISOString();
+  clock.textContent = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(now);
+}
+
+function paintWatchHeadline() {
+  const root = $('#coverage-watch-headlines');
+  if (!root) return;
+  const headlines = (state.frontPage || []).slice(0, 8);
+  const key = headlines.map(story => story.id).join('\0');
+  if (key !== watchHeadlineKey) {
+    watchHeadlineKey = key;
+    watchHeadlineIndex = 0;
+  }
+  if (!headlines.length) {
+    const empty = describeEmptyState({
+      loading: state.loading, articleCount: state.totalArticles, visibleCount: 0,
+      sources: state.sources, loadError: state.error, view: 'front-page',
+    });
+    const sentence = empty?.title || describeFrontPageStatus({ loading: state.loading, headlineCount: 0, empty });
+    const copy = document.createElement('p');
+    copy.className = 'coverage-watch-headline is-empty';
+    copy.textContent = sentence || 'The front page is waiting for today’s briefing.';
+    root.replaceChildren(copy);
+    return;
+  }
+  const story = headlines[watchHeadlineIndex % headlines.length];
+  const href = watchHeadlineHref(story.url);
+  const line = document.createElement('p');
+  line.className = 'coverage-watch-headline';
+  if (href) {
+    const link = document.createElement('a');
+    link.href = href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = story.title;
+    line.append(link);
+  } else {
+    line.append(document.createTextNode(story.title));
+  }
+  if (story.source) {
+    const source = document.createElement('span');
+    source.className = 'coverage-watch-headline-source';
+    source.textContent = story.source;
+    line.append(source);
+  }
+  root.replaceChildren(line);
+}
+
+function renderWatchTopics() {
+  const root = $('#coverage-watch-topics');
+  if (!root) return;
+  const { topics } = describeCoveragePulse(state.pulseCounts);
+  const existing = [...root.querySelectorAll(':scope > .coverage-watch-topic')];
+  const reusable = existing.length === topics.length && existing.every((node, index) => node.dataset.topic === topics[index].id);
+  if (!reusable) {
+    root.replaceChildren(...topics.map(topic => {
+      const item = document.createElement('div');
+      item.className = 'coverage-watch-topic';
+      item.dataset.topic = topic.id;
+      const palette = TOPIC_BY_ID.get(topic.id);
+      if (palette?.color) item.style.setProperty('--topic-color', palette.color);
+      const count = document.createElement('span');
+      count.className = 'coverage-watch-topic-count';
+      const label = document.createElement('span');
+      label.className = 'topic coverage-watch-topic-label';
+      label.textContent = topic.name;
+      item.append(count, label);
+      count.textContent = String(topic.count);
+      return item;
+    }));
+    return;
+  }
+  topics.forEach((topic, index) => {
+    existing[index].querySelector('.coverage-watch-topic-count').textContent = String(topic.count);
+  });
+}
+
+function renderWatch() {
+  const overlay = $('#watch');
+  if (!overlay || overlay.hidden) return;
+  const { sentence } = describeCoveragePulse(state.pulseCounts);
+  $('#coverage-watch-lead').textContent = sentence;
+  renderWatchTopics();
+  $('#coverage-watch-volume').textContent = describeWatchVolume();
+  $('#coverage-watch-sources').textContent = describeWatchSources();
+  const stamp = formatTimestamp(state.checkedAt);
+  $('#coverage-watch-asof').textContent = stamp ? `as of ${stamp}` : '';
+  paintWatchClock();
+  paintWatchHeadline();
+}
+
+function stopWatchTimers() {
+  clearInterval(watchHeadlineTimer);
+  clearInterval(watchClockTimer);
+  clearInterval(watchRefreshTimer);
+  watchHeadlineTimer = 0;
+  watchClockTimer = 0;
+  watchRefreshTimer = 0;
+}
+
+function startWatchTimers() {
+  stopWatchTimers();
+  watchClockTimer = setInterval(paintWatchClock, 1000);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    watchHeadlineTimer = setInterval(() => {
+      const count = Math.min(8, (state.frontPage || []).length);
+      if (count < 2) return;
+      watchHeadlineIndex = (watchHeadlineIndex + 1) % count;
+      paintWatchHeadline();
+    }, WATCH_HEADLINE_MS);
+  }
+  watchRefreshTimer = setInterval(() => loadNews(), WATCH_REFRESH_MS);
+}
+
+function setWatchOpen(open) {
+  const { overlay, close, control, home, slot } = watchElements();
+  if (!overlay || !control || !home || !slot) return;
+  if (open === watchOpen) {
+    writeWatchHash(open);
+    return;
+  }
+  watchOpen = open;
+  writeWatchHash(open);
+  const menu = document.querySelector('.site-menu');
+  if (menu) {
+    menu.open = false;
+    document.documentElement.classList.remove('nav-open');
+  }
+  if (open) {
+    watchLastFocus = document.activeElement === control ? control : document.activeElement;
+    document.body.classList.add('coverage-watch-open');
+    watchInertTargets().forEach(node => { node.inert = true; });
+    overlay.hidden = false;
+    slot.append(control);
+    control.setAttribute('aria-expanded', 'true');
+    control.setAttribute('aria-label', 'Close coverage dashboard');
+    renderWatch();
+    startWatchTimers();
+    close.focus();
+  } else {
+    stopWatchTimers();
+    home.append(control);
+    overlay.hidden = true;
+    document.body.classList.remove('coverage-watch-open');
+    watchInertTargets().forEach(node => { node.inert = false; });
+    control.setAttribute('aria-expanded', 'false');
+    control.setAttribute('aria-label', 'Open coverage dashboard');
+    const returnTo = watchLastFocus && home.contains(watchLastFocus) ? watchLastFocus : control;
+    if (typeof returnTo.focus === 'function') returnTo.focus();
+  }
+}
+
+function initCoverageWatch() {
+  const { overlay, close, control } = watchElements();
+  if (!overlay || !close || !control) return;
+  control.addEventListener('click', () => setWatchOpen(!watchOpen));
+  close.addEventListener('click', () => setWatchOpen(false));
+  overlay.addEventListener('keydown', event => {
+    if (event.key !== 'Tab' || !watchOpen) return;
+    const nodes = watchFocusables(overlay);
+    if (!nodes.length) return;
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  });
+  window.addEventListener('keydown', event => {
+    if (!watchOpen) return;
+    const chord = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k' && !event.altKey && !event.shiftKey;
+    if (chord) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setWatchOpen(false);
+    }
+  }, true);
+  window.addEventListener('hashchange', () => setWatchOpen(watchHashIsOn()));
+  if (watchHashIsOn()) setWatchOpen(true);
+}
+
+initCoverageWatch();
 
 // Quiet wireframe beside the category counts. One still frame when motion is reduced.
 function initNewsroomGlobe() {
@@ -492,8 +744,9 @@ function initNewsroomGlobe() {
     applyGlobe(true);
   };
 
-  const band = canvas.closest('.coverage-pulse-band') || canvas;
-  band.addEventListener('pointermove', event => {
+  const control = canvas.closest('.newsroom-globe-control') || canvas;
+  const band = canvas.closest('.coverage-pulse-band') || control;
+  const onGlobePointerMove = event => {
     if (reduce.matches) return;
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
@@ -501,11 +754,15 @@ function initNewsroomGlobe() {
     const ny = Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height) * 2 - 1));
     targetYaw = nx * 0.28;
     targetTilt = ny * 0.18;
-  });
-  band.addEventListener('pointerleave', () => {
+  };
+  const onGlobePointerLeave = () => {
     targetYaw = 0;
     targetTilt = 0;
-  });
+  };
+  for (const host of new Set([band, control])) {
+    host.addEventListener('pointermove', onGlobePointerMove);
+    host.addEventListener('pointerleave', onGlobePointerLeave);
+  }
 
   size();
   reduce.matches ? stop() : start();

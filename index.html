@@ -10,7 +10,7 @@
           <p id="coverage-pulse-lead" class="coverage-pulse-lead" hidden></p>
           <div id="coverage-pulse-strip" class="coverage-pulse-strip" role="group" aria-label="Topic filters"></div>
         </div>
-        <canvas class="newsroom-globe" width="200" height="200" aria-hidden="true"></canvas>
+        <span class="newsroom-globe-home"><button type="button" class="newsroom-globe-control" aria-label="Open coverage dashboard" aria-expanded="false" aria-controls="watch"><canvas class="newsroom-globe" width="200" height="200" aria-hidden="true"></canvas></button></span>
       </div>
       <p class="coverage-pulse-note">Select a topic to filter. Numbers = daily article volume for that category. Microsoft coverage overlaps other topics.</p>
     </div>
@@ -50,6 +50,21 @@
       </div>
     </section>
     <p class="feed-note">Headlines and excerpts from publisher feeds. Follow original links for full reporting.</p>
+  </div>
+</div>
+<div id="watch" class="coverage-watch" hidden role="dialog" aria-modal="true" aria-labelledby="coverage-watch-title">
+  <h2 id="coverage-watch-title" class="visually-hidden">Coverage dashboard</h2>
+  <button type="button" class="coverage-watch-close" id="coverage-watch-close">Close</button>
+  <div class="coverage-watch-frame">
+    <p id="coverage-watch-lead" class="coverage-watch-lead"></p>
+    <div class="coverage-watch-globe"></div>
+    <div id="coverage-watch-topics" class="coverage-watch-topics" aria-label="Topic volume in the last 24 hours"></div>
+    <div class="coverage-watch-aside">
+      <p id="coverage-watch-volume" class="coverage-watch-volume"></p>
+      <p id="coverage-watch-sources" class="coverage-watch-sources"></p>
+      <div id="coverage-watch-headlines" class="coverage-watch-headlines"></div>
+    </div>
+    <p class="coverage-watch-meta"><time id="coverage-watch-clock" class="coverage-watch-clock"></time><span id="coverage-watch-asof" class="coverage-watch-asof"></span></p>
   </div>
 </div>
 <noscript><p class="empty">Enable JavaScript to browse live news. Field notes and the toolbox work without it.</p></noscript>
