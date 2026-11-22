@@ -645,7 +645,7 @@ function initNewsroomGlobe() {
       if (halo && counts[lead] > 0) {
         ctx.strokeStyle = halo;
         ctx.lineWidth = Math.max(1.4, width * 0.004);
-        ctx.globalAlpha = 0.12 + 0.16 * (0.5 + 0.5 * Math.sin(time * 0.0017));
+        ctx.globalAlpha = 0.12 + 0.16 * (0.5 + 0.5 * Math.sin(time * 0.0014));
         ctx.beginPath();
         ctx.arc(cx, cy, radius + Math.max(5, width * 0.014), 0, Math.PI * 2);
         ctx.stroke();
@@ -660,7 +660,7 @@ function initNewsroomGlobe() {
         stroke(meridians[i], rotation, tilt, true);
         if (counts[i] <= 0) continue;
         const lon = (i / meridianCount) * Math.PI;
-        const head = (time * (0.00026 + weight * 0.0005) + i * 0.13) % 1;
+        const head = (time * (0.00021 + weight * 0.0004) + i * 0.13) % 1;
         for (let b = 0; b < 5; b++) {
           const p = point(((head - b * 0.02 + 1) % 1) * Math.PI * 2, lon, rotation, tilt);
           if (p.z < 0.04) continue;
