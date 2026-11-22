@@ -533,7 +533,7 @@ const noteRow = (post, { latest = false } = {}) => {
 
 export function blogPage(posts, seo = {}) {
   return layout('Blog', 'Notes, ideas, and field guides on identity and cloud security by Nathan Hess.', 'Blog', `
-    <section class="page-intro blog-intro"><h1>Blog</h1><p class="opening-line">Field notes and news from the new frontier of Identity and Cloud security.</p></section>
+    <section class="page-intro blog-intro"><h1>Blog</h1><p class="opening-line">Field notes and news from the new frontier of AI, Identity, and Cloud Security</p></section>
     ${posts.length ? `<section class="note-index" aria-label="Field notes">${posts.map((post, index) => noteRow(post, { latest: index === 0 })).join('')}</section>` : '<section class="empty-state"><h2>A new chapter is on the way.</h2><p>Check back soon for the first field note.</p></section>'}`, { path: '/', origin: seo.origin || '', image: posts[0]?.image || null, posts });
 }
 

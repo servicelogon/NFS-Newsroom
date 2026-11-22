@@ -14,7 +14,7 @@ const FRONT_PAGE_SOURCE_CAP = 2;
 const FRONT_PAGE_TOPICS = new Set(['cloud', 'identity']);
 const MICROSOFT_STEAL_TOPICS = new Set(['identity', 'cloud', 'vulnerabilities']);
 
-const TOPICS = ['identity', 'cloud', 'vulnerabilities', 'incidents', 'malware'];
+const TOPICS = ['identity', 'ai', 'cloud', 'vulnerabilities', 'incidents', 'malware'];
 
 function escapeRe(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -72,6 +72,28 @@ const TOPIC_PHRASES = {
     ['passkeys', 1.1],
     ['pim', 1.05],
     ['scim', 1.05],
+  ]),
+  ai: phrases([
+    ['prompt injection', 1.45],
+    ['agentic security', 1.4],
+    ['security copilot', 1.35],
+    ['copilot for security', 1.35],
+    ['generative ai', 1.3],
+    ['large language model', 1.3],
+    ['foundation model', 1.25],
+    ['language model', 1.25],
+    ['azure openai', 1.25],
+    ['ai security', 1.3],
+    ['ai identity', 1.25],
+    ['ai agent', 1.2],
+    ['ai model', 1.15],
+    ['chatgpt', 1.3],
+    ['openai', 1.2],
+    ['copilot', 0.25],
+    ['agentic', 1.2],
+    ['genai', 1.2],
+    ['llm', 1.25],
+    ['ai', 1.05],
   ]),
   cloud: phrases([
     ['amazon web services', 1.3],
@@ -161,6 +183,7 @@ const RANSOMWARE_RE = /\bransomware\b/i;
 const MALWARE_FAMILY_RE = /\b(lockbit|clop|blackcat|alphv|akira|qakbot|emotet|trickbot|lumma|redline|socgholish|icedid|infostealer|cobalt strike|agent tesla|trojan|botnet)\b/i;
 const IAM_RE = /\b(entra|okta|iam|sso|mfa|oauth|saml|passkey|conditional access|identity|azure ad|azure active directory)\b/i;
 const INFRA_CLOUD_RE = /\b(kubernetes|k8s|aws|amazon web services|gcp|google cloud|storage bucket|blob storage|s3 bucket|container|terraform|eks|aks|gke|cloud posture|cloud asset|ci\/cd)\b/i;
+const AI_RE = /\b(ai|llm|chatgpt|openai|copilot|agentic|genai|generative ai|language model|foundation model|prompt injection)\b/i;
 
 function fieldText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -194,7 +217,7 @@ function applyMutex(scores, haystack) {
   const hasCve = CVE_RE.test(haystack);
   const hasAdvisory = ADVISORY_RE.test(haystack);
   if (hasCve || hasAdvisory) {
-    const floor = Math.max(scores.identity, scores.cloud, scores.incidents, scores.malware) + 0.55;
+    const floor = Math.max(scores.identity, scores.ai, scores.cloud, scores.incidents, scores.malware) + 0.55;
     scores.vulnerabilities = Math.max(scores.vulnerabilities, floor);
   }
 
@@ -210,6 +233,11 @@ function applyMutex(scores, haystack) {
   if (IAM_RE.test(haystack) && !INFRA_CLOUD_RE.test(haystack)) {
     scores.cloud *= 0.35;
     scores.identity = Math.max(scores.identity, scores.cloud + 0.45);
+  }
+
+  // Copilot/LLM identity-and-cloud coverage lands in AI, not identity. CVE/advisory still wins.
+  if (scores.ai > 0 && AI_RE.test(haystack) && !hasCve && !hasAdvisory && IAM_RE.test(haystack)) {
+    scores.ai = Math.max(scores.ai, scores.identity + 0.45);
   }
   return scores;
 }

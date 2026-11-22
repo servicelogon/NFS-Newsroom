@@ -97,6 +97,20 @@ test('mutex: CVE/advisory beats Entra, IAM without infra stays identity, malware
   assert.equal(classify({ title: 'LockBit hits a hospital', summary: 'Data breach and ransom demand' }).category, 'incidents');
 });
 
+test('AI coverage takes Copilot identity/security, not Microsoft CVEs or generic Copilot posts', () => {
+  assert.equal(classify({ title: 'Copilot identity token theft', summary: 'Entra session hijack via an AI agent' }).category, 'ai');
+  assert.equal(classify({ title: 'ChatGPT prompt injection against SaaS SSO', summary: 'LLM agentic security in identity providers' }).category, 'ai');
+  assert.equal(classify({ title: 'CVE-2026-9 in Microsoft Copilot', summary: 'Security advisory for Copilot' }).category, 'vulnerabilities');
+  assert.equal(classify({ title: 'Copilot Studio maker update', summary: 'New canvas features for authors' }).category, 'operations');
+  const microsoftCopilot = classify({
+    title: 'Microsoft Copilot Studio maker update',
+    summary: 'New canvas features for authors',
+    forcedCategory: 'microsoft',
+  });
+  assert.equal(microsoftCopilot.category, 'microsoft');
+  assert.equal(microsoftCopilot.sourceCategory, 'microsoft');
+});
+
 test('Microsoft overlay needs a score gap before cloud/identity steal a Message Center item', () => {
   const weak = classify({
     title: 'MC100: Azure Information Protection rollout',

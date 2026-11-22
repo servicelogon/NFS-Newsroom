@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
   articles[2] = { ...articles[2], title: 'Fixture Entra update', source: 'Microsoft Entra Blog', category: 'identity' };
   articles[3] = { ...articles[3], title: 'MC123456 — Fixture admin center update', source: 'MS Message Center', category: 'microsoft' };
   articles[4] = { ...articles[4], title: 'CVE-2026-1234 advisory', source: 'Microsoft Entra Blog', category: 'vulnerabilities' };
+  articles[6] = { ...articles[6], title: 'Fixture Copilot identity token theft', category: 'ai' };
   articles[0].imageUrl = 'https://example.com/advisory.jpg';
   articles[1].imageUrl = 'https://example.com/advisory.jpg';
   articles[0].stale = true;
@@ -59,7 +60,7 @@ const assert = require('node:assert/strict');
     await expect(page.getByRole('button', { name: /refresh|retry|try again/i })).toHaveCount(0);
     await expect(page.locator('#news-error')).toBeHidden();
     await expect(page.locator('.front-page-story .stale-badge').first()).toHaveText('Cached story');
-    await expect(page.locator('#coverage-pulse [data-topic]')).toHaveCount(7);
+    await expect(page.locator('#coverage-pulse [data-topic]')).toHaveCount(8);
     await expect(page.locator('#topic-select')).toHaveCount(0);
     await expect(page.locator('#coverage-pulse summary, .pulse-icon, .coverage-pulse-panel')).toHaveCount(0);
     await expect(page.locator('#coverage-pulse-strip')).toBeVisible();
@@ -109,6 +110,7 @@ const assert = require('node:assert/strict');
     const expectedPulseColors = {
       cloud: '#3b82f6',
       identity: '#a855f7',
+      ai: '#06b6d4',
       vulnerabilities: '#ef4444',
       incidents: '#f97316',
       malware: '#ec4899',
@@ -125,7 +127,7 @@ const assert = require('node:assert/strict');
     }
     await page.keyboard.press('Escape');
     await expect(page.locator('#coverage-pulse-strip')).toBeVisible();
-    await expect(page.locator('#coverage-pulse [data-topic]')).toHaveCount(7);
+    await expect(page.locator('#coverage-pulse [data-topic]')).toHaveCount(8);
 
     // A single DOM ordering is preserved at every breakpoint.
     const desktopOrder = await page.locator('.front-page-story').evaluateAll(nodes => nodes.map(node => node.dataset.articleId));
@@ -213,6 +215,10 @@ const assert = require('node:assert/strict');
     await page.locator('#coverage-pulse [data-topic="vulnerabilities"]').click();
     await expect(page.locator('#feed > .story')).toHaveCount(2);
 
+    await page.goto(base + '/newsroom?topic=ai');
+    await expect(page.locator('#section-title')).toHaveText('AI security');
+    await expect(page.locator('#coverage-pulse [data-topic="ai"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#feed > .story')).toHaveCount(1);
     await page.goto(base + '/newsroom?topic=identity');
     await expect(page.locator('#section-title')).toHaveText('Identity security');
     await expect(page.locator('#front-page')).toBeHidden();
@@ -246,7 +252,7 @@ const assert = require('node:assert/strict');
     assert.equal(neutralGlobe.meridian, '');
     assert.equal(neutralGlobe.accent, '');
     const seenDataUrls = new Set([neutralGlobe.dataUrl]);
-    const topicOrder = ['cloud', 'identity', 'vulnerabilities', 'incidents', 'malware', 'operations', 'microsoft'];
+    const topicOrder = ['cloud', 'identity', 'ai', 'vulnerabilities', 'incidents', 'malware', 'operations', 'microsoft'];
     for (let i = 0; i < topicOrder.length; i++) {
       const id = topicOrder[i];
       await globePage.locator(`#coverage-pulse [data-topic="${id}"]`).click();
@@ -274,7 +280,7 @@ const assert = require('node:assert/strict');
     assert.equal(await watchPage.locator('.site-footer').evaluate(el => getComputedStyle(el).display), 'none');
     assert.ok(await watchPage.locator('#coverage-watch-close').evaluate(el => el === document.activeElement), 'focus moves into the overlay');
     await expect(watchPage.locator('#coverage-watch-lead')).toContainText('Most coverage in');
-    await expect(watchPage.locator('#watch [data-topic]')).toHaveCount(7);
+    await expect(watchPage.locator('#watch [data-topic]')).toHaveCount(8);
     await expect(watchPage.locator('#watch button[data-topic], #watch [data-topic][aria-pressed]')).toHaveCount(0);
     await expect(watchPage.locator('#coverage-watch-volume')).toContainText('stories in the last 24 hours');
     await expect(watchPage.locator('#coverage-watch-sources')).toContainText('in trouble');
@@ -285,7 +291,7 @@ const assert = require('node:assert/strict');
     await expect.poll(() => watchPage.locator('#watch .newsroom-globe').getAttribute('data-globe-watch-pulse')).toBe('1');
     const topicHits = await watchPage.locator('#watch .newsroom-globe').evaluate(canvas => {
       const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-      const targets = [[59, 130, 246], [168, 85, 247], [239, 68, 68], [249, 115, 22], [236, 72, 153], [16, 185, 129], [99, 102, 241]];
+      const targets = [[59, 130, 246], [168, 85, 247], [6, 182, 212], [239, 68, 68], [249, 115, 22], [236, 72, 153], [16, 185, 129], [99, 102, 241]];
       let hits = 0;
       for (let i = 0; i < data.length; i += 16) {
         if (data[i + 3] < 50) continue;
@@ -464,7 +470,7 @@ const assert = require('node:assert/strict');
     await expect(pulsePage.locator('#section-title')).toHaveText('Security operations');
     await expect(pulsePage.locator('#briefing-status')).toHaveText(`Showing Operations, ${operationsCount} articles.`);
     await expect(pulsePage.locator('.newsroom-globe')).toHaveAttribute('data-globe-topic', 'operations');
-    await expect(pulsePage.locator('.newsroom-globe')).toHaveAttribute('data-globe-meridian', '5');
+    await expect(pulsePage.locator('.newsroom-globe')).toHaveAttribute('data-globe-meridian', '6');
     const selected = await operations.locator('.coverage-pulse-chip-count').evaluate(el => {
       const after = getComputedStyle(el, '::after');
       const label = getComputedStyle(el.parentElement.querySelector('.coverage-pulse-chip-label'));

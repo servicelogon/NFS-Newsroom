@@ -80,7 +80,7 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.match(home, /href="\/blog\/published"/);
   assert.match(home, /<h1>Blog<\/h1>/);
   assert.doesNotMatch(home, /notes-from-the-frontier\.png/);
-  assert.match(home, /Field notes and news from the new frontier of Identity and Cloud security\./);
+  assert.match(home, /Field notes and news from the new frontier of AI, Identity, and Cloud Security/);
   assert.doesNotMatch(home, /Identity, cloud, and the questions worth exploring/);
   assert.match(home, /id="nfs-search-index"/);
   assert.match(home, /"href":"\/blog\/published"/);
@@ -165,7 +165,7 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   const home = await (await fetch(base)).text();
   assert.match(home, /<a class="tag" style="--tag-color:#a855f7" href="\/blog\/tag\/identity">Identity<\/a>/);
   assert.match(home, /<a class="tag" style="--tag-color:#3b82f6" href="\/blog\/tag\/cloud-security">Cloud Security<\/a>/);
-  assert.match(home, /<a class="tag" style="--tag-color:#3b82f6" href="\/blog\/tag\/script">&lt;script&gt;<\/a>/);
+  assert.match(home, /<a class="tag" style="--tag-color:#6366f1" href="\/blog\/tag\/script">&lt;script&gt;<\/a>/);
   assert.doesNotMatch(home, /<a class="tag"[^>]*>\s*<script>/);
   assert.match(home, /rel="canonical" href="https:\/\/nfs\.example\/"/);
   assert.match(home, /rel="icon" href="\/favicon\.ico" sizes="any"/);

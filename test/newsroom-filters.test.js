@@ -5,6 +5,8 @@ import { filtersFromSearch, searchFromFilters } from '../assets/newsroom-filters
 test('newsroom filters round-trip through the shareable query string', () => {
   assert.deepEqual(filtersFromSearch(''), { front: true, topic: 'all', microsoftFilter: 'all', query: '' });
   assert.deepEqual(filtersFromSearch('?topic=identity'), { front: false, topic: 'identity', microsoftFilter: 'all', query: '' });
+  assert.deepEqual(filtersFromSearch('?topic=ai'), { front: false, topic: 'ai', microsoftFilter: 'all', query: '' });
+  assert.equal(searchFromFilters({ front: false, topic: 'ai', microsoftFilter: 'all', query: '' }), 'topic=ai');
   assert.deepEqual(filtersFromSearch('?topic=all'), { front: false, topic: 'all', microsoftFilter: 'all', query: '' });
   assert.deepEqual(filtersFromSearch('?topic=microsoft&microsoft=news&search=entra'), {
     front: false, topic: 'microsoft', microsoftFilter: 'news', query: '',
