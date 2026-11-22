@@ -110,12 +110,15 @@ const path = require('node:path');
               opaqueDark,
               naturalWidth: img.naturalWidth,
               displayWidth: box.width,
+              displayHeight: box.height,
             };
           });
           assert.equal(logo.corner, 0, 'logo corner stays transparent');
           assert.equal(logo.opaqueDark, 0, 'logo has no black field');
           assert.ok(logo.opaqueWhite > 50, 'logo mark is white');
           assert.ok(logo.naturalWidth >= logo.displayWidth * 2, `logo is crisp at ${width}px (${logo.naturalWidth} vs ${logo.displayWidth})`);
+          assert.ok(logo.displayHeight <= 60, `logo stays header-sized at ${width}px (${logo.displayHeight})`);
+          assert.ok(logo.displayWidth <= 400, `logo stays within the brand cap at ${width}px (${logo.displayWidth})`);
         }
         if (process.env.SCREENSHOTS && width === 390 && route === '/') {
           await page.screenshot({path:'/private/tmp/nfs-blog-light-390.png',fullPage:true});

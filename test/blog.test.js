@@ -171,7 +171,7 @@ test('tag pages, sitemap, social tags, and cache headers', async t => {
   assert.match(home, /rel="icon" href="\/favicon\.ico" sizes="any"/);
   assert.match(home, /rel="icon" type="image\/png" sizes="32x32" href="\/assets\/favicon-32\.png\?v=[a-f0-9]{12}"/);
   assert.match(home, /rel="apple-touch-icon" sizes="180x180" href="\/assets\/apple-touch-icon\.png\?v=[a-f0-9]{12}"/);
-  assert.match(home, /class="brand-logo" src="\/assets\/new-frontier-security-logo\.png\?v=[a-f0-9]{12}" width="1594" height="233"/);
+  assert.match(home, /class="brand-logo" src="\/assets\/new-frontier-security-logo\.png\?v=[a-f0-9]{12}" width="837" height="349"/);
   assert.doesNotMatch(home, /theme-toggle|theme\.js|Switch to light mode|data-theme/);
   assert.match(home, /property="og:image" content="https:\/\/nfs\.example\/assets\/blog\/entra-default-settings-header\.jpg\?v=[a-f0-9]{12}"/);
   assert.match(home, /name="twitter:card" content="summary_large_image"/);
