@@ -3,6 +3,7 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 export const PULSE_TOPICS = [
   { id: "cloud", name: "Cloud", phrase: "cloud" },
   { id: "identity", name: "Identity", phrase: "identity" },
+  { id: "ai", name: "AI", phrase: "AI" },
   { id: "vulnerabilities", name: "Vulnerabilities", phrase: "vulnerabilities" },
   { id: "incidents", name: "Incidents", phrase: "incidents" },
   { id: "malware", name: "Malware", phrase: "malware" },

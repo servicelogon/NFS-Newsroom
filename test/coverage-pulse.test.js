@@ -53,6 +53,7 @@ test("countLast24h uses story.topic and isMicrosoftStory, not category alone", (
   assert.deepEqual(counts, {
     cloud: 0,
     identity: 2,
+    ai: 0,
     vulnerabilities: 0,
     incidents: 1,
     malware: 0,
@@ -111,10 +112,10 @@ test("describeCoveragePulse covers quiet, mixed, busy, and ties", () => {
   );
 });
 
-test("coverage pulse covers seven topics and ships band icons", () => {
+test("coverage pulse covers eight topics and ships band icons", () => {
   assert.deepEqual(
     PULSE_TOPICS.map((topic) => topic.id),
-    ["cloud", "identity", "vulnerabilities", "incidents", "malware", "operations", "microsoft"],
+    ["cloud", "identity", "ai", "vulnerabilities", "incidents", "malware", "operations", "microsoft"],
   );
   assert.match(coverageIconSvg("high"), /<svg/);
   assert.match(coverageIconSvg("quiet"), /<svg/);

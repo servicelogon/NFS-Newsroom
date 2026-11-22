@@ -262,5 +262,34 @@
     "title": "CVE-2026-2222 in Okta connector",
     "summary": "Advisory: patch the identity connector immediately",
     "expected": "vulnerabilities"
+  },
+  {
+    "id": "copilot-identity",
+    "title": "Copilot identity token theft",
+    "summary": "Entra session hijack via an AI agent",
+    "expected": "ai",
+    "note": "Copilot identity/security coverage is AI, not identity"
+  },
+  {
+    "id": "chatgpt-agentic",
+    "title": "ChatGPT prompt injection against SaaS SSO",
+    "summary": "LLM agentic security in identity providers",
+    "expected": "ai"
+  },
+  {
+    "id": "copilot-cve",
+    "title": "CVE-2026-9 in Microsoft Copilot",
+    "summary": "Security advisory for Copilot",
+    "forcedCategory": "microsoft",
+    "expected": "vulnerabilities",
+    "expectedSourceCategory": "microsoft",
+    "note": "Microsoft CVE stories stay vulnerabilities, not AI"
+  },
+  {
+    "id": "copilot-makers",
+    "title": "Copilot Studio maker update",
+    "summary": "New canvas features for authors",
+    "expected": "operations",
+    "note": "Bare Copilot product posts without identity/security stay operations"
   }
 ]

@@ -1,8 +1,9 @@
 // One topic and Microsoft-view contract for the API and the newsroom.
 export const TOPICS = [
-  { id: 'all', name: 'All coverage', description: 'Cloud, identity, and the surrounding security picture.', color: '#84cc16' },
+  { id: 'all', name: 'All coverage', description: 'Cloud, identity, AI, and the surrounding security picture.', color: '#84cc16' },
   { id: 'cloud', name: 'Cloud security', description: 'Cloud platforms, SaaS, containers, and supply chain exposure.', color: '#3b82f6' },
   { id: 'identity', name: 'Identity security', description: 'Access, authentication, tokens, and account compromise.', color: '#a855f7' },
+  { id: 'ai', name: 'AI security', description: 'AI, LLM, Copilot, and agentic security across identity and cloud.', color: '#06b6d4' },
   { id: 'vulnerabilities', name: 'Vulnerabilities', description: 'Exploitation, advisories, and the decisions behind a patch.', color: '#ef4444' },
   { id: 'incidents', name: 'Incidents', description: 'Incidents and the lessons that follow.', color: '#f97316' },
   { id: 'malware', name: 'Malware & ransomware', description: 'Evolving tactics and defensive context.', color: '#ec4899' },
@@ -12,6 +13,7 @@ export const TOPICS = [
 export const TOPIC_BY_ID = new Map(TOPICS.map(topic => [topic.id, topic]));
 const TAG_TOPICS = [
   [/entra|identity|azure|mfa|conditional access|hybrid|hardening/, 'identity'],
+  [/\bai\b|llm|copilot|chatgpt|openai|agentic/, 'ai'],
   [/microsoft/, 'microsoft'],
   [/phish|evilginx|hijack|malware|ransom/, 'malware'],
   [/incident|breach/, 'incidents'],
