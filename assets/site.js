@@ -291,8 +291,8 @@ function initToolboxSchematics() {
 }
 
 // The NFS mark as a 3D planet above the footer name: the logo's ring and its four
-// horizontal strokes, drawn as latitude arcs. It holds on the exact logo, makes one slow
-// turn (leaning in so the strokes wrap the sphere), and lands back on the logo.
+// horizontal strokes, drawn as latitude arcs. It turns continuously, leaning in mid-turn so
+// the strokes wrap the sphere, and passes through the exact logo once per revolution.
 // A still logo frame when motion is reduced.
 function initFooterWire() {
   const canvas = document.querySelector('.footer-wire');
@@ -307,8 +307,7 @@ function initFooterWire() {
       return samples;
     });
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const hold = 5200;
-  const turn = 15000;
+  const spin = 0.0003; // radians per ms, about 21s per revolution
   const lean = 0.24;
   let frame = 0;
   let running = false;
@@ -355,7 +354,7 @@ function initFooterWire() {
     const cx = width / 2;
     const cy = width / 2;
     ctx.clearRect(0, 0, width, width);
-    ctx.lineWidth = radius * 0.108; // the logo's stroke-to-radius ratio
+    ctx.lineWidth = radius * 0.085; // a touch lighter than the logo's 0.108 stroke-to-radius ratio
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = getComputedStyle(canvas).color;
@@ -369,13 +368,10 @@ function initFooterWire() {
     ctx.globalAlpha = 1;
   }
 
-  // Hold on the logo, then one eased revolution. The lean peaks mid-turn and is zero on the logo.
+  // Steady turn. The lean is zero on the logo pose and peaks halfway round.
   function pose(elapsed) {
-    const t = elapsed % (hold + turn);
-    if (t < hold) return { yaw: 0, tilt: 0 };
-    const progress = (t - hold) / turn;
-    const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
-    return { yaw: eased * Math.PI * 2, tilt: lean * Math.sin(Math.PI * eased) };
+    const yaw = (elapsed * spin) % (Math.PI * 2);
+    return { yaw, tilt: lean * (1 - Math.cos(yaw)) / 2 };
   }
 
   function tick(now) {
