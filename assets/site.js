@@ -290,19 +290,29 @@ function initToolboxSchematics() {
   reduce.addEventListener('change', () => { if (reduce.matches) stopCycle(); });
 }
 
-// One hairline wireframe above the footer name. A single slow turn; a still frame when motion is reduced.
+// The NFS mark as a wireframe planet above the footer name: the logo's ring and its four
+// horizontal strokes, drawn as latitude arcs. It holds on the exact logo, makes one slow
+// turn (leaning in so the strokes wrap the sphere), and lands back on the logo.
+// A still logo frame when motion is reduced.
 function initFooterWire() {
   const canvas = document.querySelector('.footer-wire');
   const ctx = canvas?.getContext('2d');
   if (!ctx) return;
-  const phi = (1 + Math.sqrt(5)) / 2;
-  const verts = [[-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0], [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi], [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1]]
-    .map(([x, y, z]) => { const length = Math.hypot(x, y, z); return [x / length, y / length, z / length]; });
-  const edges = [[0, 1], [0, 5], [0, 7], [0, 10], [0, 11], [1, 5], [1, 7], [1, 8], [1, 9], [2, 3], [2, 4], [2, 6], [2, 10], [2, 11], [3, 4], [3, 6], [3, 8], [3, 9], [4, 5], [4, 9], [4, 11], [5, 9], [5, 11], [6, 7], [6, 8], [6, 10], [7, 8], [7, 10], [8, 9], [10, 11]];
+  const deg = Math.PI / 180;
+  // [latitude, start longitude, end longitude], measured from the logo. Longitude -90 / 90 is the limb.
+  const strokes = [[34.1, -90, -9.5], [16, -90, -23.5], [0, -90, 0], [-16.6, 15.8, 90]]
+    .map(([lat, from, to]) => {
+      const samples = [];
+      for (let step = 0; step <= 48; step++) samples.push([lat * deg, (from + ((to - from) * step) / 48) * deg]);
+      return samples;
+    });
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const baseTilt = 0.62;
+  const hold = 5200;
+  const turn = 15000;
+  const lean = 0.24;
   let frame = 0;
   let running = false;
+  let origin = 0;
   let targetYaw = 0;
   let targetTilt = 0;
   let pointerYaw = 0;
@@ -316,57 +326,82 @@ function initFooterWire() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function project(vertex, yaw, tilt) {
-    const [x, y, z] = vertex;
-    const x1 = x * Math.cos(yaw) + z * Math.sin(yaw);
-    const z1 = -x * Math.sin(yaw) + z * Math.cos(yaw);
-    return { x: x1, y: y * Math.cos(tilt) - z1 * Math.sin(tilt), z: y * Math.sin(tilt) + z1 * Math.cos(tilt) };
+  function point(lat, lon, yaw, tilt) {
+    const x = Math.cos(lat) * Math.sin(lon + yaw);
+    const y = Math.sin(lat);
+    const z = Math.cos(lat) * Math.cos(lon + yaw);
+    return { x, y: y * Math.cos(tilt) - z * Math.sin(tilt), z: y * Math.sin(tilt) + z * Math.cos(tilt) };
   }
 
-  function draw(yaw, tilt = baseTilt) {
+  function pass(yaw, tilt, front, radius, cx, cy) {
+    for (const samples of strokes) {
+      ctx.beginPath();
+      let drawing = false;
+      for (const [lat, lon] of samples) {
+        const p = point(lat, lon, yaw, tilt);
+        if (front !== p.z >= 0) { drawing = false; continue; }
+        const x = cx + p.x * radius;
+        const y = cy - p.y * radius;
+        if (!drawing) { ctx.moveTo(x, y); drawing = true; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function draw(yaw = 0, tilt = 0) {
     const width = canvas.clientWidth || 168;
-    const radius = width * 0.36;
+    const radius = width * 0.4;
     const cx = width / 2;
     const cy = width / 2;
     ctx.clearRect(0, 0, width, width);
-    ctx.lineWidth = 1;
+    ctx.lineWidth = Math.max(1.25, width * 0.009);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.strokeStyle = getComputedStyle(canvas).color;
-    const lines = edges.map(([a, b]) => {
-      const start = project(verts[a], yaw, tilt);
-      const end = project(verts[b], yaw, tilt);
-      return { start, end, depth: (start.z + end.z) / 2 };
-    }).sort((a, b) => a.depth - b.depth);
-    for (const line of lines) {
-      ctx.globalAlpha = line.depth < 0 ? 0.28 : 0.9;
-      ctx.beginPath();
-      ctx.moveTo(cx + line.start.x * radius, cy - line.start.y * radius);
-      ctx.lineTo(cx + line.end.x * radius, cy - line.end.y * radius);
-      ctx.stroke();
-    }
+    ctx.globalAlpha = 0.24;
+    pass(yaw, tilt, false, radius, cx, cy);
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    pass(yaw, tilt, true, radius, cx, cy);
     ctx.globalAlpha = 1;
   }
 
+  // Hold on the logo, then one eased revolution. The lean peaks mid-turn and is zero on the logo.
+  function pose(elapsed) {
+    const t = elapsed % (hold + turn);
+    if (t < hold) return { yaw: 0, tilt: 0 };
+    const progress = (t - hold) / turn;
+    const eased = progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
+    return { yaw: eased * Math.PI * 2, tilt: lean * Math.sin(Math.PI * eased) };
+  }
+
   function tick(now) {
+    if (!origin) origin = now;
     pointerYaw += (targetYaw - pointerYaw) * 0.08;
     pointerTilt += (targetTilt - pointerTilt) * 0.08;
-    draw((now || 0) * 0.00018 + pointerYaw, baseTilt + pointerTilt);
+    const { yaw, tilt } = pose(now - origin);
+    draw(yaw + pointerYaw, tilt + pointerTilt);
     frame = requestAnimationFrame(tick);
   }
 
   function start() {
     if (running || reduce.matches) return;
     running = true;
+    origin = 0;
     frame = requestAnimationFrame(tick);
   }
 
-  function stop(still = 0.4) {
+  function stop() {
     running = false;
     cancelAnimationFrame(frame);
     targetYaw = 0;
     targetTilt = 0;
     pointerYaw = 0;
     pointerTilt = 0;
-    draw(still, baseTilt);
+    draw();
   }
 
   const host = canvas.closest('.footer-mark') || canvas;
@@ -387,7 +422,7 @@ function initFooterWire() {
   size();
   reduce.matches ? stop() : start();
   reduce.addEventListener('change', () => (reduce.matches ? stop() : start()));
-  new ResizeObserver(() => { size(); if (!running) draw(0.4, baseTilt); }).observe(canvas);
+  new ResizeObserver(() => { size(); if (!running) draw(); }).observe(canvas);
   new IntersectionObserver(([entry]) => {
     if (reduce.matches) return;
     entry.isIntersecting ? start() : stop();
