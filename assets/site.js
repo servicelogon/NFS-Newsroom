@@ -290,7 +290,7 @@ function initToolboxSchematics() {
   reduce.addEventListener('change', () => { if (reduce.matches) stopCycle(); });
 }
 
-// The NFS mark as a wireframe planet above the footer name: the logo's ring and its four
+// The NFS mark as a 3D planet above the footer name: the logo's ring and its four
 // horizontal strokes, drawn as latitude arcs. It holds on the exact logo, makes one slow
 // turn (leaning in so the strokes wrap the sphere), and lands back on the logo.
 // A still logo frame when motion is reduced.
@@ -355,13 +355,13 @@ function initFooterWire() {
     const cx = width / 2;
     const cy = width / 2;
     ctx.clearRect(0, 0, width, width);
-    ctx.lineWidth = Math.max(1.25, width * 0.009);
+    ctx.lineWidth = radius * 0.108; // the logo's stroke-to-radius ratio
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = getComputedStyle(canvas).color;
-    ctx.globalAlpha = 0.24;
+    ctx.globalAlpha = 0.16;
     pass(yaw, tilt, false, radius, cx, cy);
-    ctx.globalAlpha = 0.9;
+    ctx.globalAlpha = 1; // opaque, so the thick ring and strokes join without seams
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.stroke();
