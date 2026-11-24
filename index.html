@@ -15,11 +15,10 @@
       <p class="coverage-pulse-note">Select a topic to filter. Numbers = daily article volume for that category. Microsoft coverage overlaps other topics.</p>
     </div>
     <nav class="coverage-switch" aria-label="Browse coverage">
-      <button class="text-choice" id="front-page-link" type="button" aria-pressed="true">Front page</button>
-      <button class="text-choice" id="pulse-all-coverage" type="button" aria-pressed="false">All coverage</button>
+      <button class="text-choice" id="pulse-all-coverage" type="button" aria-pressed="true">All coverage</button>
     </nav>
     <div class="newsroom-toolbar">
-      <div class="briefing-bar" id="briefing-bar" hidden>
+      <div class="briefing-bar" id="briefing-bar">
         <h2 id="section-title">Latest coverage</h2>
         <p class="description" id="description">The bigger picture, without the noise.</p>
         <div class="microsoft-filter" id="microsoft-filter" aria-label="Microsoft feed filters" hidden>
@@ -31,17 +30,7 @@
   </div>
   <p class="news-error" id="news-error" role="status" hidden></p>
   <div class="content">
-    <section class="front-page" id="front-page" aria-labelledby="front-page-title">
-      <h2 id="front-page-title" class="visually-hidden">Front page</h2>
-      <time class="front-page-date" id="front-page-date"></time>
-      <p class="visually-hidden" id="front-page-status" role="status" aria-live="polite"></p>
-      <div class="front-page-feed" id="front-page-feed"></div>
-      <div class="empty" id="front-page-empty" hidden>
-        <span class="eyebrow" data-empty-eyebrow></span><h2 data-empty-title></h2><p data-empty-copy></p>
-        <div class="empty-actions"><button class="internal-button" type="button" data-empty-reset>Show all coverage</button></div>
-      </div>
-    </section>
-    <section id="briefing-view" aria-labelledby="section-title" hidden>
+    <section id="briefing-view" aria-labelledby="section-title">
       <div class="feed" id="feed"></div>
       <button class="internal-button" id="load-more" type="button" hidden>Load more articles</button>
       <div class="empty" id="empty" hidden>

@@ -457,7 +457,7 @@ export function searchIndexScript(posts = []) {
 const NAV_LINKS = [['Blog', '/'], ['Newsroom', '/newsroom'], ['Toolbox', '/tools']];
 export function navigation(active) {
   const links = NAV_LINKS.map(([name, href]) => `<a href="${href}"${active === name ? ' aria-current="page"' : ''}>${name}</a>`).join('');
-  return `<div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation">${links}</nav><button class="search-toggle" type="button" aria-label="Search the site" title="Search the site (Ctrl or Cmd + K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><kbd class="search-shortcut" aria-hidden="true">⌘K</kbd></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation">${links}</nav></details></div>`;
+  return `<div class="header-actions"><nav class="desktop-nav" aria-label="Main navigation">${links}</nav><button class="search-toggle" type="button" aria-label="Search the site" title="Search the site (Ctrl or Cmd + K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button><details class="site-menu"><summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"></span></summary><nav aria-label="Mobile navigation">${links}</nav></details></div>`;
 }
 
 function footerNav(active) {

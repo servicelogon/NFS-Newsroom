@@ -125,8 +125,8 @@ test('HTTP serves blog, post, tools, newsroom and assets; drafts and arbitrary f
   assert.equal(newsroom.match(/<h1\b/g).length, 1);
   assert.match(newsroom, /<h1 class="page-title">Newsroom<\/h1>/);
   assert.match(newsroom, /<h2 id="section-title">Latest coverage<\/h2>/);
-  assert.match(newsroom, /<h2 id="front-page-title" class="visually-hidden">Front page<\/h2>/);
-  assert.doesNotMatch(newsroom, /Front Page/);
+  assert.match(newsroom, /id="pulse-all-coverage"[^>]*>All coverage<\/button>/);
+  assert.doesNotMatch(newsroom, /Front page|id="front-page"/);
   assert.doesNotMatch(newsroom, /BUILT BY NATHAN HESS/);
   assert.doesNotMatch(newsroom, /Go beyond the headline/);
   assert.match(newsroom, /Read the field notes/);
