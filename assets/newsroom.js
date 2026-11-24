@@ -2,12 +2,12 @@ import { TOPIC_BY_ID } from './news-topics.js';
 import { PULSE_TOPICS, describeCoveragePulse, shouldShowCoveragePulse } from './coverage-pulse.js';
 import { describeEmptyState, describeFrontPageStatus, summarizeSourceHealth } from '/assets/newsroom-states.js';
 import { createArticleCard } from './article-card.js';
-import { formatCalendarDate, formatTimestamp } from './dates.js';
+import { formatTimestamp } from './dates.js';
 import { filtersFromSearch, searchFromFilters } from './newsroom-filters.js';
 
 const $ = selector => document.querySelector(selector);
 const state = {
-  front: true, topic: 'all', microsoftFilter: 'all', query: '', stories: [], frontPage: [],
+  topic: 'all', microsoftFilter: 'all', query: '', stories: [], frontPage: [],
   sources: [], total: 0, totalArticles: 0, nextOffset: null, pulseCounts: {},
   storiesLast24h: 0, checkedAt: null, loading: true, error: '',
 };
@@ -24,7 +24,7 @@ function pulseActionLabel(topic, pressed) {
 }
 
 function paintPulseChip(button, topic) {
-  const pressed = !state.front && state.topic === topic.id;
+  const pressed = state.topic === topic.id;
   button.setAttribute('aria-pressed', String(pressed));
   button.setAttribute('aria-label', pulseActionLabel(topic, pressed));
   button.querySelector('.coverage-pulse-chip-count').textContent = String(topic.count);
@@ -71,7 +71,7 @@ function createPulseChip(topic) {
     clearNewsroomGlobePreview?.();
   });
   button.addEventListener('click', () => {
-    if (!state.front && state.topic === topic.id) {
+    if (state.topic === topic.id) {
       switchMotion = true;
       reset();
       return;
@@ -107,10 +107,10 @@ function renderPulse() {
   else topics.forEach((topic, index) => paintPulseChip(chips[index], topic));
 }
 
-function applyEmptyState(root, visibleCount, front = false) {
+function applyEmptyState(root, visibleCount) {
   const empty = describeEmptyState({
     loading: state.loading, articleCount: state.totalArticles, visibleCount, sources: state.sources,
-    loadError: state.error, hasQuery: Boolean(state.query), view: front ? 'front-page' : 'briefing',
+    loadError: state.error, hasQuery: Boolean(state.query), view: 'briefing',
   });
   root.hidden = !empty;
   if (!empty) return;
@@ -122,12 +122,12 @@ function applyEmptyState(root, visibleCount, front = false) {
   return empty;
 }
 
-function renderCards(container, articles, front = false) {
+function renderCards(container, articles) {
   container.setAttribute('aria-busy', String(state.loading));
   if (state.loading && articles.length === 0) {
     container.replaceChildren(...Array.from({ length: 4 }, () => {
       const item = document.createElement('article');
-      item.className = `${front ? 'front-page-story' : 'story'} skeleton-story`;
+      item.className = 'story skeleton-story';
       item.setAttribute('aria-hidden', 'true');
       item.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-title"><div class="skeleton-line"></div><div class="skeleton-line"></div></div><div class="skeleton-line"></div>';
       return item;
@@ -136,15 +136,12 @@ function renderCards(container, articles, front = false) {
   }
   const sources = new Map(state.sources.map(source => [source.name, source]));
   // One ordered DOM list: desktop grid, keyboard traversal, and mobile agree.
-  container.replaceChildren(...articles.map((story, index) => createArticleCard({ ...story, stale: story.stale || Boolean(state.error) }, { frontPage: front, lead: index === 0, source: sources.get(story.source) })).filter(Boolean));
+  // The first card keeps the lead layout the coverage list already uses.
+  container.replaceChildren(...articles.map((story, index) => createArticleCard({ ...story, stale: story.stale || Boolean(state.error) }, { lead: index === 0, source: sources.get(story.source) })).filter(Boolean));
 }
 
 function render() {
-  $('#front-page').hidden = !state.front;
-  $('#briefing-view').hidden = state.front;
-  $('#briefing-bar').hidden = state.front;
-  $('#front-page-link').setAttribute('aria-pressed', String(state.front));
-  $('#pulse-all-coverage').setAttribute('aria-pressed', String(!state.front));
+  $('#pulse-all-coverage').setAttribute('aria-pressed', 'true');
   if (switchMotion && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const view = $('.content');
     view.classList.remove('is-entering');
@@ -157,39 +154,29 @@ function render() {
   const topic = TOPIC_BY_ID.get(state.topic);
   $('#section-title').textContent = state.topic === 'all' ? 'Latest coverage' : topic.name;
   $('#description').textContent = topic.description;
-  const today = new Date();
-  $('#front-page-date').dateTime = today.toISOString().slice(0, 10);
-  $('#front-page-date').textContent = formatCalendarDate(today, { weekday: true });
   writeFilters();
-  const frontEmpty = applyEmptyState($('#front-page-empty'), state.frontPage.length, true);
-  $('#front-page-status').textContent = describeFrontPageStatus({
-    loading: state.loading, headlineCount: state.frontPage.length, empty: frontEmpty,
-  });
   const pulseTopic = PULSE_TOPICS.find(item => item.id === state.topic);
   const briefingText = state.loading
     ? 'Loading…'
-    : state.front
-      ? ''
-      : !pulseTopic || state.topic === 'all'
-        ? 'Showing all coverage.'
-        : `Showing ${pulseTopic.name}, ${Number(state.pulseCounts?.[state.topic]) || 0} articles.`;
+    : !pulseTopic || state.topic === 'all'
+      ? 'Showing all coverage.'
+      : `Showing ${pulseTopic.name}, ${Number(state.pulseCounts?.[state.topic]) || 0} articles.`;
   const briefingStatus = $('#briefing-status');
   briefingStatus.textContent = briefingText;
   if (briefingText) briefingStatus.setAttribute('aria-label', briefingText);
   else briefingStatus.removeAttribute('aria-label');
-  if (state.front) renderCards($('#front-page-feed'), state.frontPage, true);
-  else renderCards($('#feed'), state.stories);
+  renderCards($('#feed'), state.stories);
   applyEmptyState($('#empty'), state.stories.length);
   const more = $('#load-more');
   more.hidden = state.nextOffset === null;
   more.disabled = state.loading;
   more.textContent = state.loading ? 'Loading…' : `Load more articles (${Math.max(0, state.total - state.stories.length)} remaining)`;
   const errorNotice = $('#news-error');
-  errorNotice.hidden = !state.error || !(state.front ? state.frontPage.length : state.stories.length);
+  errorNotice.hidden = !state.error || !state.stories.length;
   errorNotice.textContent = errorNotice.hidden ? '' : 'The latest headlines could not be loaded. Showing the last loaded results.';
   renderPulse();
   renderWatch();
-  const activeTopic = !state.front && state.topic !== 'all' ? topic : null;
+  const activeTopic = state.topic !== 'all' ? topic : null;
   syncNewsroomGlobeAccent?.(activeTopic ? { id: activeTopic.id, color: activeTopic.color || '' } : null);
 }
 
@@ -218,7 +205,7 @@ async function loadNews({ append = false } = {}) {
     state.error = '';
   } catch (error) {
     if (!current.signal.aborted && id === requestId) {
-      state.error = `${error.message}${state.stories.length || state.frontPage.length ? ' Showing the last loaded results.' : ''}`;
+      state.error = `${error.message}${state.stories.length ? ' Showing the last loaded results.' : ''}`;
     }
   } finally {
     if (id === requestId) { state.loading = false; render(); }
@@ -226,7 +213,6 @@ async function loadNews({ append = false } = {}) {
 }
 
 function selectTopic(topic) {
-  state.front = false;
   state.topic = topic;
   if (topic !== 'microsoft') state.microsoftFilter = 'all';
   state.stories = [];
@@ -239,15 +225,9 @@ function reset() {
   selectTopic('all');
 }
 $('#pulse-all-coverage').addEventListener('click', () => {
-  if (!state.front && state.topic === 'all' && state.microsoftFilter === 'all' && !state.query) return;
+  if (state.topic === 'all' && state.microsoftFilter === 'all' && !state.query) return;
   switchMotion = true;
   reset();
-});
-$('#front-page-link').addEventListener('click', () => {
-  if (state.front) return;
-  switchMotion = true;
-  state.front = true;
-  render();
 });
 $('#load-more').addEventListener('click', () => loadNews({ append: true }));
 document.querySelectorAll('[data-empty-reset]').forEach(button => button.addEventListener('click', reset));
@@ -259,7 +239,6 @@ document.querySelectorAll('[data-microsoft-filter]').forEach(button => button.ad
 }));
 function applyUrlFilters() {
   const filters = filtersFromSearch(location.search);
-  state.front = filters.front;
   state.topic = filters.topic;
   state.microsoftFilter = filters.microsoftFilter;
   state.query = '';
