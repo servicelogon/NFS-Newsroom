@@ -70,17 +70,26 @@ const assert = require('node:assert/strict');
       const lead = document.querySelector('#coverage-pulse-lead').getBoundingClientRect();
       const strip = document.querySelector('#coverage-pulse-strip').getBoundingClientRect();
       const globe = document.querySelector('.newsroom-globe').getBoundingClientRect();
-      const chips = [...document.querySelectorAll('#coverage-pulse-strip [data-topic]')].map(chip => chip.getBoundingClientRect());
+      const chips = [...document.querySelectorAll('#coverage-pulse-strip [data-topic]')].map(chip => {
+        const rect = chip.getBoundingClientRect();
+        const count = chip.querySelector('.coverage-pulse-chip-count').getBoundingClientRect();
+        const label = chip.querySelector('.coverage-pulse-chip-label').getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: rect.width, countLeft: count.left, labelLeft: label.left };
+      });
       const gap = chips.length > 1 ? chips[1].left - chips[0].right : 0;
+      const gaps = chips.slice(1).map((chip, index) => chip.left - chips[index].right);
       return {
         leadLeft: lead.left, leadTop: lead.top, stripLeft: strip.left, stripBottom: strip.bottom,
         globeLeft: globe.left, globeRight: globe.right, globeMid: (globe.top + globe.bottom) / 2,
-        globeWidth: globe.width, stripRight: strip.right, gap,
+        globeWidth: globe.width, stripRight: strip.right, gap, gaps, chips,
         bandRight: document.querySelector('.coverage-pulse-band').getBoundingClientRect().right,
       };
     });
     assert.ok(Math.abs(pulseBand.stripLeft - pulseBand.leadLeft) < 2, 'category counts stay left-aligned with the coverage line');
     assert.ok(pulseBand.gap > 0 && pulseBand.gap < 48, `category counts sit close together (${pulseBand.gap}px)`);
+    assert.ok(pulseBand.chips.every(chip => Math.abs(chip.width - pulseBand.chips[0].width) < 1), 'category count columns share equal width');
+    assert.ok(pulseBand.gaps.every(g => Math.abs(g - pulseBand.gap) < 1), 'category count columns are evenly spaced');
+    assert.ok(pulseBand.chips.every(chip => Math.abs(chip.countLeft - chip.labelLeft) < 1), 'each count aligns with its label');
     assert.ok(pulseBand.globeLeft >= pulseBand.stripRight - 1, 'the globe sits to the right of the counts');
     assert.ok(pulseBand.globeMid > pulseBand.leadTop && pulseBand.globeMid < pulseBand.stripBottom, 'the globe shares the line with the coverage label and the counts');
     assert.ok(pulseBand.globeWidth >= 140, 'the globe is larger than the previous mark');
@@ -151,7 +160,12 @@ const assert = require('node:assert/strict');
       });
       assert.equal(pulseFit.columnGap, '16px', `column gap stays 16px at ${width}px`);
       assert.ok(pulseFit.rowGap <= 12, `row gap stays within 12px at ${width}px`);
-      for (const box of pulseFit.boxes) assert.ok(box.w >= 44 && box.h >= 44, `pulse hit box is ${box.w}x${box.h} at ${width}px`);
+      for (const box of pulseFit.boxes) {
+        assert.ok(box.w >= 44 && box.h >= 44, `pulse hit box is ${box.w}x${box.h} at ${width}px`);
+        assert.ok(Math.abs(box.w - pulseFit.boxes[0].w) < 1, `pulse columns stay equal width at ${width}px`);
+      }
+      const rowXs = [...new Set(pulseFit.boxes.map(box => Math.round(box.x)))];
+      assert.ok(rowXs.length <= 2, `pulse rows stay aligned in consistent columns at ${width}px (${rowXs.join(', ')})`);
       for (let i = 0; i < pulseFit.boxes.length; i++) {
         for (let j = i + 1; j < pulseFit.boxes.length; j++) {
           const a = pulseFit.boxes[i];
