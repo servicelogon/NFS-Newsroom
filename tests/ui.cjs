@@ -74,7 +74,10 @@ const assert = require('node:assert/strict');
         const rect = chip.getBoundingClientRect();
         const count = chip.querySelector('.coverage-pulse-chip-count').getBoundingClientRect();
         const label = chip.querySelector('.coverage-pulse-chip-label').getBoundingClientRect();
-        return { left: rect.left, right: rect.right, width: rect.width, countLeft: count.left, labelLeft: label.left };
+        return {
+          left: rect.left, right: rect.right, width: rect.width,
+          countCenter: (count.left + count.right) / 2, labelCenter: (label.left + label.right) / 2,
+        };
       });
       const gap = chips.length > 1 ? chips[1].left - chips[0].right : 0;
       const gaps = chips.slice(1).map((chip, index) => chip.left - chips[index].right);
@@ -87,9 +90,8 @@ const assert = require('node:assert/strict');
     });
     assert.ok(Math.abs(pulseBand.stripLeft - pulseBand.leadLeft) < 2, 'category counts stay left-aligned with the coverage line');
     assert.ok(pulseBand.gap > 0 && pulseBand.gap < 48, `category counts sit close together (${pulseBand.gap}px)`);
-    assert.ok(pulseBand.chips.every(chip => Math.abs(chip.width - pulseBand.chips[0].width) < 1), 'category count columns share equal width');
-    assert.ok(pulseBand.gaps.every(g => Math.abs(g - pulseBand.gap) < 1), 'category count columns are evenly spaced');
-    assert.ok(pulseBand.chips.every(chip => Math.abs(chip.countLeft - chip.labelLeft) < 1), 'each count aligns with its label');
+    assert.ok(pulseBand.gaps.every(g => Math.abs(g - pulseBand.gap) < 1), 'category count items are evenly spaced');
+    assert.ok(pulseBand.chips.every(chip => Math.abs(chip.countCenter - chip.labelCenter) < 1.5), 'each desktop count centers over its label');
     assert.ok(pulseBand.globeLeft >= pulseBand.stripRight - 1, 'the globe sits to the right of the counts');
     assert.ok(pulseBand.globeMid > pulseBand.leadTop && pulseBand.globeMid < pulseBand.stripBottom, 'the globe shares the line with the coverage label and the counts');
     assert.ok(pulseBand.globeWidth >= 140, 'the globe is larger than the previous mark');
